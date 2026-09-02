@@ -41,10 +41,52 @@
     "message": "本工具仅辅助个人合法学习，依托用户自有课程观看权限采集可视学习内容，不破解、不抓取、不泄露平台加密版权资源，禁止商用与二次传播。"
   },
   "profileTitle": {
-    "message": "学习档案"
+    "message": "学习偏好"
+  },
+  "userInfoTitle": {
+    "message": "用户信息"
+  },
+  "userInfoHint": {
+    "message": "认养伙伴只需这些信息；学习偏好可在下方单独设置。"
+  },
+  "adoptTitle": {
+    "message": "认养学习伙伴"
+  },
+  "adoptHint": {
+    "message": "先填写一点关于你的信息，我才能更好地陪你学习。"
+  },
+  "adoptConfirm": {
+    "message": "确认认养"
+  },
+  "adoptSavedHint": {
+    "message": "认养成功，欢迎一起学习"
+  },
+  "profileNickname": {
+    "message": "称呼"
+  },
+  "profileNicknamePlaceholder": {
+    "message": "怎么称呼你"
+  },
+  "profileGender": {
+    "message": "性别"
+  },
+  "profileGenderUnset": {
+    "message": "请选择"
+  },
+  "profileGenderMale": {
+    "message": "男"
+  },
+  "profileGenderFemale": {
+    "message": "女"
+  },
+  "profileGenderOther": {
+    "message": "其他"
   },
   "profileOccupation": {
     "message": "身份职业"
+  },
+  "profileOccupationPlaceholder": {
+    "message": "程序员 / 学生 / 运营..."
   },
   "profileDomains": {
     "message": "学习领域"
@@ -59,7 +101,7 @@
     "message": "偏好学习模式"
   },
   "profileSave": {
-    "message": "保存档案"
+    "message": "保存偏好"
   },
   "profileSkip": {
     "message": "暂时跳过"

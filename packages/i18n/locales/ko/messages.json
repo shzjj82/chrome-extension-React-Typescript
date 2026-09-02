@@ -41,55 +41,97 @@
     "message": "本工具仅辅助个人合法学习，依托用户自有课程观看权限采集可视学习内容，不破解、不抓取、不泄露平台加密版权资源，禁止商用与二次传播。"
   },
   "profileTitle": {
-    "message": "学习档案"
+    "message": "학습 선호"
+  },
+  "userInfoTitle": {
+    "message": "사용자 정보"
+  },
+  "userInfoHint": {
+    "message": "입양에는 사용자 정보만 필요합니다. 학습 선호는 아래에서 설정하세요."
+  },
+  "adoptTitle": {
+    "message": "학습 파트너 입양"
+  },
+  "adoptHint": {
+    "message": "나에 대해 조금 알려주시면 더 잘 함께 공부할 수 있어요."
+  },
+  "adoptConfirm": {
+    "message": "입양 확인"
+  },
+  "adoptSavedHint": {
+    "message": "입양 완료! 함께 공부해요."
+  },
+  "profileNickname": {
+    "message": "호칭"
+  },
+  "profileNicknamePlaceholder": {
+    "message": "어떻게 불러드릴까요?"
+  },
+  "profileGender": {
+    "message": "성별"
+  },
+  "profileGenderUnset": {
+    "message": "선택"
+  },
+  "profileGenderMale": {
+    "message": "남"
+  },
+  "profileGenderFemale": {
+    "message": "여"
+  },
+  "profileGenderOther": {
+    "message": "기타"
   },
   "profileOccupation": {
-    "message": "身份职业"
+    "message": "직업"
+  },
+  "profileOccupationPlaceholder": {
+    "message": "개발자 / 학생 / 운영..."
   },
   "profileDomains": {
-    "message": "学习领域"
+    "message": "학습 분야"
   },
   "profileGoal": {
-    "message": "学习目标"
+    "message": "학습 목표"
   },
   "profileDepth": {
-    "message": "知识深度"
+    "message": "지식 깊이"
   },
   "profileModes": {
-    "message": "偏好学习模式"
+    "message": "선호 학습 모드"
   },
   "profileSave": {
-    "message": "保存档案"
+    "message": "선호 저장"
   },
   "profileSkip": {
-    "message": "暂时跳过"
+    "message": "나중에"
   },
   "goalApplication": {
-    "message": "偏应用"
+    "message": "응용 중심"
   },
   "goalPrinciple": {
-    "message": "偏原理"
+    "message": "원리 중심"
   },
   "goalExam": {
-    "message": "偏应试"
+    "message": "시험 중심"
   },
   "depthShallow": {
-    "message": "浅层了解"
+    "message": "개요"
   },
   "depthNormal": {
-    "message": "正常理解"
+    "message": "보통"
   },
   "depthDeep": {
-    "message": "深度钻研"
+    "message": "심화"
   },
   "modeNote": {
-    "message": "笔记"
+    "message": "노트"
   },
   "modeQuiz": {
-    "message": "测验"
+    "message": "퀴즈"
   },
   "modePractice": {
-    "message": "实践"
+    "message": "실습"
   },
   "llmTitle": {
     "message": "BYOK 大模型设置"

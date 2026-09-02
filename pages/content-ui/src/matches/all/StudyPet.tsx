@@ -1,13 +1,13 @@
 import { FloatingPet, createStudyMindPetHoverActions, defaultBounds, VIEW_SIZE } from './pet';
 import { useStorage } from '@extension/shared';
-import { userProfileStorage } from '@extension/storage';
+import { normalizeUserProfile, userProfileStorage } from '@extension/storage';
 import { useCallback } from 'react';
 import type { FloatingPetProps, PetBounds } from './pet';
 
 type StudyPetProps = Omit<FloatingPetProps, 'resolveBubbleActions' | 'ariaLabel'>;
 
 const StudyPet = (props: StudyPetProps) => {
-  const profile = useStorage(userProfileStorage);
+  const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const resolveBubbleActions = useCallback(() => createStudyMindPetHoverActions(profile), [profile]);
 
   return <FloatingPet {...props} resolveBubbleActions={resolveBubbleActions} ariaLabel="Study Mind 学习伙伴" />;

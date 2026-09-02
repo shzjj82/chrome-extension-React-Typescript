@@ -25,7 +25,14 @@ const PetThoughtBubble = ({ visible, facingLeft, children }: PetThoughtBubblePro
   };
 
   return (
-    <div className="sm-pet__thought sm-pet__thought--enter" style={bubbleStyle} aria-hidden={false}>
+    <div
+      className="sm-pet__thought sm-pet__thought--enter"
+      style={bubbleStyle}
+      aria-hidden={false}
+      onPointerDown={event => {
+        // 气泡内点击不触发宠物拖拽
+        event.stopPropagation();
+      }}>
       <ThoughtBubbleShape tailNearDog={tailNearDog} />
       {children}
     </div>

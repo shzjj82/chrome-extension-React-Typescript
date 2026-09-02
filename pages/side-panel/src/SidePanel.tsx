@@ -20,11 +20,14 @@ import {
   learningDraftStorage,
   llmSettingsStorage,
   pomodoroStateStorage,
+  isAdoptionUserInfoFilled,
+  normalizeUserProfile,
   userProfileStorage,
 } from '@extension/storage';
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useEffect, useMemo, useState } from 'react';
 import type { LearningMode, MaterialSource, PracticeItem, QuizItem, StudySession } from '@extension/knowledge-base';
+import type { UserGender } from '@extension/storage';
 
 type TabKey = 'study' | 'library';
 
@@ -40,7 +43,7 @@ const formatRemain = (endsAt: number | null) => {
 
 const SidePanel = () => {
   const { isLight } = useStorage(exampleThemeStorage);
-  const profile = useStorage(userProfileStorage);
+  const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const draft = useStorage(learningDraftStorage);
   const llm = useStorage(llmSettingsStorage);
   const pomodoro = useStorage(pomodoroStateStorage);
@@ -61,7 +64,7 @@ const SidePanel = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [showOnboarding, setShowOnboarding] = useState(!profile.onboardingCompleted);
+  const [showAdoption, setShowAdoption] = useState(!profile.petAdopted);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -69,8 +72,8 @@ const SidePanel = () => {
   }, []);
 
   useEffect(() => {
-    setShowOnboarding(!profile.onboardingCompleted);
-  }, [profile.onboardingCompleted]);
+    setShowAdoption(!profile.petAdopted);
+  }, [profile.petAdopted]);
 
   useEffect(() => {
     setTitle(draft.title);
@@ -291,45 +294,61 @@ const SidePanel = () => {
         </div>
       </header>
 
-      {showOnboarding ? (
-        <section className="space-y-3 p-3">
-          <h2 className="text-sm font-medium">{t('profileTitle')}</h2>
-          <p className="text-xs opacity-80">填写后 AI 输出会更贴合你的学习习惯，可随时跳过。</p>
-          <input
-            className="w-full rounded border px-2 py-1 text-sm"
-            placeholder={t('profileOccupation')}
-            value={profile.occupation}
-            onChange={event => void userProfileStorage.set(prev => ({ ...prev, occupation: event.target.value }))}
-          />
-          <input
-            className="w-full rounded border px-2 py-1 text-sm"
-            placeholder={t('profileDomains')}
-            value={profile.domains}
-            onChange={event => void userProfileStorage.set(prev => ({ ...prev, domains: event.target.value }))}
-          />
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => {
+      {showAdoption ? (
+        <section className="space-y-3 border-b border-slate-200 p-3 dark:border-slate-800">
+          <h2 className="text-sm font-medium">{t('adoptTitle')}</h2>
+          <p className="text-xs opacity-80">{t('adoptHint')}</p>
+          <label className="block text-xs">
+            {t('profileNickname')}
+            <input
+              className="mt-1 w-full rounded border px-2 py-1 text-sm"
+              placeholder={t('profileNicknamePlaceholder')}
+              value={profile.nickname}
+              onChange={event => void userProfileStorage.set(prev => ({ ...prev, nickname: event.target.value }))}
+            />
+          </label>
+          <label className="block text-xs">
+            {t('profileGender')}
+            <select
+              className="mt-1 w-full rounded border px-2 py-1 text-sm"
+              value={profile.gender}
+              onChange={event =>
                 void userProfileStorage.set(prev => ({
                   ...prev,
-                  onboardingCompleted: true,
-                  petAdopted: prev.occupation.trim().length > 0 && prev.domains.trim().length > 0,
-                }));
-                setShowOnboarding(false);
-              }}>
-              {t('profileSave')}
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                void userProfileStorage.set(prev => ({ ...prev, onboardingCompleted: true }));
-                setShowOnboarding(false);
-              }}>
-              {t('profileSkip')}
-            </Button>
-          </div>
+                  gender: event.target.value as UserGender,
+                }))
+              }>
+              <option value="">{t('profileGenderUnset')}</option>
+              <option value="male">{t('profileGenderMale')}</option>
+              <option value="female">{t('profileGenderFemale')}</option>
+              <option value="other">{t('profileGenderOther')}</option>
+            </select>
+          </label>
+          <label className="block text-xs">
+            {t('profileOccupation')}
+            <input
+              className="mt-1 w-full rounded border px-2 py-1 text-sm"
+              placeholder={t('profileOccupationPlaceholder')}
+              value={profile.occupation}
+              onChange={event => void userProfileStorage.set(prev => ({ ...prev, occupation: event.target.value }))}
+            />
+          </label>
+          <Button
+            size="sm"
+            disabled={!isAdoptionUserInfoFilled(profile)}
+            onClick={() => {
+              if (!isAdoptionUserInfoFilled(profile)) {
+                return;
+              }
+              void userProfileStorage.set(prev => ({
+                ...prev,
+                onboardingCompleted: true,
+                petAdopted: true,
+              }));
+              setShowAdoption(false);
+            }}>
+            {t('adoptConfirm')}
+          </Button>
         </section>
       ) : null}
 

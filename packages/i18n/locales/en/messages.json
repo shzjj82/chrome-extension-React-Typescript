@@ -41,55 +41,97 @@
     "message": "本工具仅辅助个人合法学习，依托用户自有课程观看权限采集可视学习内容，不破解、不抓取、不泄露平台加密版权资源，禁止商用与二次传播。"
   },
   "profileTitle": {
-    "message": "学习档案"
+    "message": "Learning preferences"
+  },
+  "userInfoTitle": {
+    "message": "User profile"
+  },
+  "userInfoHint": {
+    "message": "Adoption only needs this user info; learning preferences are below."
+  },
+  "adoptTitle": {
+    "message": "Adopt your study buddy"
+  },
+  "adoptHint": {
+    "message": "Tell me a bit about yourself so I can study with you better."
+  },
+  "adoptConfirm": {
+    "message": "Confirm adoption"
+  },
+  "adoptSavedHint": {
+    "message": "Adopted! Let's learn together."
+  },
+  "profileNickname": {
+    "message": "Display name"
+  },
+  "profileNicknamePlaceholder": {
+    "message": "What should I call you?"
+  },
+  "profileGender": {
+    "message": "Gender"
+  },
+  "profileGenderUnset": {
+    "message": "Select"
+  },
+  "profileGenderMale": {
+    "message": "Male"
+  },
+  "profileGenderFemale": {
+    "message": "Female"
+  },
+  "profileGenderOther": {
+    "message": "Other"
   },
   "profileOccupation": {
-    "message": "身份职业"
+    "message": "Occupation"
+  },
+  "profileOccupationPlaceholder": {
+    "message": "Engineer / student / operator..."
   },
   "profileDomains": {
-    "message": "学习领域"
+    "message": "Learning domains"
   },
   "profileGoal": {
-    "message": "学习目标"
+    "message": "Learning goal"
   },
   "profileDepth": {
-    "message": "知识深度"
+    "message": "Knowledge depth"
   },
   "profileModes": {
-    "message": "偏好学习模式"
+    "message": "Preferred modes"
   },
   "profileSave": {
-    "message": "保存档案"
+    "message": "Save preferences"
   },
   "profileSkip": {
-    "message": "暂时跳过"
+    "message": "Skip for now"
   },
   "goalApplication": {
-    "message": "偏应用"
+    "message": "Application-focused"
   },
   "goalPrinciple": {
-    "message": "偏原理"
+    "message": "Principle-focused"
   },
   "goalExam": {
-    "message": "偏应试"
+    "message": "Exam-focused"
   },
   "depthShallow": {
-    "message": "浅层了解"
+    "message": "Overview"
   },
   "depthNormal": {
-    "message": "正常理解"
+    "message": "Normal"
   },
   "depthDeep": {
-    "message": "深度钻研"
+    "message": "Deep dive"
   },
   "modeNote": {
-    "message": "笔记"
+    "message": "Notes"
   },
   "modeQuiz": {
-    "message": "测验"
+    "message": "Quiz"
   },
   "modePractice": {
-    "message": "实践"
+    "message": "Practice"
   },
   "llmTitle": {
     "message": "BYOK 大模型设置"

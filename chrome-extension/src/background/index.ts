@@ -42,13 +42,36 @@ const openLearningWindow = async (tabId: number) => {
 };
 
 /**
- * Content-script messages lose the user gesture, so chrome.sidePanel.open()
- * is forbidden there. Open a dedicated learning window instead, and still
- * enable the native side panel for toolbar access.
+ * Content-script clicks must reach sidePanel.open() in the same message turn
+ * (no await before open). setOptions / hydrate can run afterward.
+ * Falls back to a popup window only when native open fails.
  */
-const openLearningUiForTab = async (tabId: number) => {
+const openLearningUiForTab = async (tabId: number, sidePanelOpen?: Promise<void>) => {
+  let openedNatively = false;
+
+  if (sidePanelOpen) {
+    try {
+      await sidePanelOpen;
+      openedNatively = true;
+    } catch {
+      openedNatively = false;
+    }
+  }
+
   await enableSidePanelForTab(tabId).catch(() => undefined);
-  await openLearningWindow(tabId);
+
+  if (!openedNatively) {
+    await openLearningWindow(tabId);
+  }
+};
+
+/** Kick off native side panel open synchronously to preserve user gesture. */
+const startNativeSidePanelOpen = (tabId: number) => {
+  try {
+    return chrome.sidePanel.open({ tabId });
+  } catch {
+    return undefined;
+  }
 };
 
 const sendToTab = async <T>(tabId: number, type: ExtensionMessageTypeValue) => {
@@ -188,8 +211,9 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
       return false;
     }
 
-    // Kick off open as early as possible in the listener turn.
-    const openPromise = openLearningUiForTab(tabId);
+    // sidePanel.open must start in this turn — before any await — to keep user gesture.
+    const sidePanelOpen = startNativeSidePanelOpen(tabId);
+    const openPromise = openLearningUiForTab(tabId, sidePanelOpen);
 
     if (message.type === ExtensionMessageType.OPEN_SIDE_PANEL) {
       void openPromise

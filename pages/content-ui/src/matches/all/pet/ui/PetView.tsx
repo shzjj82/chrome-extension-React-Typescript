@@ -19,8 +19,8 @@ type PetViewProps = {
 };
 
 /**
- * 布局：热区只包舞台（hover → 动画事件）；
- * 气泡为兄弟节点，由 BubbleController 驱动显隐与文案。
+ * 布局：气泡放在热区内，鼠标移向气泡不会触发 leave；
+ * 显隐/文案仍由 BubbleController 驱动（逻辑解耦，DOM 同热区）。
  */
 const PetView = ({
   rootRef,
@@ -36,9 +36,9 @@ const PetView = ({
 }: PetViewProps) => (
   <PetRoot rootRef={rootRef} ariaLabel={ariaLabel}>
     <PetHoverZone zoneRef={hoverZoneRef} onEnter={onEnterHover} onLeave={onLeaveHover} onPointerDown={onPointerDown}>
+      <PetBubbleMenu visible={menuVisible} facingLeft={facingLeft} actions={actions} />
       <PetStage hostRef={hostRef} />
     </PetHoverZone>
-    <PetBubbleMenu visible={menuVisible} facingLeft={facingLeft} actions={actions} />
   </PetRoot>
 );
 

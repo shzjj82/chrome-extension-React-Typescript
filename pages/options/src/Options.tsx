@@ -3,19 +3,21 @@ import { t } from '@extension/i18n';
 import { useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import {
   exampleThemeStorage,
+  isAdoptionUserInfoFilled,
   LLM_PROVIDER_PRESETS,
   llmSettingsStorage,
+  normalizeUserProfile,
   pomodoroSettingsStorage,
   uiSettingsStorage,
   userProfileStorage,
 } from '@extension/storage';
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useState } from 'react';
-import type { LearningModePreference, LlmProviderId } from '@extension/storage';
+import type { LearningModePreference, LlmProviderId, UserGender } from '@extension/storage';
 
 const Options = () => {
   const { isLight } = useStorage(exampleThemeStorage);
-  const profile = useStorage(userProfileStorage);
+  const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
   const pomodoro = useStorage(pomodoroSettingsStorage);
   const ui = useStorage(uiSettingsStorage);
@@ -47,16 +49,64 @@ const Options = () => {
         </header>
 
         <section className="space-y-3 rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/70">
-          <h2 className="text-lg font-medium">{t('profileTitle')}</h2>
+          <h2 className="text-lg font-medium">{t('userInfoTitle')}</h2>
+          <p className="text-xs opacity-80">{t('userInfoHint')}</p>
+          <label className="block text-sm">
+            {t('profileNickname')}
+            <input
+              className="mt-1 w-full rounded border px-3 py-2"
+              value={profile.nickname}
+              onChange={event => void userProfileStorage.set(prev => ({ ...prev, nickname: event.target.value }))}
+              placeholder={t('profileNicknamePlaceholder')}
+            />
+          </label>
+          <label className="block text-sm">
+            {t('profileGender')}
+            <select
+              className="mt-1 w-full rounded border px-3 py-2"
+              value={profile.gender}
+              onChange={event =>
+                void userProfileStorage.set(prev => ({
+                  ...prev,
+                  gender: event.target.value as UserGender,
+                }))
+              }>
+              <option value="">{t('profileGenderUnset')}</option>
+              <option value="male">{t('profileGenderMale')}</option>
+              <option value="female">{t('profileGenderFemale')}</option>
+              <option value="other">{t('profileGenderOther')}</option>
+            </select>
+          </label>
           <label className="block text-sm">
             {t('profileOccupation')}
             <input
               className="mt-1 w-full rounded border px-3 py-2"
               value={profile.occupation}
               onChange={event => void userProfileStorage.set(prev => ({ ...prev, occupation: event.target.value }))}
-              placeholder="程序员 / 学生 / 运营..."
+              placeholder={t('profileOccupationPlaceholder')}
             />
           </label>
+          <div className="flex gap-2">
+            <Button
+              disabled={!isAdoptionUserInfoFilled(profile)}
+              onClick={() => {
+                if (!isAdoptionUserInfoFilled(profile)) {
+                  return;
+                }
+                void userProfileStorage.set(prev => ({
+                  ...prev,
+                  onboardingCompleted: true,
+                  petAdopted: true,
+                }));
+                flash(t('adoptSavedHint'));
+              }}>
+              {t('adoptConfirm')}
+            </Button>
+          </div>
+        </section>
+
+        <section className="space-y-3 rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/70">
+          <h2 className="text-lg font-medium">{t('profileTitle')}</h2>
           <label className="block text-sm">
             {t('profileDomains')}
             <input
@@ -117,19 +167,10 @@ const Options = () => {
                 void userProfileStorage.set(prev => ({
                   ...prev,
                   onboardingCompleted: true,
-                  petAdopted: prev.occupation.trim().length > 0 && prev.domains.trim().length > 0,
                 }));
-                flash('档案已保存');
+                flash(t('profileSave'));
               }}>
               {t('profileSave')}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                void userProfileStorage.set(prev => ({ ...prev, onboardingCompleted: true }));
-                flash('已跳过引导');
-              }}>
-              {t('profileSkip')}
             </Button>
           </div>
         </section>

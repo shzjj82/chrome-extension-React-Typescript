@@ -43,7 +43,17 @@ const parseSubtitleFile = (filename: string, content: string): string => {
 };
 
 const buildSystemPrompt = (profile: UserProfileType, mode: LearningMode) => {
+  const genderLabel =
+    profile.gender === 'male'
+      ? '男'
+      : profile.gender === 'female'
+        ? '女'
+        : profile.gender === 'other'
+          ? '其他'
+          : '未填写';
   const profileText = [
+    `称呼: ${profile.nickname || '未填写'}`,
+    `性别: ${genderLabel}`,
     `职业: ${profile.occupation || '未填写'}`,
     `领域: ${profile.domains || '未填写'}`,
     `目标: ${profile.goal}`,
