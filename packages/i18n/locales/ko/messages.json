@@ -1,45 +1,172 @@
 {
   "extensionDescription": {
     "description": "Extension description",
-    "message": "Study Mind AI Chrome 확장 프로그램"
+    "message": "本地私有化 AI 学习助手，支持笔记、自测与实践任务"
   },
   "extensionName": {
     "description": "Extension name",
     "message": "Study Mind AI"
   },
   "toggleTheme": {
-    "message": "테마 변경"
+    "message": "切换主题"
   },
-  "injectButton": {
-    "message": "콘텐츠 스크립트를 삽입하려면 클릭하세요."
+  "openSidePanel": {
+    "message": "打开学习侧栏"
   },
-  "greeting": {
-    "description": "인사 메시지",
-    "message": "안녕하세요, 제 이름은 $NAME$입니다.",
-    "placeholders": {
-      "name": {
-        "content": "$1",
-        "example": "홍길동"
-      }
-    }
+  "openOptions": {
+    "message": "设置"
   },
-  "hello": {
-    "description": "Placeholder 예시",
-    "message": "안녕하세요, $1님."
+  "startLearning": {
+    "message": "开始学习"
+  },
+  "learningInProgress": {
+    "message": "专注中"
+  },
+  "collapseFloatBall": {
+    "message": "收起"
+  },
+  "expandFloatBall": {
+    "message": "展开"
+  },
+  "riskPrivacy": {
+    "message": "学习数据与 API 密钥仅保存在本地浏览器，不会上传到我们的服务器。"
+  },
+  "riskCopyright": {
+    "message": "请仅使用你有权观看的学习内容，禁止破解、解密或二次传播付费课程资源。"
+  },
+  "riskAi": {
+    "message": "AI 内容可能存在幻觉，请务必对照原文或课程自行校验。"
+  },
+  "complianceBanner": {
+    "message": "本工具仅辅助个人合法学习，依托用户自有课程观看权限采集可视学习内容，不破解、不抓取、不泄露平台加密版权资源，禁止商用与二次传播。"
+  },
+  "profileTitle": {
+    "message": "学习档案"
+  },
+  "profileOccupation": {
+    "message": "身份职业"
+  },
+  "profileDomains": {
+    "message": "学习领域"
+  },
+  "profileGoal": {
+    "message": "学习目标"
+  },
+  "profileDepth": {
+    "message": "知识深度"
+  },
+  "profileModes": {
+    "message": "偏好学习模式"
+  },
+  "profileSave": {
+    "message": "保存档案"
+  },
+  "profileSkip": {
+    "message": "暂时跳过"
+  },
+  "goalApplication": {
+    "message": "偏应用"
+  },
+  "goalPrinciple": {
+    "message": "偏原理"
+  },
+  "goalExam": {
+    "message": "偏应试"
+  },
+  "depthShallow": {
+    "message": "浅层了解"
+  },
+  "depthNormal": {
+    "message": "正常理解"
+  },
+  "depthDeep": {
+    "message": "深度钻研"
+  },
+  "modeNote": {
+    "message": "笔记"
+  },
+  "modeQuiz": {
+    "message": "测验"
+  },
+  "modePractice": {
+    "message": "实践"
+  },
+  "llmTitle": {
+    "message": "BYOK 大模型设置"
+  },
+  "llmProvider": {
+    "message": "服务商"
+  },
+  "llmBaseUrl": {
+    "message": "接口地址"
+  },
+  "llmModel": {
+    "message": "模型名"
+  },
+  "llmApiKey": {
+    "message": "API Key"
+  },
+  "llmSave": {
+    "message": "保存模型设置"
+  },
+  "uiFloatBall": {
+    "message": "显示页面悬浮球"
+  },
+  "pomodoroTitle": {
+    "message": "番茄钟"
+  },
+  "pomodoroFocus": {
+    "message": "专注分钟"
+  },
+  "pomodoroBreak": {
+    "message": "休息分钟"
+  },
+  "saveSettings": {
+    "message": "保存"
   },
   "displayErrorInfo": {
-    "message": "오류 발생"
+    "message": "发生错误"
   },
   "displayErrorDescription": {
-    "message": "죄송합니다. 페이지를 로드하는 중 문제가 발생했습니다."
+    "message": "抱歉，页面加载时出现了问题。"
   },
   "displayErrorDetailsInfo": {
-    "message": "오류 세부 정보:"
+    "message": "错误详情："
   },
   "displayErrorUnknownErrorInfo": {
-    "message": "알 수 없는 오류"
+    "message": "未知错误"
   },
   "displayErrorReset": {
-    "message": "다시 실행합니다."
+    "message": "重试"
+  },
+  "petActionStudy": {
+    "message": "학습"
+  },
+  "petActionStudyTitle": {
+    "message": "학습 시작"
+  },
+  "petActionRest": {
+    "message": "휴식"
+  },
+  "petActionRestTitle": {
+    "message": "휴식 시작"
+  },
+  "petActionAdopt": {
+    "message": "아직 날 모르시네요, 먼저 입양해 주세요"
+  },
+  "petActionAdoptHead": {
+    "message": "아직 날 모르시네요,"
+  },
+  "petActionAdoptTailPrefix": {
+    "message": "먼저 "
+  },
+  "petActionAdoptAction": {
+    "message": "입양"
+  },
+  "petActionAdoptTrailing": {
+    "message": "해 주세요"
+  },
+  "petActionAdoptTitle": {
+    "message": "학습 프로필을 작성하면 함께 공부할 수 있어요"
   }
 }

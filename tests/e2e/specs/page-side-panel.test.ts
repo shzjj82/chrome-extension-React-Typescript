@@ -1,5 +1,3 @@
-import { canSwitchTheme } from '../helpers/theme.js';
-
 describe('Webextension Side Panel', () => {
   it('should make side panel accessible', async () => {
     const extensionPath = await browser.getExtensionPath();
@@ -7,6 +5,7 @@ describe('Webextension Side Panel', () => {
 
     await browser.url(sidePanelUrl);
     await expect(browser).toHaveTitle('Side Panel');
-    await canSwitchTheme();
+    const heading = await $('h1*=Study Mind AI').getElement();
+    await expect(heading).toBeExisting();
   });
 });

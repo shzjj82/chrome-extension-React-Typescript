@@ -32,18 +32,25 @@ const configs = Object.entries(getContentScriptEntries(matchesDir)).map(([name, 
   }),
 }));
 
-const builds = configs.map(async ({ name, config }) => {
-  const folder = resolve(matchesDir, name);
-  const args = {
-    ['--input']: resolve(folder, 'index.css'),
-    ['--output']: resolve(rootDir, 'dist', name, 'index.css'),
-    ['--config']: resolve(rootDir, 'tailwind.config.ts'),
-    ['--watch']: IS_DEV,
-  };
-  await buildTW(args);
-  //@ts-expect-error This is hidden property into vite's resolveConfig()
-  config.configFile = false;
-  await build(config);
-});
+const builds = configs.map(({ name, config }) => ({
+  name,
+  config,
+  cssInput: resolve(matchesDir, name, 'index.css'),
+  cssOutput: resolve(rootDir, 'dist', name, 'index.css'),
+}));
 
-await Promise.all(builds);
+for (const { cssInput, cssOutput } of builds) {
+  await buildTW({
+    ['--input']: cssInput,
+    ['--output']: cssOutput,
+    ['--config']: resolve(rootDir, 'tailwind.config.ts'),
+  });
+}
+
+await Promise.all(
+  builds.map(async ({ config }) => {
+    //@ts-expect-error This is hidden property into vite's resolveConfig()
+    config.configFile = false;
+    await build(config);
+  }),
+);

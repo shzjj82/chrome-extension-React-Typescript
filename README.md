@@ -1,21 +1,23 @@
-# Study Mind AI Extension
+# Study Mind AI
 
-Chrome / Firefox 浏览器扩展脚手架，基于 React + TypeScript + Vite + Turborepo，已接入 Tailwind CSS 与 shadcn/ui。
+本地私有化 AI 学习助手 Chrome 扩展（Manifest V3）。帮助你在阅读文档、看教程时完成「输入 → 总结 → 自测 → 实践 → 计时存档」闭环。
 
-技术栈来自 [chrome-extension-boilerplate-react-vite](https://github.com/Jonghakseo/chrome-extension-boilerplate-react-vite)，并按本项目需求做了本地化与 UI 组件接入。
+## 核心能力（MVP）
 
-## 技术栈
+- 学习档案：按职业 / 领域 / 目标个性化 AI 输出
+- 悬浮球一键开始学习，唤起侧栏并启动番茄钟
+- 素材导入：网页正文、公开明文字幕、可见字幕采集、手动粘贴、本地 SRT/VTT
+- 三种模式：笔记 / 测验 / 实践（测验不自动判题）
+- BYOK：DeepSeek / 通义 / OpenAI 兼容接口，密钥仅存本地
+- IndexedDB 本地知识库：查看、备注、删除、导出 Markdown
 
-- React 19 + TypeScript
-- Vite 6 + Turborepo + pnpm
-- Tailwind CSS 3
-- shadcn/ui（组件放在 `packages/ui`）
-- Chrome Extension Manifest V3
+## 合规边界
 
-## 环境要求
+本工具仅辅助个人合法学习，依托用户自有课程观看权限采集**可视**学习内容：
 
-- Node.js `>= 22.15.1`
-- pnpm `10.11.0`（见根目录 `packageManager`）
+- 不破解、不解密、不拦截 DRM
+- 不抓取平台私有字幕/视频接口
+- 不上传学习数据与 API Key
 
 ## 快速开始
 
@@ -24,12 +26,11 @@ pnpm install
 pnpm dev
 ```
 
-### 在 Chrome 中加载
+Chrome 加载：
 
 1. 打开 `chrome://extensions`
-2. 开启「开发者模式」
-3. 「加载已解压的扩展程序」
-4. 选择本仓库的 `dist` 目录
+2. 开启开发者模式
+3. 加载已解压的扩展程序 → 选择仓库 `dist` 目录
 
 生产构建：
 
@@ -37,69 +38,33 @@ pnpm dev
 pnpm build
 ```
 
-打包 zip：
+## 使用流程
 
-```bash
-pnpm zip
-```
+1. 打开扩展设置，填写学习档案与 LLM API Key（可跳过档案）
+2. 浏览学习网页 / 视频
+3. 点击右下角悬浮球「开始学习」
+4. 在侧栏确认素材、选择模式并生成
+5. 作答 / 回填实践结果，保存到本地知识库
 
 ## 项目结构
 
 ```text
-chrome-extension/   # background、manifest
-pages/              # popup、options、side-panel、content 等页面
-packages/           # 共享包（ui、storage、i18n、vite-config 等）
+chrome-extension/     # background、manifest
+pages/side-panel/     # 学习主界面
+pages/options/        # 档案 / BYOK / 番茄钟 / 浮球开关
+pages/popup/          # 快捷入口
+pages/content/        # 正文与字幕提取
+pages/content-ui/     # 悬浮球
+packages/storage/     # chrome.storage 配置
+packages/knowledge-base/ # IndexedDB 知识库
+packages/shared/      # messaging 等共享工具
 ```
-
-常用页面：
-
-| 目录 | 说明 |
-| --- | --- |
-| `pages/popup` | 工具栏弹窗 |
-| `pages/options` | 选项页 |
-| `pages/side-panel` | 侧边栏 |
-| `pages/content` / `content-ui` | 内容脚本 |
-| `chrome-extension/src/background` | Service Worker |
-
-启用 / 禁用模块：
-
-```bash
-pnpm module-manager
-```
-
-## shadcn/ui
-
-组件安装到 UI 包（不要在根目录跑会升级到 Tailwind v4 的 `shadcn init`）：
-
-```bash
-pnpm dlx shadcn@latest add button -c ./packages/ui
-```
-
-安装后在 `packages/ui/index.ts` 中导出，再在页面中使用：
-
-```tsx
-import { Button } from '@extension/ui';
-```
-
-更多说明见 [`packages/ui/README.md`](packages/ui/README.md)。
 
 ## 常用命令
 
 | 命令 | 说明 |
 | --- | --- |
-| `pnpm dev` | Chrome 开发模式（HMR） |
+| `pnpm dev` | 开发模式（HMR） |
 | `pnpm build` | 生产构建 |
-| `pnpm zip` | 构建并打包 zip |
-| `pnpm lint` / `pnpm format` | 代码检查与格式化 |
-| `pnpm update-version <version>` | 同步各 package 版本号 |
-
-## 本地化
-
-扩展名称与描述在：
-
-- `packages/i18n/locales/en/messages.json`
-- `packages/i18n/locales/ko/messages.json`
-
-仓库地址常量（各页面 Logo 跳转）在：
-
-- `packages/shared/const.ts`
+| `pnpm zip` | 打包 zip |
+| `pnpm lint` / `pnpm format` | 检查与格式化 |

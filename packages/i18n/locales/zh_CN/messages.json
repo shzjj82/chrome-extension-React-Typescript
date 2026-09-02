@@ -1,0 +1,172 @@
+{
+  "extensionDescription": {
+    "description": "Extension description",
+    "message": "本地私有化 AI 学习助手，支持笔记、自测与实践任务"
+  },
+  "extensionName": {
+    "description": "Extension name",
+    "message": "Study Mind AI"
+  },
+  "toggleTheme": {
+    "message": "切换主题"
+  },
+  "openSidePanel": {
+    "message": "打开学习侧栏"
+  },
+  "openOptions": {
+    "message": "设置"
+  },
+  "startLearning": {
+    "message": "开始学习"
+  },
+  "learningInProgress": {
+    "message": "专注中"
+  },
+  "collapseFloatBall": {
+    "message": "收起"
+  },
+  "expandFloatBall": {
+    "message": "展开"
+  },
+  "riskPrivacy": {
+    "message": "学习数据与 API 密钥仅保存在本地浏览器，不会上传到我们的服务器。"
+  },
+  "riskCopyright": {
+    "message": "请仅使用你有权观看的学习内容，禁止破解、解密或二次传播付费课程资源。"
+  },
+  "riskAi": {
+    "message": "AI 内容可能存在幻觉，请务必对照原文或课程自行校验。"
+  },
+  "complianceBanner": {
+    "message": "本工具仅辅助个人合法学习，依托用户自有课程观看权限采集可视学习内容，不破解、不抓取、不泄露平台加密版权资源，禁止商用与二次传播。"
+  },
+  "profileTitle": {
+    "message": "学习档案"
+  },
+  "profileOccupation": {
+    "message": "身份职业"
+  },
+  "profileDomains": {
+    "message": "学习领域"
+  },
+  "profileGoal": {
+    "message": "学习目标"
+  },
+  "profileDepth": {
+    "message": "知识深度"
+  },
+  "profileModes": {
+    "message": "偏好学习模式"
+  },
+  "profileSave": {
+    "message": "保存档案"
+  },
+  "profileSkip": {
+    "message": "暂时跳过"
+  },
+  "goalApplication": {
+    "message": "偏应用"
+  },
+  "goalPrinciple": {
+    "message": "偏原理"
+  },
+  "goalExam": {
+    "message": "偏应试"
+  },
+  "depthShallow": {
+    "message": "浅层了解"
+  },
+  "depthNormal": {
+    "message": "正常理解"
+  },
+  "depthDeep": {
+    "message": "深度钻研"
+  },
+  "modeNote": {
+    "message": "笔记"
+  },
+  "modeQuiz": {
+    "message": "测验"
+  },
+  "modePractice": {
+    "message": "实践"
+  },
+  "llmTitle": {
+    "message": "BYOK 大模型设置"
+  },
+  "llmProvider": {
+    "message": "服务商"
+  },
+  "llmBaseUrl": {
+    "message": "接口地址"
+  },
+  "llmModel": {
+    "message": "模型名"
+  },
+  "llmApiKey": {
+    "message": "API Key"
+  },
+  "llmSave": {
+    "message": "保存模型设置"
+  },
+  "uiFloatBall": {
+    "message": "显示页面悬浮球"
+  },
+  "pomodoroTitle": {
+    "message": "番茄钟"
+  },
+  "pomodoroFocus": {
+    "message": "专注分钟"
+  },
+  "pomodoroBreak": {
+    "message": "休息分钟"
+  },
+  "saveSettings": {
+    "message": "保存"
+  },
+  "displayErrorInfo": {
+    "message": "发生错误"
+  },
+  "displayErrorDescription": {
+    "message": "抱歉，页面加载时出现了问题。"
+  },
+  "displayErrorDetailsInfo": {
+    "message": "错误详情："
+  },
+  "displayErrorUnknownErrorInfo": {
+    "message": "未知错误"
+  },
+  "displayErrorReset": {
+    "message": "重试"
+  },
+  "petActionStudy": {
+    "message": "学习"
+  },
+  "petActionStudyTitle": {
+    "message": "开始学习"
+  },
+  "petActionRest": {
+    "message": "休息"
+  },
+  "petActionRestTitle": {
+    "message": "开始休息"
+  },
+  "petActionAdopt": {
+    "message": "还不认识我呢，先认养我吧"
+  },
+  "petActionAdoptHead": {
+    "message": "还不认识我呢，"
+  },
+  "petActionAdoptTailPrefix": {
+    "message": "先"
+  },
+  "petActionAdoptAction": {
+    "message": "认养"
+  },
+  "petActionAdoptTrailing": {
+    "message": "我吧"
+  },
+  "petActionAdoptTitle": {
+    "message": "填好学习档案，咱们再一起学习"
+  }
+}

@@ -1,4 +1,4 @@
-import enMessage from '../locales/en/messages.json' with { type: 'json' };
+import zhMessage from '../locales/zh_CN/messages.json' with { type: 'json' };
 import type { SUPPORTED_LANGUAGES } from './consts.js';
 
 export type SupportedLanguagesKeysType = keyof typeof SUPPORTED_LANGUAGES;
@@ -8,5 +8,5 @@ export type I18nValueType = {
   placeholders?: Record<string, { content?: string; example?: string }>;
 };
 
-export type MessageKeyType = keyof typeof enMessage;
-export type LocalesJSONType = typeof enMessage;
+export type MessageKeyType = keyof typeof zhMessage;
+export type LocalesJSONType = typeof zhMessage;
