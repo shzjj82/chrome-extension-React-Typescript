@@ -238,11 +238,8 @@
   "petActionRestTitle": {
     "message": "Take a break"
   },
-  "petFocusPause": {
-    "message": "Pause"
-  },
-  "petFocusPauseTitle": {
-    "message": "Pause and rest a bit"
+  "petFocusElapsedHead": {
+    "message": "Focused $1 min —"
   },
   "petFocusEnd": {
     "message": "End"

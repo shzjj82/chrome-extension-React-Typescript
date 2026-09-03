@@ -91,9 +91,14 @@ const notify = async (title: string, message: string) => {
   });
 };
 
-const setPomodoroPhase = async (phase: PomodoroPhase, durationMinutes: number, sessionId?: string | null) => {
+const setPomodoroPhase = async (
+  phase: PomodoroPhase,
+  durationMinutes: number,
+  options?: { sessionId?: string | null; breakReason?: 'completed' | 'manual' | null },
+) => {
   const now = Date.now();
   const endsAt = phase === 'idle' ? null : now + durationMinutes * 60_000;
+  const sessionId = options?.sessionId;
 
   await chrome.alarms.clear(FOCUS_ALARM);
   await chrome.alarms.clear(BREAK_ALARM);
@@ -110,15 +115,17 @@ const setPomodoroPhase = async (phase: PomodoroPhase, durationMinutes: number, s
     startedAt: phase === 'idle' ? null : now,
     endsAt,
     activeSessionId: sessionId === undefined ? prev.activeSessionId : sessionId,
+    breakReason: phase === 'break' ? (options?.breakReason ?? null) : null,
   }));
 };
 
 const startFocus = async (sessionId?: string | null) => {
   const settings = await pomodoroSettingsStorage.get();
-  await setPomodoroPhase('focus', settings.focusMinutes, sessionId ?? null);
+  await setPomodoroPhase('focus', settings.focusMinutes, { sessionId: sessionId ?? null });
 };
 
-const startBreak = async () => {
+/** @param reason completed=专注时长到点；manual=用户暂停休息 */
+const startBreak = async (reason: 'completed' | 'manual') => {
   const settings = await pomodoroSettingsStorage.get();
   const prev = await pomodoroStateStorage.get();
   const focusMs = prev.startedAt ? Date.now() - prev.startedAt : 0;
@@ -129,13 +136,15 @@ const startBreak = async () => {
     accumulatedFocusMs: current.accumulatedFocusMs + Math.max(focusMs, 0),
   }));
 
-  await setPomodoroPhase('break', settings.breakMinutes);
-  await notify('该休息啦', '已经专注很久了，起来走动一下，我在这儿陪你。');
+  await setPomodoroPhase('break', settings.breakMinutes, { breakReason: reason });
+  if (reason === 'completed') {
+    await notify('该休息啦', '已经专注很久了，起来走动一下，我在这儿陪你。');
+  }
 };
 
 const handleAlarm = async (alarm: chrome.alarms.Alarm) => {
   if (alarm.name === FOCUS_ALARM) {
-    await startBreak();
+    await startBreak('completed');
     return;
   }
 
@@ -268,10 +277,10 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
       case ExtensionMessageType.POMODORO_START_BREAK: {
         const state = await pomodoroStateStorage.get();
         if (state.phase === 'focus') {
-          await startBreak();
+          await startBreak('manual');
         } else {
           const settings = await pomodoroSettingsStorage.get();
-          await setPomodoroPhase('break', settings.breakMinutes);
+          await setPomodoroPhase('break', settings.breakMinutes, { breakReason: 'manual' });
         }
         return { ok: true };
       }

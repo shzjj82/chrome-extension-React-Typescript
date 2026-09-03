@@ -2,6 +2,7 @@ import { createFocusProgressAction, createRestReminderAction } from '../interact
 import { useStorage } from '@extension/shared';
 import { pomodoroStateStorage } from '@extension/storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PetEventHookContext, PetEventPayloadMap } from '../events';
 import type { PetRuntimeApi } from '../types';
 import type { PomodoroPhase } from '@extension/storage';
 
@@ -32,29 +33,57 @@ const calcFocusProgress = (startedAt: number | null, endsAt: number | null, now:
 };
 
 /**
- * Study Mind 专注陪伴：坐锁 / 休息提醒 / 进度气泡 / 闹钟数据。
- * 全部在宠物组件外部驱动，PetController 只提供 lockSit 等通用能力。
+ * Study Mind 专注陪伴：通过统一事件钩子挂载业务。
+ * - fire('focus-sit') / endEvent('focus-sit')
+ * - fire('look-clock', { progress })
+ * - fire('rest-prompt') + bubble
  */
 const useStudyFocusCompanion = (enabled = true): UseStudyFocusCompanionResult => {
   const pomodoro = useStorage(pomodoroStateStorage);
   const runtimeRef = useRef<PetRuntimeApi | null>(null);
+  const unsubRef = useRef<(() => void) | null>(null);
   const prevPhaseRef = useRef<PomodoroPhase | null>(null);
   const lastProgressMarkRef = useRef(0);
   const focusingRef = useRef(false);
   const [now, setNow] = useState(() => Date.now());
+  const [clock, setClock] = useState<FocusClockModel | null>(null);
 
   const focusing = enabled && pomodoro.phase === 'focus';
   focusingRef.current = focusing;
+  const clockActiveRef = useRef(false);
 
   const onRuntimeReady = useCallback((api: PetRuntimeApi | null) => {
+    unsubRef.current?.();
+    unsubRef.current = null;
     runtimeRef.current = api;
     if (!api) {
+      setClock(null);
+      clockActiveRef.current = false;
       return;
     }
+
+    // 默认事件钩子：看钟 → 更新附件状态（统一回调参数）
+    unsubRef.current = api.onEvent('look-clock', (ctx: PetEventHookContext) => {
+      if (ctx.lifecycle === 'end') {
+        setClock(null);
+        return;
+      }
+      const payload = ctx.payload as PetEventPayloadMap['look-clock'] | undefined;
+      if (!payload) {
+        return;
+      }
+      setClock({
+        progress: payload.progress,
+        percentLabel: payload.percentLabel ?? `${Math.round(payload.progress * 100)}%`,
+      });
+    });
+
     if (focusingRef.current) {
-      api.lockSit();
+      api.fire('focus-sit');
     } else {
-      api.unlockSit();
+      api.endEvent('focus-sit');
+      api.endEvent('look-clock');
+      clockActiveRef.current = false;
     }
   }, []);
 
@@ -73,18 +102,23 @@ const useStudyFocusCompanion = (enabled = true): UseStudyFocusCompanionResult =>
     prevPhaseRef.current = pomodoro.phase;
 
     if (!enabled) {
-      api?.unlockSit();
+      api?.endEvent('focus-sit');
+      api?.endEvent('look-clock');
+      clockActiveRef.current = false;
       return;
     }
 
     if (pomodoro.phase === 'focus') {
-      api?.lockSit();
+      api?.fire('focus-sit');
       if (prev !== 'focus') {
         const startedAt = pomodoro.startedAt ?? Date.now();
         lastProgressMarkRef.current = Math.floor((Date.now() - startedAt) / FOCUS_PROGRESS_INTERVAL_MS);
+        clockActiveRef.current = false;
       }
     } else {
-      api?.unlockSit();
+      api?.endEvent('focus-sit');
+      api?.endEvent('look-clock');
+      clockActiveRef.current = false;
     }
 
     if (prev === null) {
@@ -92,11 +126,14 @@ const useStudyFocusCompanion = (enabled = true): UseStudyFocusCompanionResult =>
     }
 
     if (prev === 'focus' && pomodoro.phase === 'break') {
-      api?.promptRestReminder([
-        createRestReminderAction(() => {
-          runtimeRef.current?.clearRestReminder();
-        }),
-      ]);
+      // 仅专注时长自然结束后提醒「专注很久啦」；暂停休息不弹
+      if (pomodoro.breakReason === 'completed') {
+        api?.promptRestReminder([
+          createRestReminderAction(() => {
+            runtimeRef.current?.clearRestReminder();
+          }),
+        ]);
+      }
       return;
     }
 
@@ -107,7 +144,7 @@ const useStudyFocusCompanion = (enabled = true): UseStudyFocusCompanionResult =>
     if (prev === 'focus' && pomodoro.phase === 'idle') {
       api?.clearRestReminder();
     }
-  }, [enabled, pomodoro.phase, pomodoro.startedAt]);
+  }, [enabled, pomodoro.phase, pomodoro.startedAt, pomodoro.breakReason]);
 
   useEffect(() => {
     if (!focusing || !pomodoro.startedAt || !pomodoro.endsAt) {
@@ -115,18 +152,27 @@ const useStudyFocusCompanion = (enabled = true): UseStudyFocusCompanionResult =>
     }
 
     const { progress, percent, elapsedMinutes } = calcFocusProgress(pomodoro.startedAt, pomodoro.endsAt, now);
-    const mark = Math.floor((now - pomodoro.startedAt) / FOCUS_PROGRESS_INTERVAL_MS);
+    const payload = {
+      progress,
+      percentLabel: `${percent}%`,
+    } satisfies PetEventPayloadMap['look-clock'];
 
+    const api = runtimeRef.current;
+    if (api) {
+      if (clockActiveRef.current) {
+        api.updateEvent('look-clock', payload);
+      } else {
+        api.fire('look-clock', payload);
+        clockActiveRef.current = true;
+      }
+    }
+
+    const mark = Math.floor((now - pomodoro.startedAt) / FOCUS_PROGRESS_INTERVAL_MS);
     if (mark > 0 && mark > lastProgressMarkRef.current && progress < 1) {
       lastProgressMarkRef.current = mark;
       runtimeRef.current?.showTemporaryBubble([createFocusProgressAction(elapsedMinutes, percent)]);
     }
   }, [focusing, now, pomodoro.startedAt, pomodoro.endsAt]);
-
-  const focusStats = calcFocusProgress(pomodoro.startedAt, pomodoro.endsAt, now);
-  const clock: FocusClockModel | null = focusing
-    ? { progress: focusStats.progress, percentLabel: `${focusStats.percent}%` }
-    : null;
 
   return { focusing, clock, onRuntimeReady };
 };

@@ -106,16 +106,17 @@
 /* 云朵主体内的文案区域（对齐云朵中部，避开下方小圆点） */
 .sm-pet__thought-body {
   position: absolute;
-  top: 22px;
+  top: 18px;
   left: 50%;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 84px;
-  height: 44px;
+  width: 88px;
+  height: 42px;
   transform: translateX(-50%);
   pointer-events: auto;
+  overflow: hidden;
 }
 
 .sm-pet__thought-actions {
@@ -162,10 +163,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
-  font-size: 8.5px;
-  line-height: 1.3;
+  max-height: 42px;
+  font-size: 8px;
+  line-height: 1.25;
 }
 
 .sm-pet__thought-line {

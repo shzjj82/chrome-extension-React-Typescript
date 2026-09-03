@@ -238,11 +238,8 @@
   "petActionRestTitle": {
     "message": "先歇一会儿"
   },
-  "petFocusPause": {
-    "message": "暂停休息"
-  },
-  "petFocusPauseTitle": {
-    "message": "暂停休息一会儿"
+  "petFocusElapsedHead": {
+    "message": "已专注$1分钟，"
   },
   "petFocusEnd": {
     "message": "结束"

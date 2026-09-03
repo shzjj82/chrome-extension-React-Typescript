@@ -25,27 +25,29 @@ const createStudyMindHoverActions = (): PetInteractionAction[] => [
   },
 ];
 
-/** 专注中 hover：暂停休息 / 结束；移开后继续保持专注 */
-const createFocusHoverActions = (): PetInteractionAction[] => [
-  {
-    id: 'focus-pause',
-    label: t('petFocusPause'),
-    title: t('petFocusPauseTitle'),
-    ariaLabel: t('petFocusPause'),
-    onSelect: () => {
-      void sendExtensionMessage(ExtensionMessageType.POMODORO_START_BREAK);
+/** 专注中 hover：云朵内两行 —— 已专注 xx 分钟 / 休息 or 结束（不拆成多段以免挤进圆点） */
+const createFocusHoverActions = (elapsedMinutes: number): PetInteractionAction[] => {
+  const minutes = Math.max(0, Math.floor(elapsedMinutes));
+  return [
+    {
+      id: 'focus-status',
+      label: t('petActionRest'),
+      headLine: t('petFocusElapsedHead', String(minutes)),
+      actionText: t('petActionRest'),
+      secondaryActionText: t('petFocusEnd'),
+      title: t('petActionRestTitle'),
+      ariaLabel: t('petActionRest'),
+      secondaryTitle: t('petFocusEndTitle'),
+      secondaryAriaLabel: t('petFocusEnd'),
+      onSelect: () => {
+        void sendExtensionMessage(ExtensionMessageType.POMODORO_START_BREAK);
+      },
+      onSecondarySelect: () => {
+        void sendExtensionMessage(ExtensionMessageType.POMODORO_STOP);
+      },
     },
-  },
-  {
-    id: 'focus-end',
-    label: t('petFocusEnd'),
-    title: t('petFocusEndTitle'),
-    ariaLabel: t('petFocusEnd'),
-    onSelect: () => {
-      void sendExtensionMessage(ExtensionMessageType.POMODORO_STOP);
-    },
-  },
-];
+  ];
+};
 
 const createRestReminderAction = (onDismiss: () => void): PetInteractionAction => ({
   id: 'rest-reminder',

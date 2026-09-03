@@ -10,11 +10,11 @@ type BubbleControllerState = {
 
 type BubbleStateListener = (state: BubbleControllerState) => void;
 
-type PetEventSource = Pick<PetController, 'subscribe' | 'unsubscribe'>;
+/** 气泡只依赖统一事件钩子，不再依赖旧 Topic */
+type PetEventSource = Pick<PetController, 'onPetEvent'>;
 
 /**
- * 气泡控制器：订阅 hover/drag，自管显隐；文案由 resolveActions 提供。
- * 与宠物动画解耦，只通过主题总线通信。
+ * 气泡控制器：订阅 hover/drag 反馈事件，自管显隐。
  */
 class BubbleController {
   private pet: PetEventSource | null = null;
@@ -27,6 +27,7 @@ class BubbleController {
   private listeners = new Set<BubbleStateListener>();
   private attached = false;
   private tempHideTimer: number | null = null;
+  private unsubs: Array<() => void> = [];
 
   attach = (pet: PetEventSource, resolveActions: BubbleContentResolver) => {
     this.detach();
@@ -34,19 +35,17 @@ class BubbleController {
     this.resolveActions = resolveActions;
     this.attached = true;
 
-    pet.subscribe('hover:enter', this.onHoverEnter);
-    pet.subscribe('hover:leave', this.onHoverLeave);
-    pet.subscribe('drag:start', this.onDragStart);
-    pet.subscribe('drag:end', this.onDragEnd);
+    this.unsubs = [
+      pet.onPetEvent('hover:start', this.onHoverEnter),
+      pet.onPetEvent('hover:end', this.onHoverLeave),
+      pet.onPetEvent('drag:start', this.onDragStart),
+      pet.onPetEvent('drag:end', this.onDragEnd),
+    ];
   };
 
   detach = () => {
-    if (this.pet && this.attached) {
-      this.pet.unsubscribe('hover:enter', this.onHoverEnter);
-      this.pet.unsubscribe('hover:leave', this.onHoverLeave);
-      this.pet.unsubscribe('drag:start', this.onDragStart);
-      this.pet.unsubscribe('drag:end', this.onDragEnd);
-    }
+    this.unsubs.forEach(unsub => unsub());
+    this.unsubs = [];
     this.pet = null;
     this.attached = false;
     this.visible = false;
@@ -60,7 +59,8 @@ class BubbleController {
 
   setResolveActions = (resolveActions: BubbleContentResolver) => {
     this.resolveActions = resolveActions;
-    if (this.visible) {
+    // 钉住气泡（休息提醒等）用独立内容，勿被 hover resolver 覆盖，否则会留下 pinned=true 却显示「专注/休息」
+    if (this.visible && !this.pinned) {
       this.refreshActions();
     }
   };
@@ -83,7 +83,6 @@ class BubbleController {
     this.setVisible(false);
   };
 
-  /** 固定展示气泡（不随 hover leave 消失），用于休息提醒等 */
   showPinned = (actions: PetInteractionAction[]) => {
     this.clearTempHideTimer();
     this.pinned = true;
@@ -92,7 +91,6 @@ class BubbleController {
     this.emit();
   };
 
-  /** 短暂钉住气泡（如专注进度），结束后若未悬停则收起 */
   showTemporary = (actions: PetInteractionAction[], durationMs = 4200) => {
     this.showPinned(actions);
     this.tempHideTimer = window.setTimeout(() => {
@@ -165,6 +163,12 @@ class BubbleController {
         this.hide();
         action.onSelect();
       },
+      onSecondarySelect: action.onSecondarySelect
+        ? () => {
+            this.hide();
+            action.onSecondarySelect?.();
+          }
+        : undefined,
     }));
 
   private setVisible = (visible: boolean) => {

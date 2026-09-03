@@ -3,6 +3,9 @@ import type { BaseStorageType } from '../base/index.js';
 
 type PomodoroPhase = 'idle' | 'focus' | 'break';
 
+/** 进入休息的原因：仅 timer 到点才弹出「专注很久啦」 */
+type PomodoroBreakReason = 'completed' | 'manual' | null;
+
 type PomodoroSettingsType = {
   focusMinutes: number;
   breakMinutes: number;
@@ -15,6 +18,8 @@ type PomodoroStateType = {
   focusCompletedCount: number;
   accumulatedFocusMs: number;
   activeSessionId: string | null;
+  /** focus→break 来源；非 completed 不展示「专注很久啦」提醒 */
+  breakReason: PomodoroBreakReason;
 };
 
 type PomodoroSettingsStorageType = BaseStorageType<PomodoroSettingsType>;
@@ -41,6 +46,7 @@ const stateStorage = createStorage<PomodoroStateType>(
     focusCompletedCount: 0,
     accumulatedFocusMs: 0,
     activeSessionId: null,
+    breakReason: null,
   },
   {
     storageEnum: StorageEnum.Local,
@@ -52,6 +58,7 @@ const pomodoroSettingsStorage: PomodoroSettingsStorageType = settingsStorage;
 const pomodoroStateStorage: PomodoroStateStorageType = stateStorage;
 
 export type {
+  PomodoroBreakReason,
   PomodoroPhase,
   PomodoroSettingsType,
   PomodoroStateType,

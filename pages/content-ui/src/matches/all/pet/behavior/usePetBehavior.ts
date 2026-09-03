@@ -1,9 +1,11 @@
 import { BubbleController } from '../bubble/BubbleController';
 import { PetController } from '../core/PetController';
+import { createStudyMindUiEvents } from '../events/createStudyMindUiEvents';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { BubbleContentResolver } from '../bubble/BubbleController';
 import type { PetKindId } from '../core/petKinds';
 import type { PetControllerState } from '../core/topics';
+import type { PetEventHookContext, PetEventPayloadMap } from '../events';
 import type { PetBounds, PetInteractionAction } from '../types';
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
 
@@ -14,7 +16,6 @@ type UsePetBehaviorOptions = {
   resumeDelayMs: number;
   kind?: PetKindId;
   resolveBubbleActions?: BubbleContentResolver;
-  /** 实例创建后写入，便于在外部挂载 hooks */
   controllerRef?: RefObject<PetController | null>;
 };
 
@@ -22,15 +23,20 @@ type UsePetBehaviorResult = {
   rootRef: RefObject<HTMLDivElement | null>;
   hoverZoneRef: RefObject<HTMLDivElement | null>;
   hostRef: RefObject<HTMLDivElement | null>;
-  menuVisible: boolean; // bubble visible（由 BubbleController 驱动）
+  menuVisible: boolean;
   facingLeft: boolean;
   bubbleActions: PetInteractionAction[];
   handlers: {
     enterHover: () => void;
     leaveHover: () => void;
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
-    lockSit: () => void;
-    unlockSit: () => void;
+    fire: PetController['fire'];
+    endEvent: (eventId: string, payload?: unknown) => void;
+    updateEvent: (eventId: string, payload?: unknown) => void;
+    onPetEvent: (topic: string, hook: (ctx: PetEventHookContext) => void) => (() => void) | undefined;
+    onPetEventId: (eventId: string, hook: (ctx: PetEventHookContext) => void) => (() => void) | undefined;
+    registerPetEvent: (def: Parameters<PetController['registerPetEvent']>[0]) => void;
+    getPosition: () => { x: number; y: number };
     promptRestReminder: (actions: PetInteractionAction[]) => void;
     clearRestReminder: () => void;
     showTemporaryBubble: (actions: PetInteractionAction[], durationMs?: number) => void;
@@ -78,6 +84,8 @@ const usePetBehavior = ({
       fixedBounds: Boolean(boundsProp),
       kind,
     });
+    // 业务 UI 事件（look-clock / bubble）不进核心默认表
+    controller.registerPetEvents(createStudyMindUiEvents());
 
     const bubble = new BubbleController();
     bubble.attach(controller, () => resolveBubbleActionsRef.current());
@@ -89,6 +97,26 @@ const usePetBehavior = ({
     const unsubBubble = bubble.subscribe(state => {
       setMenuVisible(state.visible);
       setBubbleActions(state.actions);
+    });
+
+    // 气泡触发事件 → BubbleController（业务只需 fire('bubble', payload)）
+    const unsubBubbleEvent = controller.onPetEventId('bubble', ctx => {
+      if (ctx.lifecycle === 'end') {
+        bubble.hide();
+        return;
+      }
+      if (ctx.lifecycle !== 'start' && ctx.lifecycle !== 'update') {
+        return;
+      }
+      const payload = ctx.payload as PetEventPayloadMap['bubble'] | undefined;
+      if (!payload?.actions?.length) {
+        return;
+      }
+      if (payload.mode === 'temporary') {
+        bubble.showTemporary(payload.actions, payload.durationMs);
+      } else {
+        bubble.showPinned(payload.actions);
+      }
     });
 
     controller.subscribe('state', onPetState);
@@ -112,6 +140,7 @@ const usePetBehavior = ({
     setBubbleActions(bubbleState.actions);
 
     return () => {
+      unsubBubbleEvent();
       unsubBubble();
       controller.unsubscribe('state', onPetState);
       bubble.detach();
@@ -137,18 +166,29 @@ const usePetBehavior = ({
       enterHover: () => getController()?.notifyHoverEnter(),
       leaveHover: () => getController()?.notifyHoverLeave(),
       onPointerDown: event => getController()?.handlePointerDown(event.nativeEvent),
-      lockSit: () => getController()?.lockSit(),
-      unlockSit: () => getController()?.unlockSit(),
+      fire: ((...args: Parameters<PetController['fire']>) =>
+        getController()?.fire(...args) ?? false) as PetController['fire'],
+
+      endEvent: (eventId, payload) => getController()?.endEvent(eventId, payload),
+      updateEvent: (eventId, payload) => getController()?.updateEvent(eventId, payload),
+      onPetEvent: (topic, hook) => getController()?.onPetEvent(topic, hook),
+      onPetEventId: (eventId, hook) => getController()?.onPetEventId(eventId, hook),
+      registerPetEvent: def => getController()?.registerPetEvent(def),
+      getPosition: () => getController()?.getPosition() ?? { x: 0, y: 0 },
       promptRestReminder: actions => {
-        getController()?.promptRestSit();
-        bubbleRef.current?.showPinned(actions);
+        getController()?.fire('rest-prompt');
+        getController()?.fire('bubble', { actions, mode: 'pinned' } satisfies PetEventPayloadMap['bubble']);
       },
       clearRestReminder: () => {
-        bubbleRef.current?.hide();
-        getController()?.clearRestPrompt();
+        getController()?.endEvent('bubble');
+        getController()?.endEvent('rest-prompt');
       },
       showTemporaryBubble: (actions, durationMs) => {
-        bubbleRef.current?.showTemporary(actions, durationMs);
+        getController()?.fire('bubble', {
+          actions,
+          mode: 'temporary',
+          durationMs,
+        } satisfies PetEventPayloadMap['bubble']);
       },
     },
   };

@@ -22,6 +22,25 @@ const PetBubbleActionButton = ({ action }: PetBubbleActionButtonProps) => {
             }}>
             {action.actionText}
           </button>
+          {action.secondaryActionText && action.onSecondarySelect ? (
+            <>
+              <span className="sm-pet__thought-or" aria-hidden="true">
+                {' '}
+                or{' '}
+              </span>
+              <button
+                type="button"
+                className="sm-pet__thought-link sm-pet__thought-link--inline"
+                title={action.secondaryTitle ?? action.secondaryActionText}
+                aria-label={action.secondaryAriaLabel ?? action.secondaryActionText}
+                onClick={event => {
+                  event.stopPropagation();
+                  action.onSecondarySelect?.();
+                }}>
+                {action.secondaryActionText}
+              </button>
+            </>
+          ) : null}
           {action.trailingText ? <span className="sm-pet__thought-text">{action.trailingText}</span> : null}
         </span>
       </div>

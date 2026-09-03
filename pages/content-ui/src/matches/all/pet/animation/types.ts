@@ -1,4 +1,4 @@
-type PetAnimId = 'run' | 'sit' | 'sit-down' | 'adopt-idle';
+type PetAnimId = string;
 
 type AnimationSheetDef = {
   url: string;
@@ -35,8 +35,12 @@ type PetAnimationEvent = PetAnimationStartEvent | PetAnimationFrameEvent | PetAn
 
 type PetAnimationEventHandler = (event: PetAnimationEvent) => void;
 
+/** 已知内置动画 id（皮肤仍可用任意 string） */
+type BuiltinPetAnimId = 'run' | 'sit' | 'sit-down' | 'adopt-idle';
+
 export type {
   AnimationSheetDef,
+  BuiltinPetAnimId,
   PetAnimId,
   PetAnimationCompleteEvent,
   PetAnimationEvent,

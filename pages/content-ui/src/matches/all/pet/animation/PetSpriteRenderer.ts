@@ -1,15 +1,17 @@
 import { PET_ANIMATION_SHEETS } from './sheets';
+import { getSkinSheet } from './skins';
 import { DISPLAY_SIZE, SOURCE_FRAME, VIEW_SIZE } from '../constants';
 import { animTopic } from '../core/topics';
-import type { PetAnimId } from './types';
+import type { PetSkinId } from './skins';
+import type { AnimationSheetDef, PetAnimId } from './types';
 import type { PetPublish } from '../core/topics';
 
 /**
- * CSS 雪碧图渲染器。只负责帧动画与朝向。
- * 通过 publish 向总线推送 `run:start` 等主题，并同步汇总 `animation`。
+ * CSS 雪碧图渲染器。按皮肤查 sheet；通过 publish 推送 `run:start` 等。
  */
 class PetSpriteRenderer {
   private publish: PetPublish | null = null;
+  private skinId: PetSkinId = 'skin-buddy-default';
 
   private el: HTMLDivElement | null = null;
   private facingLeft = false;
@@ -26,6 +28,10 @@ class PetSpriteRenderer {
 
   bindPublish = (publish: PetPublish) => {
     this.publish = publish;
+  };
+
+  setSkin = (skinId: PetSkinId) => {
+    this.skinId = skinId;
   };
 
   setDefaultAnim = (anim: PetAnimId) => {
@@ -63,7 +69,7 @@ class PetSpriteRenderer {
       return;
     }
 
-    const meta = PET_ANIMATION_SHEETS[this.anim];
+    const meta = this.resolveSheet(this.anim);
     this.leftoverMs += dtMs;
     while (this.leftoverMs >= meta.frameMs) {
       this.leftoverMs -= meta.frameMs;
@@ -106,11 +112,23 @@ class PetSpriteRenderer {
     this.el = null;
   };
 
+  private resolveSheet = (anim: PetAnimId): AnimationSheetDef => {
+    const fromSkin = getSkinSheet(this.skinId, anim);
+    if (fromSkin) {
+      return fromSkin;
+    }
+    const fallback = PET_ANIMATION_SHEETS[anim as keyof typeof PET_ANIMATION_SHEETS];
+    if (!fallback) {
+      throw new Error(`Animation sheet not found: skin=${this.skinId} anim=${anim}`);
+    }
+    return fallback;
+  };
+
   private setAnim = (anim: PetAnimId) => {
     if (!this.el) {
       return;
     }
-    const meta = PET_ANIMATION_SHEETS[anim];
+    const meta = this.resolveSheet(anim);
     if (this.anim === anim && this.playing && meta.loop) {
       return;
     }
@@ -123,7 +141,7 @@ class PetSpriteRenderer {
     if (!this.el) {
       return;
     }
-    const meta = PET_ANIMATION_SHEETS[anim];
+    const meta = this.resolveSheet(anim);
     const sourceFrame = meta.sourceFrame ?? SOURCE_FRAME;
     const scale = DISPLAY_SIZE / sourceFrame;
     this.anim = anim;
@@ -153,7 +171,7 @@ class PetSpriteRenderer {
     if (!this.publish) {
       return;
     }
-    const meta = PET_ANIMATION_SHEETS[this.anim];
+    const meta = this.resolveSheet(this.anim);
     const payload = {
       frame: this.frame,
       frames: meta.frames,
@@ -168,7 +186,7 @@ class PetSpriteRenderer {
     if (!this.publish) {
       return;
     }
-    const meta = PET_ANIMATION_SHEETS[this.anim];
+    const meta = this.resolveSheet(this.anim);
     const payload = { frame: this.frame, frames: meta.frames };
     this.publish(animTopic(this.anim, 'frame'), payload);
     this.publish('animation', { type: 'frame', anim: this.anim, ...payload });
@@ -178,7 +196,7 @@ class PetSpriteRenderer {
     if (!this.publish) {
       return;
     }
-    const meta = PET_ANIMATION_SHEETS[this.anim];
+    const meta = this.resolveSheet(this.anim);
     const payload = { frames: meta.frames };
     this.publish(animTopic(this.anim, 'complete'), payload);
     this.publish('animation', { type: 'complete', anim: this.anim, ...payload });

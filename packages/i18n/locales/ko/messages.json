@@ -238,11 +238,8 @@
   "petActionRestTitle": {
     "message": "잠깐 쉬기"
   },
-  "petFocusPause": {
-    "message": "잠시 휴식"
-  },
-  "petFocusPauseTitle": {
-    "message": "잠시 쉬었다가"
+  "petFocusElapsedHead": {
+    "message": "$1분 집중,"
   },
   "petFocusEnd": {
     "message": "종료"

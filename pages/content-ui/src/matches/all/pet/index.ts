@@ -4,6 +4,7 @@ export { PetTopicBus } from './core/PetTopicBus';
 export { BubbleController } from './bubble/BubbleController';
 export { animTopic } from './core/topics';
 export { getPetKind, PET_KINDS, registerPetKind } from './core/petKinds';
+export { PetEventHost, createDefaultPetEvents, createStudyMindUiEvents, parseAnimTopic } from './events';
 export {
   createStudyMindAdoptAction,
   createStudyMindHoverActions,
@@ -13,7 +14,8 @@ export {
   createFocusProgressAction,
 } from './interactions/studyMindActions';
 export { PetSpriteRenderer } from './animation/PetSpriteRenderer';
-export { PET_ANIMATION_SHEETS, registerAnimationSheet } from './animation/sheets';
+export { PET_ANIMATION_SHEETS, registerAnimationSheet, registerBuiltinSkins } from './animation/sheets';
+export { getPetSkin, getSkinSheet, listPetSkins, registerPetSkin, registerSkinSheet } from './animation/skins';
 export { VIEW_SIZE } from './constants';
 export { defaultBounds } from './utils/bounds';
 
@@ -29,7 +31,9 @@ export { PetBubbleActionList } from './ui/bubble-menu/PetBubbleActionList';
 export { PetView } from './ui/PetView';
 
 export type {
+  BubbleEventPayload,
   FloatingPetProps,
+  LookClockPayload,
   PetBounds,
   PetInteractionAction,
   PetMode,
@@ -41,6 +45,22 @@ export type {
 export type { PetControllerOptions, PetMountTarget } from './core/PetController';
 export type { PetBehaviorMode, PetKindDef, PetKindId } from './core/petKinds';
 export type { BubbleContentResolver, BubbleControllerState, BubbleStateListener } from './bubble/BubbleController';
+export type {
+  PetAnimSignalPayload,
+  PetClickPayload,
+  PetDragPayload,
+  PetEventFireArgs,
+  PetEventPayloadMap,
+  PetEventDefinition,
+  PetEventHook,
+  PetEventHookContext,
+  PetEventKind,
+  PetEventLifecycle,
+  PetEventListenTopic,
+  PetEventRegisterOptions,
+  PetEventRuntime,
+  PetPosition,
+} from './events';
 export type {
   PetAggregateTopic,
   PetAnimCompletePayload,
@@ -70,3 +90,6 @@ export type {
   PetAnimationFrameEvent,
   PetAnimationCompleteEvent,
 } from './animation/types';
+
+export type { PetSkinAnimId, PetSkinDef, PetSkinId } from './animation/skins';
+export type { BuiltinPetAnimId } from './animation/types';

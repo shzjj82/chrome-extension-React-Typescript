@@ -24,10 +24,11 @@ const StudyPet = (props: StudyPetProps) => {
 
   const resolveBubbleActions = useCallback(() => {
     if (pomodoro.phase === 'focus') {
-      return createFocusHoverActions();
+      const elapsedMinutes = pomodoro.startedAt ? Math.floor((Date.now() - pomodoro.startedAt) / 60_000) : 0;
+      return createFocusHoverActions(elapsedMinutes);
     }
     return createStudyMindPetHoverActions(profile);
-  }, [profile, pomodoro.phase]);
+  }, [profile, pomodoro.phase, pomodoro.startedAt]);
 
   const resolveStageAccessory = useCallback(
     ({ facingLeft, menuVisible }: StageAccessoryContext) => {

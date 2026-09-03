@@ -1,11 +1,22 @@
 import { getPetKind } from './petKinds';
 import { PetTopicBus } from './PetTopicBus';
 import { PetSpriteRenderer } from '../animation/PetSpriteRenderer';
-import { faceTowardsTarget, pickHorizontalTarget } from '../behavior/wander';
-import { ARRIVE_EPS, DRAG_THRESHOLD, DRAG_VIEW_MARGIN, VIEW_SIZE } from '../constants';
+import { computeDragPosition, createDragSession } from '../behavior/dragSession';
+import { stepWalk } from '../behavior/stepWalk';
+import { pickHorizontalTarget } from '../behavior/wander';
+import { attachWindowPointerSession } from '../behavior/windowPointer';
+import { createDefaultPetEvents, PetEventHost, parseAnimTopic } from '../events';
 import { boundsAround, clamp, rand, resolveBounds } from '../utils/bounds';
 import type { PetKindId } from './petKinds';
 import type { PetControllerState, PetTopic, PetTopicPayload } from './topics';
+import type { DragSession } from '../behavior/dragSession';
+import type {
+  PetAnimSignalPayload,
+  PetEventDefinition,
+  PetEventFireArgs,
+  PetEventHook,
+  PetEventHookContext,
+} from '../events';
 import type { PetBounds, PetMode, PetPhase } from '../types';
 
 type PetControllerOptions = {
@@ -24,21 +35,13 @@ type PetMountTarget = {
   hoverZone: HTMLElement;
 };
 
-type DragSession = {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  originX: number;
-  originY: number;
-  moved: boolean;
-};
-
 /**
- * 桌面宠物行为控制器：仅负责散步、悬停坐下、拖拽与朝向动画。
- * 不管理气泡；hover/drag 通过主题总线对外通知。
+ * 桌面宠物行为控制器：散步 / 坐下 / 拖拽。
+ * 事件通过 PetEventHost 工厂注册（常规 / 触发），业务用统一钩子监听。
  */
 class PetController {
   private readonly topics = new PetTopicBus();
+  private readonly events = new PetEventHost();
 
   private readonly walkSpeed: number;
   private readonly resumeDelayMs: number;
@@ -77,6 +80,7 @@ class PetController {
 
   private mounted = false;
   private disposed = false;
+  private unsubAnimComplete: (() => void) | null = null;
 
   constructor(options: PetControllerOptions = {}) {
     this.walkSpeed = options.walkSpeed ?? 54;
@@ -89,6 +93,23 @@ class PetController {
     if (this.idleOnly) {
       this.phase = 'rest';
     }
+
+    this.events.registerMany(createDefaultPetEvents());
+    this.events.bindRuntime({
+      getSnapshot: () => ({
+        position: { ...this.pos },
+        facingLeft: this.facingLeft,
+        mode: this.mode,
+        motionPhase: this.phase,
+        at: Date.now(),
+      }),
+      beginWalk: opts => this.beginWalkMotion(opts),
+      enterIdle: holdMs => this.enterRest(performance.now(), holdMs),
+      lockSit: () => this.lockSitImpl(),
+      unlockSit: () => this.unlockSitImpl(),
+      promptRestSit: () => this.promptRestSitImpl(),
+      clearRestPrompt: () => this.clearRestPromptImpl(),
+    });
   }
 
   getState = (): PetControllerState => ({
@@ -97,14 +118,46 @@ class PetController {
     phase: this.phase,
   });
 
-  /** 按主题订阅，如 `run:start`、`hover:enter`、`idle:start`、`animation` */
+  getPosition = () => ({ ...this.pos });
+
+  /** 按主题订阅（内部/兼容用；业务请优先 onPetEvent） */
   subscribe = <T extends PetTopic>(topic: T, listener: (payload: PetTopicPayload[T]) => void) => {
     this.topics.subscribe(topic, listener);
   };
 
-  /** 解除订阅，须传入与 subscribe 相同的 listener 引用 */
   unsubscribe = <T extends PetTopic>(topic: T, listener: (payload: PetTopicPayload[T]) => void) => {
     this.topics.unsubscribe(topic, listener);
+  };
+
+  /**
+   * 统一事件钩子（常规 / 触发 / 反馈 同一套逻辑）
+   * topic: '*' | '*:*' | 'run' | 'run:start' | 'anim:frame' | 'drag:end' | ...
+   * 对外请优先用本 API；旧 subscribe(topic) 仅内部兼容。
+   */
+  onPetEvent = (topic: string, hook: PetEventHook) => this.events.on(topic, hook);
+
+  onPetEventId = (eventId: string, hook: PetEventHook) => this.events.on(eventId, hook);
+
+  registerPetEvents = (defs: PetEventDefinition[]) => {
+    this.events.registerMany(defs, { overwrite: true });
+  };
+
+  /** 注册自定义事件（或覆盖） */
+  registerPetEvent = (def: PetEventDefinition) => {
+    this.events.register(def, { overwrite: true });
+  };
+
+  /** 触发事件（常规也可手动 fire）；已知 id 带 payload 类型 */
+  fire = <K extends string>(eventId: K, ...args: PetEventFireArgs<K>) => this.events.fire(eventId, ...args);
+
+  /** 结束事件生命周期 */
+  endEvent = (eventId: string, payload?: unknown) => {
+    this.events.emit(eventId, 'end', payload);
+  };
+
+  /** 更新触发事件 payload（不重跑 execute） */
+  updateEvent = (eventId: string, payload?: unknown) => {
+    this.events.update(eventId, payload);
   };
 
   updateOptions = (options: Partial<PetControllerOptions>) => {
@@ -134,17 +187,19 @@ class PetController {
     const kind = getPetKind(this.kindId);
     const renderer = new PetSpriteRenderer();
     this.renderer = renderer;
+    renderer.setSkin(kind.skinId);
     renderer.setDefaultAnim(kind.defaultAnim);
-    renderer.bindPublish((topic, payload) => this.topics.publish(topic, payload));
-    this.topics.subscribe('sit-down:complete', this.handleSitDownComplete);
-    this.topics.subscribe('hover:enter', this.handleHoverEnterAnim);
-    this.topics.subscribe('hover:leave', this.handleHoverLeaveAnim);
+    renderer.bindPublish((topic, payload) => {
+      // 动画只进统一事件频道 anim:*，不再双发 Topic
+      this.bridgeAnimTopicToEvents(String(topic), payload);
+    });
+    this.unsubAnimComplete = this.events.on('anim:complete', this.handleAnimComplete);
     renderer.mount(this.host);
 
     if (this.idleOnly) {
       this.playIdleLoop();
     } else {
-      this.beginWalkMotion();
+      this.events.fire('run');
     }
     this.rafId = window.requestAnimationFrame(this.tick);
     window.addEventListener('resize', this.handleResize);
@@ -166,31 +221,31 @@ class PetController {
       this.rafId = null;
     }
 
-    this.topics.unsubscribe('sit-down:complete', this.handleSitDownComplete);
-    this.topics.unsubscribe('hover:enter', this.handleHoverEnterAnim);
-    this.topics.unsubscribe('hover:leave', this.handleHoverLeaveAnim);
+    this.unsubAnimComplete?.();
+    this.unsubAnimComplete = null;
     this.renderer?.destroy();
     this.renderer = null;
+    this.events.clear();
     this.topics.clear();
     this.root = null;
     this.host = null;
     this.hoverZone = null;
   };
 
-  /** Hover 热区进入：只发事件；动画由自身订阅处理 */
+  /** Hover 热区进入：直接走反馈事件 + 姿态 */
   notifyHoverEnter = () => {
     if (this.isDragging()) {
       return;
     }
-    this.topics.publish('hover:enter', undefined);
+    this.handleHoverEnterAnim();
   };
 
-  /** Hover 热区离开：只发事件；恢复散步由自身订阅处理 */
+  /** Hover 热区离开 */
   notifyHoverLeave = () => {
     if (this.isDragging()) {
       return;
     }
-    this.topics.publish('hover:leave', undefined);
+    this.handleHoverLeaveAnim();
   };
 
   private isSitLocked = () => this.restPrompt || this.sitLock;
@@ -210,14 +265,13 @@ class PetController {
     }
   };
 
-  /** 外部请求：保持坐下，直到 unlockSit（不关心业务语义） */
-  lockSit = () => {
+  private lockSitImpl = () => {
     this.sitLock = true;
     this.lockSitPose();
     this.emitState();
   };
 
-  unlockSit = () => {
+  private unlockSitImpl = () => {
     if (!this.sitLock) {
       return;
     }
@@ -232,15 +286,14 @@ class PetController {
     this.emitState();
   };
 
-  /** 专注结束提醒：坐下并保持，直到 clearRestPrompt */
-  promptRestSit = () => {
+  private promptRestSitImpl = () => {
     this.sitLock = false;
     this.restPrompt = true;
     this.lockSitPose();
     this.emitState();
   };
 
-  clearRestPrompt = () => {
+  private clearRestPromptImpl = () => {
     if (!this.restPrompt) {
       return;
     }
@@ -256,6 +309,26 @@ class PetController {
     this.emitState();
   };
 
+  /** @deprecated 请优先 fire('focus-sit') */
+  lockSit = () => {
+    this.events.fire('focus-sit');
+  };
+
+  /** @deprecated 请优先 endEvent('focus-sit') */
+  unlockSit = () => {
+    this.events.emit('focus-sit', 'end');
+  };
+
+  /** @deprecated 请优先 fire('rest-prompt') */
+  promptRestSit = () => {
+    this.events.fire('rest-prompt');
+  };
+
+  /** @deprecated 请优先 endEvent('rest-prompt') */
+  clearRestPrompt = () => {
+    this.events.emit('rest-prompt', 'end');
+  };
+
   handlePointerDown = (event: PointerEvent) => {
     if (event.button !== 0 || !this.root) {
       return;
@@ -269,17 +342,10 @@ class PetController {
     if (!this.idleOnly) {
       this.renderer?.pause();
     }
-    this.topics.publish('drag:start', undefined);
+    this.events.emit('drag', 'start');
     this.emitState();
 
-    this.drag = {
-      pointerId: event.pointerId,
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      originX: this.pos.x,
-      originY: this.pos.y,
-      moved: false,
-    };
+    this.drag = createDragSession(event.pointerId, event.clientX, event.clientY, this.pos.x, this.pos.y);
     this.root.classList.add('sm-pet--dragging');
 
     const captureTarget = this.hoverZone ?? this.root;
@@ -295,6 +361,7 @@ class PetController {
   private handleHoverEnterAnim = () => {
     this.isHovering = true;
     this.mode = 'hover';
+    this.events.emit('hover', 'start');
     if (this.idleOnly) {
       this.playIdleLoop();
       this.emitState();
@@ -308,6 +375,7 @@ class PetController {
 
   private handleHoverLeaveAnim = () => {
     this.isHovering = false;
+    this.events.emit('hover', 'end');
     if (this.isSitLocked()) {
       this.lockSitPose();
       this.emitState();
@@ -325,26 +393,10 @@ class PetController {
 
   private attachDragListeners = (pointerId: number) => {
     this.detachDragListeners();
-
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerId === pointerId) {
-        this.applyDragMove(e.clientX, e.clientY);
-      }
-    };
-    const onEnd = (e: PointerEvent) => {
-      if (e.pointerId === pointerId) {
-        this.finishDrag(pointerId);
-      }
-    };
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onEnd);
-    window.addEventListener('pointercancel', onEnd);
-    this.detachDragWindow = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onEnd);
-      window.removeEventListener('pointercancel', onEnd);
-    };
+    this.detachDragWindow = attachWindowPointerSession(pointerId, {
+      onMove: (clientX, clientY) => this.applyDragMove(clientX, clientY),
+      onEnd: endedId => this.finishDrag(endedId),
+    });
   };
 
   private detachDragListeners = () => {
@@ -356,19 +408,12 @@ class PetController {
     if (!this.drag) {
       return;
     }
-
-    const dx = clientX - this.drag.startClientX;
-    const dy = clientY - this.drag.startClientY;
-    if (!this.drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+    const next = computeDragPosition(this.drag, clientX, clientY);
+    if (!next) {
       return;
     }
-
-    this.drag.moved = true;
-    const maxX = window.innerWidth - DRAG_VIEW_MARGIN - VIEW_SIZE;
-    const maxY = window.innerHeight - DRAG_VIEW_MARGIN - VIEW_SIZE;
-    const x = clamp(this.drag.originX + dx, DRAG_VIEW_MARGIN, Math.max(DRAG_VIEW_MARGIN, maxX));
-    const y = clamp(this.drag.originY + dy, DRAG_VIEW_MARGIN, Math.max(DRAG_VIEW_MARGIN, maxY));
-    this.applyRootPos(x, y);
+    this.applyRootPos(next.x, next.y);
+    this.events.emit('drag', 'update', { x: next.x, y: next.y });
   };
 
   private finishDrag = (pointerId: number) => {
@@ -392,7 +437,12 @@ class PetController {
       this.bounds = boundsAround(this.pos.x, this.pos.y);
     }
     this.target = { ...this.pos };
-    this.topics.publish('drag:end', undefined);
+    this.events.emit('drag', 'end', { moved: drag.moved, x: this.pos.x, y: this.pos.y });
+
+    if (!drag.moved) {
+      this.events.fire('click', { x: this.pos.x, y: this.pos.y });
+      this.events.emit('click', 'end', { x: this.pos.x, y: this.pos.y });
+    }
 
     if (this.isSitLocked()) {
       this.lockSitPose();
@@ -417,14 +467,13 @@ class PetController {
       this.emitState();
       return;
     }
-    this.beginWalkMotion({ preserveFacing: true });
+    this.events.fire('run');
   };
 
   private playIdleLoop = () => {
     const kind = getPetKind(this.kindId);
     this.phase = 'rest';
     this.renderer?.play(kind.defaultAnim);
-    this.publishIdleStart();
   };
 
   private sitForUser = () => {
@@ -469,7 +518,6 @@ class PetController {
     this.phase = 'walk';
     this.renderer?.play('run');
     this.walkLegsLeft = Math.floor(rand(2, 5));
-    this.publishWalkStart();
     this.emitState();
   };
 
@@ -477,7 +525,6 @@ class PetController {
     this.phase = 'rest';
     this.renderer?.pause();
     this.decisionAt = now + (holdMs ?? rand(2800, 5600));
-    this.publishIdleStart();
     this.emitState();
   };
 
@@ -497,7 +544,8 @@ class PetController {
       !this.isSitLocked() &&
       ts >= this.decisionAt
     ) {
-      this.beginWalkMotion();
+      // 常规事件：按权重随机（run 为主）
+      this.events.scheduleRegular();
     }
 
     this.tickWalk(dt);
@@ -510,42 +558,29 @@ class PetController {
       return;
     }
 
-    const dx = this.target.x - this.pos.x;
-    const dy = this.target.y - this.pos.y;
-    const dist = Math.hypot(dx, dy);
+    const result = stepWalk(
+      {
+        pos: this.pos,
+        target: this.target,
+        facingLeft: this.facingLeft,
+        walkLegsLeft: this.walkLegsLeft,
+      },
+      this.bounds,
+      this.walkSpeed,
+      dt,
+    );
 
-    if (dist < ARRIVE_EPS) {
-      if (this.walkLegsLeft > 0 || Math.random() < 0.7) {
-        this.walkLegsLeft = Math.max(0, this.walkLegsLeft - 1);
-        const next = pickHorizontalTarget(this.bounds, this.pos.x, this.pos.y, this.facingLeft, true);
-        this.target = { x: next.x, y: next.y };
-        this.updateFacing(next.goLeft, true);
-        return;
-      }
-      this.enterRest(performance.now());
+    if (result.kind === 'idle') {
+      this.events.fire('idle');
       return;
     }
 
-    const step = this.walkSpeed * dt;
-    const ratio = Math.min(1, step / dist);
-    const nextX = clamp(this.pos.x + dx * ratio, this.bounds.minX, this.bounds.maxX);
-    const nextY = clamp(this.pos.y + dy * Math.min(1, ratio * 1.8), this.bounds.minY, this.bounds.maxY);
-
-    const hitLeft = nextX <= this.bounds.minX + 0.5;
-    const hitRight = nextX >= this.bounds.maxX - 0.5;
-    if (hitLeft || hitRight) {
-      const next = pickHorizontalTarget(this.bounds, nextX, nextY, this.facingLeft, true);
-      this.target = { x: next.x, y: next.y };
-      this.updateFacing(next.goLeft, true);
-      this.walkLegsLeft = Math.max(this.walkLegsLeft, 1);
-    } else {
-      const nextFacing = faceTowardsTarget(nextX, this.target.x);
-      if (nextFacing !== null) {
-        this.updateFacing(nextFacing);
-      }
+    this.target = result.target;
+    this.walkLegsLeft = result.walkLegsLeft;
+    if (result.facingDirty) {
+      this.updateFacing(result.facingLeft, true);
     }
-
-    this.applyRootPos(nextX, nextY);
+    this.applyRootPos(result.pos.x, result.pos.y);
   };
 
   private handleResize = () => {
@@ -574,7 +609,6 @@ class PetController {
     }
     this.facingLeft = nextLeft;
     this.renderer?.setFacingLeft(nextLeft);
-    this.topics.publish('facing:change', { facingLeft: nextLeft });
     this.emitState();
   };
 
@@ -589,18 +623,20 @@ class PetController {
 
   private isSitLike = () => this.renderer?.isSitLike() ?? false;
 
-  private handleSitDownComplete = () => {
-    if (this.mode === 'hover') {
+  private handleAnimComplete = (ctx: PetEventHookContext) => {
+    const signal = ctx.payload as PetAnimSignalPayload | undefined;
+    if (signal?.animId === 'sit-down' && this.mode === 'hover') {
       this.renderer?.sit();
     }
   };
 
-  private publishIdleStart = () => {
-    this.topics.publish('idle:start', { mode: this.mode, phase: this.phase });
-  };
-
-  private publishWalkStart = () => {
-    this.topics.publish('walk:start', { mode: this.mode, phase: this.phase });
+  /** 动画帧 → anim:* 频道 */
+  private bridgeAnimTopicToEvents = (topic: string, payload: unknown) => {
+    const parsed = parseAnimTopic(topic, payload);
+    if (!parsed) {
+      return;
+    }
+    this.events.emit('anim', parsed.lifecycle, parsed.signal);
   };
 
   private emitState = () => {

@@ -30,8 +30,14 @@ const FloatingPet = ({
 
   const runtimeApi = useMemo<PetRuntimeApi>(
     () => ({
-      lockSit: () => handlersRef.current.lockSit(),
-      unlockSit: () => handlersRef.current.unlockSit(),
+      fire: ((...args: Parameters<PetRuntimeApi['fire']>) =>
+        handlersRef.current.fire(...args)) as PetRuntimeApi['fire'],
+      endEvent: (eventId, payload) => handlersRef.current.endEvent(eventId, payload),
+      updateEvent: (eventId, payload) => handlersRef.current.updateEvent(eventId, payload),
+      on: (topic, hook) => handlersRef.current.onPetEvent(topic, hook) ?? (() => undefined),
+      onEvent: (eventId, hook) => handlersRef.current.onPetEventId(eventId, hook) ?? (() => undefined),
+      registerEvent: def => handlersRef.current.registerPetEvent(def),
+      getPosition: () => handlersRef.current.getPosition(),
       promptRestReminder: actions => handlersRef.current.promptRestReminder(actions),
       clearRestReminder: () => handlersRef.current.clearRestReminder(),
       showTemporaryBubble: (actions, durationMs) => handlersRef.current.showTemporaryBubble(actions, durationMs),
