@@ -16,11 +16,11 @@ class PetSpriteRenderer {
   private el: HTMLDivElement | null = null;
   private facingLeft = false;
   private playing = false;
-  private anim: PetAnimId = 'run';
+  private anim: PetAnimId = 'walk';
   private frame = 0;
   private leftoverMs = 0;
   private oneShotFinished = false;
-  private defaultAnim: PetAnimId = 'run';
+  private defaultAnim: PetAnimId = 'walk';
 
   get viewSize() {
     return VIEW_SIZE;
@@ -58,10 +58,6 @@ class PetSpriteRenderer {
 
   sit = () => {
     this.setAnim('sit');
-  };
-
-  sitDown = () => {
-    this.setAnim('sit-down');
   };
 
   tick = (dtMs: number) => {
@@ -103,9 +99,7 @@ class PetSpriteRenderer {
 
   isSitting = () => this.anim === 'sit' && !this.playing;
 
-  isSitDown = () => this.anim === 'sit-down';
-
-  isSitLike = () => this.isSitting() || this.isSitDown();
+  isSitLike = () => this.isSitting();
 
   destroy = () => {
     this.publish = null;

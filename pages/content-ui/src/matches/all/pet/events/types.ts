@@ -2,7 +2,7 @@ import type { PetMode, PetPhase } from '../types';
 
 /**
  * 事件分类（只影响如何产生，不影响如何监听）：
- * - regular：宠物自行调度（run / idle）
+ * - regular：宠物自行调度（walk / idle）
  * - trigger：外部 fire（focus-sit / rest-prompt / 业务自定义）
  * - feedback：用户行为（hover / drag / click）
  */
@@ -56,6 +56,7 @@ type PetEventRuntime = {
   };
   beginWalk: (options?: { preserveFacing?: boolean }) => void;
   enterIdle: (holdMs?: number) => void;
+  playAnim: (animId: string) => void;
   lockSit: () => void;
   unlockSit: () => void;
   promptRestSit: () => void;

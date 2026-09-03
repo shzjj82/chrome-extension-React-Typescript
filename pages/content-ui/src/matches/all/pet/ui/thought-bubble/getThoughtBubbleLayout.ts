@@ -1,4 +1,5 @@
 import { getThoughtBubbleGeometry, THOUGHT_BUBBLE_SM } from './thoughtBubbleGeometry';
+import { STAGE_ACCESSORY_GAP_FROM_PET } from '../../constants';
 import type { ThoughtBubbleSize } from './thoughtBubbleGeometry';
 
 type ThoughtBubbleLayout = {
@@ -10,11 +11,10 @@ type ThoughtBubbleLayout = {
 };
 
 /** sm 时小圆点相对宠物中心的水平偏移（保持历史观感） */
-const SM_SMALL_DOT_OFFSET_FROM_CENTER =
-  -THOUGHT_BUBBLE_SM.viewBox.width / 2 - 18 + THOUGHT_BUBBLE_SM.smallDot.cx; /* facingLeft: -54 - 18 + 94 = 22 */
+const SM_SMALL_DOT_OFFSET_FROM_CENTER = -THOUGHT_BUBBLE_SM.viewBox.width / 2 - 13 + THOUGHT_BUBBLE_SM.smallDot.cx;
 
-/** sm 时小圆点相对宠物底边的高度（bottom:68 + 距壳底间隙） */
-const SM_SMALL_DOT_FROM_PET_BOTTOM = 68 + (THOUGHT_BUBBLE_SM.viewBox.height - THOUGHT_BUBBLE_SM.smallDot.cy);
+/** sm 时小圆点相对宠物底边的高度（bottom 基准 + 距壳底间隙） */
+const SM_SMALL_DOT_FROM_PET_BOTTOM = 63 + (THOUGHT_BUBBLE_SM.viewBox.height - THOUGHT_BUBBLE_SM.smallDot.cy);
 
 /**
  * 各尺寸共用「小圆点」锚点，使 md/lg 放大后气泡仍落在 sm 的历史位置。
@@ -30,7 +30,7 @@ const getThoughtBubbleLayout = (facingLeft: boolean, size: ThoughtBubbleSize = '
   const offsetX = targetFromCenter - visualDotX;
 
   const gapBelowDot = viewBox.height - smallDot.cy;
-  const bottom = SM_SMALL_DOT_FROM_PET_BOTTOM - gapBelowDot;
+  const bottom = SM_SMALL_DOT_FROM_PET_BOTTOM - gapBelowDot + STAGE_ACCESSORY_GAP_FROM_PET;
 
   return { offsetX, bottom, tailNearPet };
 };

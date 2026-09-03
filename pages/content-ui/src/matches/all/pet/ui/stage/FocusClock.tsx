@@ -1,3 +1,4 @@
+import { STAGE_ACCESSORY_GAP_FROM_PET } from '../../constants';
 import { useId } from 'react';
 import type { CSSProperties } from 'react';
 
@@ -10,6 +11,8 @@ type FocusClockProps = {
 };
 
 const SIZE = 40;
+const CLOCK_BOTTOM = 72;
+const CLOCK_SIDE_OFFSET = -6;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 const FACE_R = 16.2;
@@ -54,12 +57,12 @@ const FocusClock = ({ facingLeft, progress }: FocusClockProps) => {
 
   const style: CSSProperties = {
     position: 'absolute',
-    bottom: 60,
+    bottom: CLOCK_BOTTOM + STAGE_ACCESSORY_GAP_FROM_PET,
     width: SIZE,
     height: SIZE,
     zIndex: 3,
     pointerEvents: 'none',
-    ...(facingLeft ? { left: -6 } : { right: -6 }),
+    ...(facingLeft ? { left: CLOCK_SIDE_OFFSET } : { right: CLOCK_SIDE_OFFSET }),
   };
 
   return (

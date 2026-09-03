@@ -2,6 +2,9 @@ const VIEW_SIZE = 112;
 const DISPLAY_SIZE = 96;
 const SOURCE_FRAME = 96;
 
+/** 舞台附件（气泡、专注闹钟等）与宠物身体的额外间距 */
+const STAGE_ACCESSORY_GAP_FROM_PET = 14;
+
 const WANDER_MARGIN = 12;
 const FACE_FLIP_MIN_DX = 10;
 const ARRIVE_EPS = 3;
@@ -15,6 +18,7 @@ export {
   DRAG_VIEW_MARGIN,
   FACE_FLIP_MIN_DX,
   SOURCE_FRAME,
+  STAGE_ACCESSORY_GAP_FROM_PET,
   VIEW_SIZE,
   WANDER_MARGIN,
 };

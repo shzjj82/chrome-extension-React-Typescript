@@ -18,13 +18,15 @@ type PetClickPayload = {
  * 使用：`(ctx.payload as PetEventPayloadMap['drag'] | undefined)`
  */
 type PetEventPayloadMap = {
-  run: undefined;
+  walk: undefined;
   idle: undefined;
   hover: undefined;
   drag: PetDragPayload;
   click: PetClickPayload;
   'focus-sit': undefined;
   'rest-prompt': undefined;
+  run: undefined;
+  eat: undefined;
   anim: PetAnimSignalPayload;
   'look-clock': LookClockPayload;
   bubble: BubbleEventPayload;

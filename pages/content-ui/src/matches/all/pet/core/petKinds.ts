@@ -19,8 +19,8 @@ const PET_KINDS: Record<string, PetKindDef> = {
   'study-pet': {
     id: 'study-pet',
     skinId: 'skin-pet-default',
-    defaultAnim: 'run',
-    anims: ['run', 'sit', 'sit-down'],
+    defaultAnim: 'walk',
+    anims: ['walk', 'run', 'sit', 'eat'],
     behavior: 'wander',
   },
   'adoptable-pet': {

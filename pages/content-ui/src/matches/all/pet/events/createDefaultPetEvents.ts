@@ -3,16 +3,16 @@ import type { PetEventDefinition } from './types';
 
 /**
  * 宠物核心默认事件（不含业务 UI：look-clock / bubble 由业务注册）。
- * - 行为与动画分离：run/idle 是行为；帧信号走独立 `anim` 频道
+ * - 行为与动画分离：walk/idle 是行为；帧信号走独立 `anim` 频道
  */
 const createDefaultPetEvents = (): PetEventDefinition[] => [
   // —— 常规行为 ——
   {
-    id: 'run',
+    id: 'walk',
     kind: 'regular',
     weight: 3,
     builtin: true,
-    animId: 'run',
+    animId: 'walk',
     lifecycles: DEFAULT_EVENT_LIFECYCLES,
     execute: (_ctx, runtime) => {
       runtime.beginWalk();
@@ -80,6 +80,28 @@ const createDefaultPetEvents = (): PetEventDefinition[] => [
     },
     onEnd: (_ctx, runtime) => {
       runtime.clearRestPrompt();
+    },
+  },
+
+  // —— 动画触发（外部 fire 播放）——
+  {
+    id: 'run',
+    kind: 'trigger',
+    builtin: true,
+    animId: 'run',
+    lifecycles: DEFAULT_EVENT_LIFECYCLES,
+    execute: (_ctx, runtime) => {
+      runtime.playAnim('run');
+    },
+  },
+  {
+    id: 'eat',
+    kind: 'trigger',
+    builtin: true,
+    animId: 'eat',
+    lifecycles: DEFAULT_EVENT_LIFECYCLES,
+    execute: (_ctx, runtime) => {
+      runtime.playAnim('eat');
     },
   },
 ];

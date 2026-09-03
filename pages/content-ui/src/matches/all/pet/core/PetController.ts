@@ -10,13 +10,7 @@ import { boundsAround, clamp, rand, resolveBounds } from '../utils/bounds';
 import type { PetKindId } from './petKinds';
 import type { PetControllerState, PetTopic, PetTopicPayload } from './topics';
 import type { DragSession } from '../behavior/dragSession';
-import type {
-  PetAnimSignalPayload,
-  PetEventDefinition,
-  PetEventFireArgs,
-  PetEventHook,
-  PetEventHookContext,
-} from '../events';
+import type { PetEventDefinition, PetEventFireArgs, PetEventHook } from '../events';
 import type { PetBounds, PetMode, PetPhase } from '../types';
 
 type PetControllerOptions = {
@@ -80,7 +74,6 @@ class PetController {
 
   private mounted = false;
   private disposed = false;
-  private unsubAnimComplete: (() => void) | null = null;
 
   constructor(options: PetControllerOptions = {}) {
     this.walkSpeed = options.walkSpeed ?? 54;
@@ -105,6 +98,7 @@ class PetController {
       }),
       beginWalk: opts => this.beginWalkMotion(opts),
       enterIdle: holdMs => this.enterRest(performance.now(), holdMs),
+      playAnim: animId => this.playAnimImpl(animId),
       lockSit: () => this.lockSitImpl(),
       unlockSit: () => this.unlockSitImpl(),
       promptRestSit: () => this.promptRestSitImpl(),
@@ -193,13 +187,12 @@ class PetController {
       // 动画只进统一事件频道 anim:*，不再双发 Topic
       this.bridgeAnimTopicToEvents(String(topic), payload);
     });
-    this.unsubAnimComplete = this.events.on('anim:complete', this.handleAnimComplete);
     renderer.mount(this.host);
 
     if (this.idleOnly) {
       this.playIdleLoop();
     } else {
-      this.events.fire('run');
+      this.events.fire('walk');
     }
     this.rafId = window.requestAnimationFrame(this.tick);
     window.addEventListener('resize', this.handleResize);
@@ -221,8 +214,6 @@ class PetController {
       this.rafId = null;
     }
 
-    this.unsubAnimComplete?.();
-    this.unsubAnimComplete = null;
     this.renderer?.destroy();
     this.renderer = null;
     this.events.clear();
@@ -490,7 +481,15 @@ class PetController {
       this.emitState();
       return;
     }
-    this.events.fire('run');
+    this.events.fire('walk');
+  };
+
+  private playAnimImpl = (animId: string) => {
+    if (!this.renderer) {
+      return;
+    }
+    this.phase = 'rest';
+    this.renderer.play(animId);
   };
 
   private playIdleLoop = () => {
@@ -505,7 +504,7 @@ class PetController {
     }
     this.clearResumeTimer();
     this.phase = 'rest';
-    this.renderer.sitDown();
+    this.renderer.sit();
   };
 
   private scheduleAutoResume = () => {
@@ -544,7 +543,7 @@ class PetController {
     this.target = { x: next.x, y: next.y };
     this.updateFacing(next.goLeft, true);
     this.phase = 'walk';
-    this.renderer?.play('run');
+    this.renderer?.play('walk');
     this.walkLegsLeft = Math.floor(rand(2, 5));
     this.emitState();
   };
@@ -655,13 +654,6 @@ class PetController {
   private isDragging = () => this.mode === 'drag' || this.drag !== null;
 
   private isSitLike = () => this.renderer?.isSitLike() ?? false;
-
-  private handleAnimComplete = (ctx: PetEventHookContext) => {
-    const signal = ctx.payload as PetAnimSignalPayload | undefined;
-    if (signal?.animId === 'sit-down' && this.mode === 'hover') {
-      this.renderer?.sit();
-    }
-  };
 
   /** 动画帧 → anim:* 频道 */
   private bridgeAnimTopicToEvents = (topic: string, payload: unknown) => {
