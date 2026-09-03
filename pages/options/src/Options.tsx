@@ -196,7 +196,7 @@ const Options = () => {
           </div>
         </section>
 
-        <section className="sm-card">
+        <section className="sm-card" id="llm">
           <h2 className="sm-card__title">{t('llmTitle')}</h2>
           <label>
             {t('llmProvider')}

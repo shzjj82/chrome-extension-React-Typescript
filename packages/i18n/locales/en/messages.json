@@ -19,6 +19,21 @@
   "startLearning": {
     "message": "开始学习"
   },
+  "petStatHunger": {
+    "message": "Hunger"
+  },
+  "petStatMood": {
+    "message": "Mood"
+  },
+  "petStatGrowth": {
+    "message": "Growth"
+  },
+  "petStatsTitle": {
+    "message": "Pet status"
+  },
+  "openLlmSettings": {
+    "message": "LLM settings"
+  },
   "learningInProgress": {
     "message": "专注中"
   },

@@ -7,6 +7,7 @@
   --sm-accent: #d64545;
   --sm-accent-deep: #b83232;
   --sm-muted: rgba(61, 46, 34, 0.68);
+  --sm-track: rgba(61, 46, 34, 0.08);
   width: 300px;
   min-height: 280px;
   color: var(--sm-ink);
@@ -22,6 +23,7 @@
   --sm-card: #2f261f;
   --sm-line: rgba(246, 239, 230, 0.14);
   --sm-muted: rgba(246, 239, 230, 0.68);
+  --sm-track: rgba(246, 239, 230, 0.1);
 }
 
 .App-header {
@@ -31,6 +33,14 @@
   justify-content: center;
   gap: 12px;
   padding: 18px 16px 16px;
+}
+
+.App__top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
 }
 
 .App__pet {
@@ -52,6 +62,39 @@
   to {
     background-position: -576px 0;
   }
+}
+
+.App__settings {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--sm-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sm-card) 88%, transparent);
+  color: var(--sm-ink);
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(61, 46, 34, 0.08);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.App__settings:hover {
+  background: var(--sm-card);
+  border-color: color-mix(in srgb, var(--sm-accent) 35%, var(--sm-line));
+  transform: translateY(-1px);
+}
+
+.App__settings:focus-visible {
+  outline: 2px solid rgba(214, 69, 69, 0.45);
+  outline-offset: 2px;
 }
 
 .App__brand {
@@ -79,4 +122,66 @@
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.28) inset,
     0 8px 16px rgba(184, 50, 50, 0.24) !important;
+}
+
+.App__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--sm-card) 92%, transparent);
+  box-shadow: 0 6px 14px rgba(61, 46, 34, 0.06);
+}
+
+.App__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.App__stat-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.App__stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sm-ink);
+}
+
+.App__stat-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.App__stat-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--sm-track);
+}
+
+.App__stat-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 240ms ease;
+}
+
+.App__stat--hunger .App__stat-fill {
+  background: linear-gradient(90deg, #f0a35a 0%, #e07838 100%);
+}
+
+.App__stat--mood .App__stat-fill {
+  background: linear-gradient(90deg, #7eb8e8 0%, #4f8fd1 100%);
+}
+
+.App__stat--growth .App__stat-fill {
+  background: linear-gradient(90deg, #7bc47f 0%, #4ea056 100%);
 }

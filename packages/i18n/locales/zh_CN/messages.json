@@ -19,6 +19,21 @@
   "startLearning": {
     "message": "开始学习"
   },
+  "petStatHunger": {
+    "message": "饥饿度"
+  },
+  "petStatMood": {
+    "message": "心情"
+  },
+  "petStatGrowth": {
+    "message": "成长值"
+  },
+  "petStatsTitle": {
+    "message": "宠物状态"
+  },
+  "openLlmSettings": {
+    "message": "大模型设置"
+  },
   "learningInProgress": {
     "message": "专注中"
   },
