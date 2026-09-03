@@ -7,22 +7,14 @@ type PetBubbleActionListProps = {
   actions: PetInteractionAction[];
 };
 
-const needsBubbleWrap = (actions: PetInteractionAction[]) =>
-  actions.some(action => action.headLine && action.actionText) ||
-  actions.length === 1 ||
-  actions.some(action => action.label.length > 5);
-
+/** 气泡操作列表：换行由内容与容器宽度决定，不做布局启发式拆行 */
 const PetBubbleActionList = ({ actions }: PetBubbleActionListProps) => {
   if (actions.length === 0) {
     return null;
   }
 
-  const className = needsBubbleWrap(actions)
-    ? 'sm-pet__thought-actions sm-pet__thought-actions--wrap'
-    : 'sm-pet__thought-actions';
-
   return (
-    <div className={className}>
+    <div className="sm-pet__thought-actions">
       {actions.map((action, index) => (
         <Fragment key={action.id}>
           {index > 0 ? <PetBubbleOrSeparator /> : null}

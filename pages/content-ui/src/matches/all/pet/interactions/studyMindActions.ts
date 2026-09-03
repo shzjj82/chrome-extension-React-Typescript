@@ -29,7 +29,7 @@ const createResumeFocusHoverActions = (): PetInteractionAction[] => [
   },
 ];
 
-/** 专注中 hover：云朵内两行 —— 已专注 xx 分钟 / 休息 or 结束（不拆成多段以免挤进圆点） */
+/** 专注中 hover：状态文案 + 休息/结束；换行由文案与气泡宽度决定 */
 const createFocusHoverActions = (elapsedMinutes: number): PetInteractionAction[] => {
   const minutes = Math.max(0, Math.floor(elapsedMinutes));
   return [

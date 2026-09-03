@@ -27,6 +27,18 @@ export { PetSpriteHost } from './ui/stage/PetSpriteHost';
 export { FocusClock } from './ui/stage/FocusClock';
 export { PetThoughtBubble } from './ui/thought-bubble/PetThoughtBubble';
 export { ThoughtBubbleShape } from './ui/thought-bubble/ThoughtBubbleShape';
+export { getThoughtBubbleContentRect } from './ui/thought-bubble/getThoughtBubbleContentRect';
+export {
+  resolveThoughtBubbleSize,
+  nextThoughtBubbleSize,
+  maxThoughtBubbleSize,
+} from './ui/thought-bubble/resolveThoughtBubbleSize';
+export {
+  getThoughtBubbleGeometry,
+  THOUGHT_BUBBLE_CLOUD_PATH,
+  THOUGHT_BUBBLE_VIEWBOX,
+  THOUGHT_BUBBLE_BY_SIZE,
+} from './ui/thought-bubble/thoughtBubbleGeometry';
 export { PetBubbleMenu } from './ui/bubble-menu/PetBubbleMenu';
 export { PetBubbleActionList } from './ui/bubble-menu/PetBubbleActionList';
 export { PetView } from './ui/PetView';
@@ -44,6 +56,15 @@ export type {
   StageAccessoryResolver,
 } from './types';
 export type { PetControllerOptions, PetMountTarget } from './core/PetController';
+export type {
+  GetThoughtBubbleContentRectOptions,
+  ThoughtBubbleContentRect,
+} from './ui/thought-bubble/getThoughtBubbleContentRect';
+export type {
+  ThoughtBubbleGeometry,
+  ThoughtBubbleSize,
+  ThoughtBubbleViewBox,
+} from './ui/thought-bubble/thoughtBubbleGeometry';
 export type { PetBehaviorMode, PetKindDef, PetKindId } from './core/petKinds';
 export type { BubbleContentResolver, BubbleControllerState, BubbleStateListener } from './bubble/BubbleController';
 export type {

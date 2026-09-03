@@ -245,7 +245,7 @@
     "message": "先歇一会儿"
   },
   "petFocusElapsedHead": {
-    "message": "已专注$1分钟，"
+    "message": "专注$1分钟，"
   },
   "petFocusEnd": {
     "message": "结束"

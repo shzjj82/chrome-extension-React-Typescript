@@ -66,10 +66,8 @@
 
 .sm-pet__thought {
   position: absolute;
-  bottom: 68px;
+  /* bottom / 宽高由 size 锚点通过 inline style 注入，保持与 sm 历史位置一致 */
   left: 50%;
-  width: 108px;
-  height: 88px;
   z-index: 5;
   pointer-events: auto;
   overflow: visible;
@@ -84,8 +82,8 @@
 
 .sm-pet__thought-art {
   display: block;
-  width: 108px;
-  height: 88px;
+  width: 100%;
+  height: 100%;
   overflow: visible;
   pointer-events: none;
 }
@@ -103,41 +101,58 @@
   stroke-width: 1.8;
 }
 
-/* 云朵主体内的文案区域（对齐云朵中部，避开下方小圆点） */
+/* 文案区：定位/尺寸由 getThoughtBubbleContentRect 注入 */
 .sm-pet__thought-body {
   position: absolute;
-  top: 18px;
-  left: 50%;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 88px;
-  height: 42px;
-  transform: translateX(-50%);
+  box-sizing: border-box;
   pointer-events: auto;
   overflow: hidden;
 }
 
-.sm-pet__thought-actions {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.sm-pet__thought-body-inner {
+  position: relative;
   width: 100%;
-  gap: 2px;
-  text-align: center;
-  white-space: nowrap;
+  max-height: 100%;
 }
 
-.sm-pet__thought-actions--wrap {
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  white-space: normal;
+/* 固定在文案区右下，表示溢出；点击交互暂未定义 */
+.sm-pet__thought-ellipsis {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  padding: 0 2px;
+  margin: 0;
+  border-radius: 2px;
+  background: rgba(255, 254, 248, 0.94);
+  color: #ea580c;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sm-pet__thought-actions {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 9px;
+  line-height: 1.25;
+  /* pre-line：文案里的 \n 硬换行；其余由内容宽度自然软换行 */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .sm-pet__thought-link {
+  max-width: 100%;
   padding: 1px 2px;
   margin: 0;
   border: 0;
@@ -147,6 +162,7 @@
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0.01em;
+  white-space: pre-line;
   cursor: pointer;
   text-decoration: underline dotted;
   text-decoration-color: rgba(234, 88, 12, 0.72);
@@ -158,51 +174,28 @@
     text-decoration-color 160ms ease;
 }
 
-.sm-pet__thought-adopt {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  width: 100%;
-  max-height: 42px;
-  font-size: 8px;
-  line-height: 1.25;
-}
-
-.sm-pet__thought-line {
-  display: block;
-  width: 100%;
-  text-align: center;
-  white-space: nowrap;
+/* 结构化文案：与操作链同一行内联流，换行交给内容 / 容器 */
+.sm-pet__thought-copy {
   color: #3d2e22;
+  font-size: 9px;
   font-weight: 600;
-}
-
-.sm-pet__thought-line--action {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: nowrap;
-  gap: 0;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
 .sm-pet__thought-text {
   color: #3d2e22;
+  font-size: 9px;
   font-weight: 600;
 }
 
 .sm-pet__thought-link--inline {
   display: inline;
-  flex-shrink: 0;
   padding: 0 1px;
   margin: 0;
   vertical-align: baseline;
-  font-size: inherit;
+  font-size: 9px;
   font-weight: 800;
   line-height: inherit;
-  white-space: nowrap;
 }
 
 .sm-pet__thought-link:hover {
@@ -222,7 +215,7 @@
 }
 
 .sm-pet__thought-or {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 600;
   color: #7a6555;
   line-height: 1.2;
