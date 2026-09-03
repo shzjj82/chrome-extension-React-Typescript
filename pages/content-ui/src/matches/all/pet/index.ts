@@ -10,6 +10,7 @@ export {
   createStudyMindHoverActions,
   createStudyMindPetHoverActions,
   createFocusHoverActions,
+  createResumeFocusHoverActions,
   createRestReminderAction,
   createFocusProgressAction,
 } from './interactions/studyMindActions';

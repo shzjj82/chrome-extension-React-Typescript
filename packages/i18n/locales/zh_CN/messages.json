@@ -232,6 +232,12 @@
   "petActionStudyTitle": {
     "message": "进入专注"
   },
+  "petActionResumeFocus": {
+    "message": "恢复专注"
+  },
+  "petActionResumeFocusTitle": {
+    "message": "继续刚才的专注"
+  },
   "petActionRest": {
     "message": "休息"
   },

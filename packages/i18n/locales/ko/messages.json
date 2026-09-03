@@ -232,6 +232,12 @@
   "petActionStudyTitle": {
     "message": "집중하기"
   },
+  "petActionResumeFocus": {
+    "message": "집중 재개"
+  },
+  "petActionResumeFocusTitle": {
+    "message": "이어서 집중하기"
+  },
   "petActionRest": {
     "message": "휴식"
   },

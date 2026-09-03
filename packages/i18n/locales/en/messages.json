@@ -232,6 +232,12 @@
   "petActionStudyTitle": {
     "message": "Enter focus"
   },
+  "petActionResumeFocus": {
+    "message": "Resume focus"
+  },
+  "petActionResumeFocusTitle": {
+    "message": "Continue focusing"
+  },
   "petActionRest": {
     "message": "Rest"
   },

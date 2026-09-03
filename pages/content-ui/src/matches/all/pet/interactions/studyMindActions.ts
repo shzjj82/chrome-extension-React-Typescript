@@ -14,13 +14,17 @@ const createStudyMindHoverActions = (): PetInteractionAction[] => [
       void sendExtensionMessage(ExtensionMessageType.START_LEARNING);
     },
   },
+];
+
+/** 暂停 / 休息中：恢复专注（不是重新「专注」） */
+const createResumeFocusHoverActions = (): PetInteractionAction[] => [
   {
-    id: 'rest',
-    label: t('petActionRest'),
-    title: t('petActionRestTitle'),
-    ariaLabel: t('petActionRest'),
+    id: 'resume-focus',
+    label: t('petActionResumeFocus'),
+    title: t('petActionResumeFocusTitle'),
+    ariaLabel: t('petActionResumeFocus'),
     onSelect: () => {
-      void sendExtensionMessage(ExtensionMessageType.POMODORO_START_BREAK);
+      void sendExtensionMessage(ExtensionMessageType.POMODORO_START);
     },
   },
 ];
@@ -95,6 +99,7 @@ export {
   createStudyMindAdoptAction,
   createStudyMindHoverActions,
   createStudyMindPetHoverActions,
+  createResumeFocusHoverActions,
   createFocusHoverActions,
   createRestReminderAction,
   createFocusProgressAction,

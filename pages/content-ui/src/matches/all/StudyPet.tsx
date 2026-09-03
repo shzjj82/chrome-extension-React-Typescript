@@ -2,6 +2,7 @@ import {
   FloatingPet,
   FocusClock,
   createFocusHoverActions,
+  createResumeFocusHoverActions,
   createStudyMindPetHoverActions,
   defaultBounds,
   VIEW_SIZE,
@@ -26,6 +27,10 @@ const StudyPet = (props: StudyPetProps) => {
     if (pomodoro.phase === 'focus') {
       const elapsedMinutes = pomodoro.startedAt ? Math.floor((Date.now() - pomodoro.startedAt) / 60_000) : 0;
       return createFocusHoverActions(elapsedMinutes);
+    }
+    // 暂停/休息中：恢复专注；默认 idle：仅「专注」
+    if (pomodoro.phase === 'break') {
+      return createResumeFocusHoverActions();
     }
     return createStudyMindPetHoverActions(profile);
   }, [profile, pomodoro.phase, pomodoro.startedAt]);
