@@ -1,5 +1,6 @@
 import type { BubbleContentResolver } from './bubble/BubbleController';
 import type { PetController } from './core/PetController';
+import type { PetKindId } from './core/petKinds';
 import type { RefObject } from 'react';
 
 type PetBounds = {
@@ -36,11 +37,15 @@ type FloatingPetProps = {
   bounds?: Partial<PetBounds>;
   resumeDelayMs?: number;
   walkSpeed?: number;
+  /** 宠物种类：认养前用 adoptable-pup */
+  kind?: PetKindId;
   /** 气泡文案解析：气泡层自管显隐，内容由此回调提供 */
   resolveBubbleActions?: BubbleContentResolver;
   ariaLabel?: string;
   /** 宠物实例引用，创建后可通过 subscribe / unsubscribe 订阅消息 */
   controllerRef?: RefObject<PetController | null>;
+  /** 专注结束后狗狗坐下提醒休息（默认开启） */
+  enableFocusRestReminder?: boolean;
 };
 
 export type { FloatingPetProps, PetBounds, PetInteractionAction, PetMode, PetPhase };

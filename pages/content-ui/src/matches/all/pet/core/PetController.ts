@@ -1,8 +1,10 @@
+import { getPetKind } from './petKinds';
 import { PetTopicBus } from './PetTopicBus';
 import { PetSpriteRenderer } from '../animation/PetSpriteRenderer';
 import { faceTowardsTarget, pickHorizontalTarget } from '../behavior/wander';
 import { ARRIVE_EPS, DRAG_THRESHOLD, DRAG_VIEW_MARGIN, VIEW_SIZE } from '../constants';
 import { boundsAround, clamp, rand, resolveBounds } from '../utils/bounds';
+import type { PetKindId } from './petKinds';
 import type { PetControllerState, PetTopic, PetTopicPayload } from './topics';
 import type { PetBounds, PetMode, PetPhase } from '../types';
 
@@ -12,6 +14,8 @@ type PetControllerOptions = {
   bounds?: Partial<PetBounds>;
   /** 固定 bounds，拖拽后不自动重算活动范围 */
   fixedBounds?: boolean;
+  /** 宠物种类：认养前用 adoptable-pup（仅 idle 循环） */
+  kind?: PetKindId;
 };
 
 type PetMountTarget = {
@@ -39,6 +43,8 @@ class PetController {
   private readonly walkSpeed: number;
   private readonly resumeDelayMs: number;
   private readonly fixedBounds: boolean;
+  private readonly kindId: PetKindId;
+  private readonly idleOnly: boolean;
 
   private bounds: PetBounds;
   private boundsOverride?: Partial<PetBounds>;
@@ -59,6 +65,7 @@ class PetController {
   private resumeTimer: number | null = null;
   private resumeFromSit = false;
   private isHovering = false;
+  private restPrompt = false;
   private drag: DragSession | null = null;
   private detachDragWindow: (() => void) | null = null;
 
@@ -75,6 +82,11 @@ class PetController {
     this.fixedBounds = options.fixedBounds ?? false;
     this.boundsOverride = options.bounds;
     this.bounds = resolveBounds(options.bounds);
+    this.kindId = options.kind ?? 'study-buddy';
+    this.idleOnly = getPetKind(this.kindId).behavior === 'idle-loop';
+    if (this.idleOnly) {
+      this.phase = 'rest';
+    }
   }
 
   getState = (): PetControllerState => ({
@@ -117,15 +129,21 @@ class PetController {
     this.target = { x: startX, y: startY };
     this.applyRootPos(startX, startY);
 
+    const kind = getPetKind(this.kindId);
     const renderer = new PetSpriteRenderer();
     this.renderer = renderer;
+    renderer.setDefaultAnim(kind.defaultAnim);
     renderer.bindPublish((topic, payload) => this.topics.publish(topic, payload));
     this.topics.subscribe('sit-down:complete', this.handleSitDownComplete);
     this.topics.subscribe('hover:enter', this.handleHoverEnterAnim);
     this.topics.subscribe('hover:leave', this.handleHoverLeaveAnim);
     renderer.mount(this.host);
 
-    this.beginWalkMotion();
+    if (this.idleOnly) {
+      this.playIdleLoop();
+    } else {
+      this.beginWalkMotion();
+    }
     this.rafId = window.requestAnimationFrame(this.tick);
     window.addEventListener('resize', this.handleResize);
   };
@@ -173,6 +191,37 @@ class PetController {
     this.topics.publish('hover:leave', undefined);
   };
 
+  /** 专注结束：坐下并保持，直到 clearRestPrompt */
+  promptRestSit = () => {
+    if (this.idleOnly) {
+      this.playIdleLoop();
+      this.restPrompt = true;
+      this.emitState();
+      return;
+    }
+    this.restPrompt = true;
+    this.clearResumeTimer();
+    this.mode = 'hover';
+    this.phase = 'rest';
+    if (!this.isSitLike()) {
+      this.sitForUser();
+    } else {
+      this.renderer?.sit();
+    }
+    this.emitState();
+  };
+
+  clearRestPrompt = () => {
+    if (!this.restPrompt) {
+      return;
+    }
+    this.restPrompt = false;
+    this.isHovering = false;
+    this.mode = 'auto';
+    this.scheduleAutoResume();
+    this.emitState();
+  };
+
   handlePointerDown = (event: PointerEvent) => {
     if (event.button !== 0 || !this.root) {
       return;
@@ -183,7 +232,9 @@ class PetController {
     this.clearResumeTimer();
     this.mode = 'drag';
     this.phase = 'rest';
-    this.renderer?.pause();
+    if (!this.idleOnly) {
+      this.renderer?.pause();
+    }
     this.topics.publish('drag:start', undefined);
     this.emitState();
 
@@ -210,6 +261,11 @@ class PetController {
   private handleHoverEnterAnim = () => {
     this.isHovering = true;
     this.mode = 'hover';
+    if (this.idleOnly) {
+      this.playIdleLoop();
+      this.emitState();
+      return;
+    }
     if (!this.isSitLike()) {
       this.sitForUser();
     }
@@ -218,6 +274,16 @@ class PetController {
 
   private handleHoverLeaveAnim = () => {
     this.isHovering = false;
+    if (this.restPrompt) {
+      this.emitState();
+      return;
+    }
+    if (this.idleOnly) {
+      this.mode = 'auto';
+      this.playIdleLoop();
+      this.emitState();
+      return;
+    }
     this.scheduleAutoResume();
     this.emitState();
   };
@@ -293,9 +359,22 @@ class PetController {
     this.target = { ...this.pos };
     this.topics.publish('drag:end', undefined);
 
+    if (this.restPrompt) {
+      this.mode = 'hover';
+      if (this.idleOnly) {
+        this.playIdleLoop();
+      } else if (!this.isSitLike()) {
+        this.sitForUser();
+      }
+      this.emitState();
+      return;
+    }
+
     if (this.isHovering) {
       this.mode = 'hover';
-      if (!this.isSitLike()) {
+      if (this.idleOnly) {
+        this.playIdleLoop();
+      } else if (!this.isSitLike()) {
         this.sitForUser();
       }
       this.emitState();
@@ -303,11 +382,23 @@ class PetController {
     }
 
     this.mode = 'auto';
+    if (this.idleOnly) {
+      this.playIdleLoop();
+      this.emitState();
+      return;
+    }
     this.beginWalkMotion({ preserveFacing: true });
   };
 
+  private playIdleLoop = () => {
+    const kind = getPetKind(this.kindId);
+    this.phase = 'rest';
+    this.renderer?.play(kind.defaultAnim);
+    this.publishIdleStart();
+  };
+
   private sitForUser = () => {
-    if (!this.renderer || this.isSitLike()) {
+    if (this.idleOnly || !this.renderer || this.isSitLike()) {
       return;
     }
     this.clearResumeTimer();
@@ -316,9 +407,12 @@ class PetController {
   };
 
   private scheduleAutoResume = () => {
+    if (this.restPrompt) {
+      return;
+    }
     this.clearResumeTimer();
     this.resumeTimer = window.setTimeout(() => {
-      if (this.isDragging()) {
+      if (this.isDragging() || this.restPrompt) {
         return;
       }
       this.resumeFromSit = true;
@@ -330,6 +424,12 @@ class PetController {
   };
 
   private beginWalkMotion = (options?: { preserveFacing?: boolean }) => {
+    if (this.idleOnly) {
+      this.playIdleLoop();
+      this.emitState();
+      return;
+    }
+
     const preserveFacing = options?.preserveFacing ?? this.resumeFromSit;
     this.resumeFromSit = false;
 
@@ -360,7 +460,7 @@ class PetController {
     const dt = Math.min(0.05, (ts - last) / 1000);
     this.lastTs = ts;
 
-    if (this.mode === 'auto' && this.phase === 'rest' && ts >= this.decisionAt) {
+    if (this.mode === 'auto' && this.phase === 'rest' && !this.idleOnly && !this.restPrompt && ts >= this.decisionAt) {
       this.beginWalkMotion();
     }
 

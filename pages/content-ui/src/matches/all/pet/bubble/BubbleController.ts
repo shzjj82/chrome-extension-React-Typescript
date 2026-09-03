@@ -22,6 +22,7 @@ class BubbleController {
   private visible = false;
   private hovering = false;
   private dragging = false;
+  private pinned = false;
   private actions: PetInteractionAction[] = [];
   private listeners = new Set<BubbleStateListener>();
   private attached = false;
@@ -50,6 +51,7 @@ class BubbleController {
     this.visible = false;
     this.hovering = false;
     this.dragging = false;
+    this.pinned = false;
     this.actions = [];
     this.listeners.clear();
   };
@@ -74,28 +76,44 @@ class BubbleController {
   };
 
   hide = () => {
+    this.pinned = false;
     this.setVisible(false);
+  };
+
+  /** 固定展示气泡（不随 hover leave 消失），用于休息提醒等 */
+  showPinned = (actions: PetInteractionAction[]) => {
+    this.pinned = true;
+    this.actions = this.wrapActions(actions);
+    this.visible = this.actions.length > 0;
+    this.emit();
   };
 
   private onHoverEnter = () => {
     this.hovering = true;
-    if (!this.dragging) {
+    if (!this.dragging && !this.pinned) {
       this.showWithFreshActions();
     }
   };
 
   private onHoverLeave = () => {
     this.hovering = false;
-    this.setVisible(false);
+    if (!this.pinned) {
+      this.setVisible(false);
+    }
   };
 
   private onDragStart = () => {
     this.dragging = true;
-    this.setVisible(false);
+    if (!this.pinned) {
+      this.setVisible(false);
+    }
   };
 
   private onDragEnd = () => {
     this.dragging = false;
+    if (this.pinned) {
+      return;
+    }
     if (this.hovering) {
       this.showWithFreshActions();
     }

@@ -10,7 +10,7 @@ const StudyPet = (props: StudyPetProps) => {
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const resolveBubbleActions = useCallback(() => createStudyMindPetHoverActions(profile), [profile]);
 
-  return <FloatingPet {...props} resolveBubbleActions={resolveBubbleActions} ariaLabel="Study Mind 学习伙伴" />;
+  return <FloatingPet {...props} resolveBubbleActions={resolveBubbleActions} ariaLabel="Study Mind 陪伴伙伴" />;
 };
 
 export type { PetBounds as Bounds, StudyPetProps };

@@ -13,7 +13,7 @@ import {
 } from '@extension/storage';
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useState } from 'react';
-import type { LearningModePreference, LlmProviderId, UserGender } from '@extension/storage';
+import type { LearningModePreference, LlmProviderId } from '@extension/storage';
 
 const Options = () => {
   const { isLight } = useStorage(exampleThemeStorage);
@@ -22,6 +22,13 @@ const Options = () => {
   const pomodoro = useStorage(pomodoroSettingsStorage);
   const ui = useStorage(uiSettingsStorage);
   const [savedHint, setSavedHint] = useState('');
+  // 文本本地草稿，避免 liveUpdate 打断中文输入
+  const [nickname, setNickname] = useState(profile.nickname);
+  const [gender, setGender] = useState(profile.gender || 'male');
+  const [occupation, setOccupation] = useState(profile.occupation);
+  const [domains, setDomains] = useState(profile.domains);
+
+  const adoptionDraft = { ...profile, nickname, gender, occupation };
 
   const toggleMode = (mode: LearningModePreference) => {
     void userProfileStorage.set(prev => {
@@ -39,64 +46,79 @@ const Options = () => {
   };
 
   return (
-    <div
-      className={cn('min-h-screen px-6 py-8', isLight ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100')}>
-      <div className="mx-auto flex max-w-3xl flex-col gap-8">
-        <header className="space-y-2">
-          <h1 className="text-2xl font-semibold">Study Mind AI · {t('openOptions')}</h1>
-          <p className="text-sm opacity-80">{t('riskPrivacy')}</p>
-          {savedHint ? <p className="text-sm text-emerald-600">{savedHint}</p> : null}
+    <div className={cn('options-shell', !isLight && 'options-shell--dark')}>
+      <div className="options-shell__inner">
+        <header className="options-shell__header">
+          <h1 className="options-shell__brand">Study Mind · {t('openOptions')}</h1>
+          <p className="options-shell__hint">{t('riskPrivacy')}</p>
+          {savedHint ? <p className="options-shell__flash">{savedHint}</p> : null}
         </header>
 
-        <section className="space-y-3 rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/70">
-          <h2 className="text-lg font-medium">{t('userInfoTitle')}</h2>
-          <p className="text-xs opacity-80">{t('userInfoHint')}</p>
-          <label className="block text-sm">
-            {t('profileNickname')}
+        <section className="sm-card adopt-section">
+          <div className="adopt-section__hero">
+            <div className="adopt-section__pet" aria-hidden="true" />
+            <div>
+              <p className="adopt-section__eyebrow">{t('adoptEyebrow')}</p>
+              <h2 className="adopt-section__title">{t('userInfoTitle')}</h2>
+              <p className="adopt-section__hint">{t('userInfoHint')}</p>
+            </div>
+          </div>
+          <label className="adopt-field">
+            <span className="adopt-field__label">{t('profileNickname')}</span>
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
-              value={profile.nickname}
-              onChange={event => void userProfileStorage.set(prev => ({ ...prev, nickname: event.target.value }))}
+              className="adopt-field__input"
+              value={nickname}
+              onChange={event => setNickname(event.target.value)}
               placeholder={t('profileNicknamePlaceholder')}
             />
           </label>
-          <label className="block text-sm">
-            {t('profileGender')}
-            <select
-              className="mt-1 w-full rounded border px-3 py-2"
-              value={profile.gender}
-              onChange={event =>
-                void userProfileStorage.set(prev => ({
-                  ...prev,
-                  gender: event.target.value as UserGender,
-                }))
-              }>
-              <option value="">{t('profileGenderUnset')}</option>
-              <option value="male">{t('profileGenderMale')}</option>
-              <option value="female">{t('profileGenderFemale')}</option>
-              <option value="other">{t('profileGenderOther')}</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            {t('profileOccupation')}
+          <div className="adopt-field">
+            <span className="adopt-field__label">{t('profileGender')}</span>
+            <div className="adopt-gender" role="group" aria-label={t('profileGender')}>
+              {(
+                [
+                  ['male', 'profileGenderMale'],
+                  ['female', 'profileGenderFemale'],
+                ] as const
+              ).map(([value, labelKey]) => {
+                const selected = gender === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    className={cn('adopt-gender__chip', selected && 'adopt-gender__chip--active')}
+                    aria-pressed={selected}
+                    onClick={() => setGender(value)}>
+                    {t(labelKey)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <label className="adopt-field">
+            <span className="adopt-field__label">{t('profileOccupation')}</span>
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
-              value={profile.occupation}
-              onChange={event => void userProfileStorage.set(prev => ({ ...prev, occupation: event.target.value }))}
+              className="adopt-field__input"
+              value={occupation}
+              onChange={event => setOccupation(event.target.value)}
               placeholder={t('profileOccupationPlaceholder')}
             />
           </label>
           <div className="flex gap-2">
             <Button
-              disabled={!isAdoptionUserInfoFilled(profile)}
+              className="adopt-section__cta"
+              disabled={!isAdoptionUserInfoFilled(adoptionDraft)}
               onClick={() => {
-                if (!isAdoptionUserInfoFilled(profile)) {
+                if (!isAdoptionUserInfoFilled(adoptionDraft)) {
                   return;
                 }
                 void userProfileStorage.set(prev => ({
                   ...prev,
-                  onboardingCompleted: true,
+                  nickname: nickname.trim(),
+                  gender,
+                  occupation: occupation.trim(),
                   petAdopted: true,
+                  onboardingCompleted: true,
                 }));
                 flash(t('adoptSavedHint'));
               }}>
@@ -105,21 +127,19 @@ const Options = () => {
           </div>
         </section>
 
-        <section className="space-y-3 rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/70">
-          <h2 className="text-lg font-medium">{t('profileTitle')}</h2>
-          <label className="block text-sm">
+        <section className="sm-card">
+          <h2 className="sm-card__title">{t('profileTitle')}</h2>
+          <label>
             {t('profileDomains')}
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
-              value={profile.domains}
-              onChange={event => void userProfileStorage.set(prev => ({ ...prev, domains: event.target.value }))}
+              value={domains}
+              onChange={event => setDomains(event.target.value)}
               placeholder="前端 / 算法 / 产品..."
             />
           </label>
-          <label className="block text-sm">
+          <label>
             {t('profileGoal')}
             <select
-              className="mt-1 w-full rounded border px-3 py-2"
               value={profile.goal}
               onChange={event =>
                 void userProfileStorage.set(prev => ({
@@ -132,10 +152,9 @@ const Options = () => {
               <option value="exam">{t('goalExam')}</option>
             </select>
           </label>
-          <label className="block text-sm">
+          <label>
             {t('profileDepth')}
             <select
-              className="mt-1 w-full rounded border px-3 py-2"
               value={profile.depth}
               onChange={event =>
                 void userProfileStorage.set(prev => ({
@@ -148,10 +167,10 @@ const Options = () => {
               <option value="deep">{t('depthDeep')}</option>
             </select>
           </label>
-          <div className="space-y-2 text-sm">
-            <p>{t('profileModes')}</p>
+          <div className="space-y-2 text-sm font-medium text-[color:var(--sm-ink)]">
+            <p className="font-bold text-[color:var(--sm-muted)]">{t('profileModes')}</p>
             {(['note', 'quiz', 'practice'] as LearningModePreference[]).map(mode => (
-              <label key={mode} className="mr-4 inline-flex items-center gap-2">
+              <label key={mode} className="mr-4 inline-flex flex-row items-center gap-2 font-medium">
                 <input
                   type="checkbox"
                   checked={profile.preferredModes.includes(mode)}
@@ -163,9 +182,11 @@ const Options = () => {
           </div>
           <div className="flex gap-2">
             <Button
+              className="sm-card__cta"
               onClick={() => {
                 void userProfileStorage.set(prev => ({
                   ...prev,
+                  domains: domains.trim(),
                   onboardingCompleted: true,
                 }));
                 flash(t('profileSave'));
@@ -175,12 +196,11 @@ const Options = () => {
           </div>
         </section>
 
-        <section className="space-y-3 rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/70">
-          <h2 className="text-lg font-medium">{t('llmTitle')}</h2>
-          <label className="block text-sm">
+        <section className="sm-card">
+          <h2 className="sm-card__title">{t('llmTitle')}</h2>
+          <label>
             {t('llmProvider')}
             <select
-              className="mt-1 w-full rounded border px-3 py-2"
               value={llm.provider}
               onChange={event => {
                 const provider = event.target.value as LlmProviderId;
@@ -196,68 +216,65 @@ const Options = () => {
               <option value="openai-compatible">OpenAI Compatible</option>
             </select>
           </label>
-          <label className="block text-sm">
+          <label>
             {t('llmBaseUrl')}
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
               value={llm.baseUrl}
               onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, baseUrl: event.target.value }))}
             />
           </label>
-          <label className="block text-sm">
+          <label>
             {t('llmModel')}
             <input
-              className="mt-1 w-full rounded border px-3 py-2"
               value={llm.model}
               onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, model: event.target.value }))}
             />
           </label>
-          <label className="block text-sm">
+          <label>
             {t('llmApiKey')}
             <input
               type="password"
-              className="mt-1 w-full rounded border px-3 py-2"
               value={llm.apiKey}
               onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, apiKey: event.target.value }))}
               placeholder="仅保存在本地"
             />
           </label>
-          <Button onClick={() => flash('模型设置已保存')}>{t('llmSave')}</Button>
+          <Button className="sm-card__cta" onClick={() => flash('模型设置已保存')}>
+            {t('llmSave')}
+          </Button>
         </section>
 
-        <section className="space-y-3 rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-900/70">
-          <h2 className="text-lg font-medium">{t('pomodoroTitle')}</h2>
-          <label className="block text-sm">
+        <section className="sm-card">
+          <h2 className="sm-card__title">{t('pomodoroTitle')}</h2>
+          <label>
             {t('pomodoroFocus')}
             <input
               type="number"
               min={1}
-              className="mt-1 w-full rounded border px-3 py-2"
               value={pomodoro.focusMinutes}
               onChange={event =>
                 void pomodoroSettingsStorage.set(prev => ({
                   ...prev,
-                  focusMinutes: Number(event.target.value) || 25,
+                  focusMinutes: Number(event.target.value) || 40,
                 }))
               }
             />
           </label>
-          <label className="block text-sm">
+          <label>
             {t('pomodoroBreak')}
             <input
               type="number"
               min={1}
-              className="mt-1 w-full rounded border px-3 py-2"
               value={pomodoro.breakMinutes}
               onChange={event =>
                 void pomodoroSettingsStorage.set(prev => ({
                   ...prev,
-                  breakMinutes: Number(event.target.value) || 5,
+                  breakMinutes: Number(event.target.value) || 10,
                 }))
               }
             />
           </label>
-          <label className="inline-flex items-center gap-2 text-sm">
+          <label className="inline-flex flex-row items-center gap-2 font-medium text-[color:var(--sm-ink)]">
             <input
               type="checkbox"
               checked={ui.floatBallEnabled}
@@ -270,10 +287,7 @@ const Options = () => {
             />
             {t('uiFloatBall')}
           </label>
-          <Button
-            onClick={() => {
-              flash('设置已保存');
-            }}>
+          <Button className="sm-card__cta" onClick={() => flash('设置已保存')}>
             {t('saveSettings')}
           </Button>
           <Button variant="outline" onClick={() => void exampleThemeStorage.toggle()}>

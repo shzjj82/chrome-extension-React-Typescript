@@ -44,22 +44,70 @@
     "message": "학습 선호"
   },
   "userInfoTitle": {
-    "message": "사용자 정보"
+    "message": "나에 대해"
   },
   "userInfoHint": {
-    "message": "입양에는 사용자 정보만 필요합니다. 학습 선호는 아래에서 설정하세요."
+    "message": "입양에는 이것만 필요해요. 선호 설정은 아래에서 나중에."
   },
   "adoptTitle": {
-    "message": "학습 파트너 입양"
+    "message": "나의 작은 친구 입양"
+  },
+  "adoptEyebrow": {
+    "message": "Companion"
   },
   "adoptHint": {
-    "message": "나에 대해 조금 알려주시면 더 잘 함께 공부할 수 있어요."
+    "message": "호칭과 당신을 알려주면, 어떻게 곁에 있을지 더 알 수 있어요."
   },
   "adoptConfirm": {
     "message": "입양 확인"
   },
   "adoptSavedHint": {
-    "message": "입양 완료! 함께 공부해요."
+    "message": "입양 완료. 여기 곁에 있을게요."
+  },
+  "guideEyebrow": {
+    "message": "함께"
+  },
+  "guideHello": {
+    "message": "{name}, 이제부터 곁에 있을게요"
+  },
+  "guideHelloFallback": {
+    "message": "안녕"
+  },
+  "guideTitle": {
+    "message": "우리는 이렇게 지내요"
+  },
+  "guideHint": {
+    "message": "급하게 시작할 필요 없어요. 이 몇 단계만 익히면 돼요."
+  },
+  "guideStepPetTitle": {
+    "message": "페이지 옆에 있을게요"
+  },
+  "guideStepPetBody": {
+    "message": "나에게 마우스를 올리면 「집중」또는 「휴식」을 고를 수 있어요."
+  },
+  "guideStepMaterialTitle": {
+    "message": "당신이 보는 걸 나도 볼 수 있어요"
+  },
+  "guideStepMaterialBody": {
+    "message": "필요할 때 사이드 패널에서 본문/자막을 가져오거나 붙여 넣어요."
+  },
+  "guideStepGenerateTitle": {
+    "message": "정리하고 싶을 때 불러 주세요"
+  },
+  "guideStepGenerateBody": {
+    "message": "노트·퀴즈·실습 모두 로컬에 저장돼요. 당장 안 써도 괜찮아요."
+  },
+  "guideStepSettingsTitle": {
+    "message": "설정은 나중에"
+  },
+  "guideStepSettingsBody": {
+    "message": "API 키와 선호는 필요할 때. 먼저 내가 곁에 있는 데 익숙해져요."
+  },
+  "guideStart": {
+    "message": "좋아요, 함께 지내 봐요"
+  },
+  "guideSkip": {
+    "message": "건너뛰고 들어가기"
   },
   "profileNickname": {
     "message": "호칭"
@@ -78,9 +126,6 @@
   },
   "profileGenderFemale": {
     "message": "여"
-  },
-  "profileGenderOther": {
-    "message": "기타"
   },
   "profileOccupation": {
     "message": "직업"
@@ -155,13 +200,13 @@
     "message": "显示页面悬浮球"
   },
   "pomodoroTitle": {
-    "message": "番茄钟"
+    "message": "집중 리듬"
   },
   "pomodoroFocus": {
-    "message": "专注分钟"
+    "message": "집중 후 휴식 알림 (분)"
   },
   "pomodoroBreak": {
-    "message": "休息分钟"
+    "message": "권장 휴식 (분)"
   },
   "saveSettings": {
     "message": "保存"
@@ -182,16 +227,31 @@
     "message": "重试"
   },
   "petActionStudy": {
-    "message": "학습"
+    "message": "집중"
   },
   "petActionStudyTitle": {
-    "message": "학습 시작"
+    "message": "집중하기"
   },
   "petActionRest": {
     "message": "휴식"
   },
   "petActionRestTitle": {
-    "message": "휴식 시작"
+    "message": "잠깐 쉬기"
+  },
+  "petRestReminder": {
+    "message": "이제 좀 쉬어요"
+  },
+  "petRestReminderHead": {
+    "message": "오래 집중했으니 —"
+  },
+  "petRestReminderAction": {
+    "message": "휴식"
+  },
+  "petRestReminderTrailing": {
+    "message": " 한숨 돌리세요"
+  },
+  "petRestReminderTitle": {
+    "message": "반려가 휴식을 권해요"
   },
   "petActionAdopt": {
     "message": "아직 날 모르시네요, 먼저 입양해 주세요"
@@ -209,6 +269,6 @@
     "message": "해 주세요"
   },
   "petActionAdoptTitle": {
-    "message": "학습 프로필을 작성하면 함께 공부할 수 있어요"
+    "message": "먼저 인사해요 — 곁에 있게 해 주세요"
   }
 }

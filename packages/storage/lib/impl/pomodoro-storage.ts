@@ -23,8 +23,8 @@ type PomodoroStateStorageType = BaseStorageType<PomodoroStateType>;
 const settingsStorage = createStorage<PomodoroSettingsType>(
   'pomodoro-settings',
   {
-    focusMinutes: 25,
-    breakMinutes: 5,
+    focusMinutes: 40,
+    breakMinutes: 10,
   },
   {
     storageEnum: StorageEnum.Local,

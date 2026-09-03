@@ -44,22 +44,70 @@
     "message": "学习偏好"
   },
   "userInfoTitle": {
-    "message": "用户信息"
+    "message": "关于你"
   },
   "userInfoHint": {
-    "message": "认养伙伴只需这些信息；学习偏好可在下方单独设置。"
+    "message": "认养伙伴只需这些；偏好设置可在下方单独填。"
   },
   "adoptTitle": {
-    "message": "认养学习伙伴"
+    "message": "认养你的小伙伴"
+  },
+  "adoptEyebrow": {
+    "message": "Companion"
   },
   "adoptHint": {
-    "message": "先填写一点关于你的信息，我才能更好地陪你学习。"
+    "message": "告诉我怎么称呼你、你是谁，我会更懂怎么陪着你。"
   },
   "adoptConfirm": {
     "message": "确认认养"
   },
   "adoptSavedHint": {
-    "message": "认养成功，欢迎一起学习"
+    "message": "认养成功，我在这儿陪着你"
+  },
+  "guideEyebrow": {
+    "message": "和你在一起"
+  },
+  "guideHello": {
+    "message": "{name}，从现在起我陪着你啦"
+  },
+  "guideHelloFallback": {
+    "message": "你好"
+  },
+  "guideTitle": {
+    "message": "我们怎么相处"
+  },
+  "guideHint": {
+    "message": "不用急着开始什么，先熟悉这几步就好。"
+  },
+  "guideStepPetTitle": {
+    "message": "我会待在网页旁边"
+  },
+  "guideStepPetBody": {
+    "message": "鼠标移到我身上，可以叫我「专注」或「休息」。"
+  },
+  "guideStepMaterialTitle": {
+    "message": "你看什么，我也能看见"
+  },
+  "guideStepMaterialBody": {
+    "message": "需要时在侧栏抓取正文 / 字幕，或把内容贴给我。"
+  },
+  "guideStepGenerateTitle": {
+    "message": "想整理时再叫我"
+  },
+  "guideStepGenerateBody": {
+    "message": "笔记、小测、实践都行——本地保存，不急着用也没关系。"
+  },
+  "guideStepSettingsTitle": {
+    "message": "设置可以以后再说"
+  },
+  "guideStepSettingsBody": {
+    "message": "API Key 和偏好有需要再填，先认下我、习惯有我就好。"
+  },
+  "guideStart": {
+    "message": "好，开始相处吧"
+  },
+  "guideSkip": {
+    "message": "先跳过，直接进入"
   },
   "profileNickname": {
     "message": "称呼"
@@ -78,9 +126,6 @@
   },
   "profileGenderFemale": {
     "message": "女"
-  },
-  "profileGenderOther": {
-    "message": "其他"
   },
   "profileOccupation": {
     "message": "身份职业"
@@ -155,13 +200,13 @@
     "message": "显示页面悬浮球"
   },
   "pomodoroTitle": {
-    "message": "番茄钟"
+    "message": "专注节奏"
   },
   "pomodoroFocus": {
-    "message": "专注分钟"
+    "message": "专注多久后提醒休息（分钟）"
   },
   "pomodoroBreak": {
-    "message": "休息分钟"
+    "message": "建议休息多久（分钟）"
   },
   "saveSettings": {
     "message": "保存"
@@ -182,16 +227,31 @@
     "message": "重试"
   },
   "petActionStudy": {
-    "message": "学习"
+    "message": "专注"
   },
   "petActionStudyTitle": {
-    "message": "开始学习"
+    "message": "进入专注"
   },
   "petActionRest": {
     "message": "休息"
   },
   "petActionRestTitle": {
-    "message": "开始休息"
+    "message": "先歇一会儿"
+  },
+  "petRestReminder": {
+    "message": "该休息一会儿了"
+  },
+  "petRestReminderHead": {
+    "message": "专注很久啦，"
+  },
+  "petRestReminderAction": {
+    "message": "休息"
+  },
+  "petRestReminderTrailing": {
+    "message": "一下吧"
+  },
+  "petRestReminderTitle": {
+    "message": "狗狗提醒你该休息了"
   },
   "petActionAdopt": {
     "message": "还不认识我呢，先认养我吧"
@@ -209,6 +269,6 @@
     "message": "我吧"
   },
   "petActionAdoptTitle": {
-    "message": "填好学习档案，咱们再一起学习"
+    "message": "先认识一下，让我陪在你身边"
   }
 }

@@ -5,7 +5,7 @@ type LearningModePreference = 'note' | 'quiz' | 'practice';
 type KnowledgeDepth = 'shallow' | 'normal' | 'deep';
 type LearningGoal = 'application' | 'principle' | 'exam';
 /** 用户性别：认养用户信息用 */
-type UserGender = 'male' | 'female' | 'other' | '';
+type UserGender = 'male' | 'female' | '';
 
 type UserProfileType = {
   onboardingCompleted: boolean;
@@ -28,7 +28,7 @@ const defaultProfile: UserProfileType = {
   onboardingCompleted: false,
   petAdopted: false,
   nickname: '',
-  gender: '',
+  gender: 'male',
   occupation: '',
   domains: '',
   goal: 'application',
@@ -38,11 +38,13 @@ const defaultProfile: UserProfileType = {
 
 const normalizeUserProfile = (profile: Partial<UserProfileType> | null | undefined): UserProfileType => {
   const safe = profile ?? {};
+  const rawGender = safe.gender;
+  const gender: UserGender = rawGender === 'female' ? 'female' : 'male';
   return {
     ...defaultProfile,
     ...safe,
     nickname: safe.nickname ?? '',
-    gender: safe.gender ?? '',
+    gender,
     occupation: safe.occupation ?? '',
     domains: safe.domains ?? '',
     preferredModes: safe.preferredModes ?? defaultProfile.preferredModes,

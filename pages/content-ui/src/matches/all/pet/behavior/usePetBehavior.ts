@@ -2,6 +2,7 @@ import { BubbleController } from '../bubble/BubbleController';
 import { PetController } from '../core/PetController';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { BubbleContentResolver } from '../bubble/BubbleController';
+import type { PetKindId } from '../core/petKinds';
 import type { PetControllerState } from '../core/topics';
 import type { PetBounds, PetInteractionAction } from '../types';
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
@@ -11,6 +12,7 @@ type UsePetBehaviorOptions = {
   boundsProp?: Partial<PetBounds>;
   walkSpeed: number;
   resumeDelayMs: number;
+  kind?: PetKindId;
   resolveBubbleActions?: BubbleContentResolver;
   /** 实例创建后写入，便于在外部挂载 hooks */
   controllerRef?: RefObject<PetController | null>;
@@ -27,6 +29,8 @@ type UsePetBehaviorResult = {
     enterHover: () => void;
     leaveHover: () => void;
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+    promptRestReminder: (actions: PetInteractionAction[]) => void;
+    clearRestReminder: () => void;
   };
 };
 
@@ -35,6 +39,7 @@ const usePetBehavior = ({
   boundsProp,
   walkSpeed,
   resumeDelayMs,
+  kind = 'study-buddy',
   resolveBubbleActions,
   controllerRef: externalControllerRef,
 }: UsePetBehaviorOptions): UsePetBehaviorResult => {
@@ -68,6 +73,7 @@ const usePetBehavior = ({
       resumeDelayMs,
       bounds: boundsProp,
       fixedBounds: Boolean(boundsProp),
+      kind,
     });
 
     const bubble = new BubbleController();
@@ -113,7 +119,7 @@ const usePetBehavior = ({
         externalControllerRef.current = null;
       }
     };
-  }, [enabled, walkSpeed, resumeDelayMs, boundsProp, externalControllerRef]);
+  }, [enabled, walkSpeed, resumeDelayMs, boundsProp, kind, externalControllerRef]);
 
   const getController = () => controllerRef.current;
 
@@ -128,6 +134,14 @@ const usePetBehavior = ({
       enterHover: () => getController()?.notifyHoverEnter(),
       leaveHover: () => getController()?.notifyHoverLeave(),
       onPointerDown: event => getController()?.handlePointerDown(event.nativeEvent),
+      promptRestReminder: actions => {
+        getController()?.promptRestSit();
+        bubbleRef.current?.showPinned(actions);
+      },
+      clearRestReminder: () => {
+        bubbleRef.current?.hide();
+        getController()?.clearRestPrompt();
+      },
     },
   };
 };

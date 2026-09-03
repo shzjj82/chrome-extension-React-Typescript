@@ -18,6 +18,7 @@ class PetSpriteRenderer {
   private frame = 0;
   private leftoverMs = 0;
   private oneShotFinished = false;
+  private defaultAnim: PetAnimId = 'run';
 
   get viewSize() {
     return VIEW_SIZE;
@@ -27,16 +28,20 @@ class PetSpriteRenderer {
     this.publish = publish;
   };
 
+  setDefaultAnim = (anim: PetAnimId) => {
+    this.defaultAnim = anim;
+  };
+
   mount = (host: HTMLElement) => {
     const el = document.createElement('div');
     el.className = 'sm-pet__sprite';
     el.setAttribute('aria-hidden', 'true');
     host.replaceChildren(el);
     this.el = el;
-    this.applySheet('run');
+    this.applySheet(this.defaultAnim);
   };
 
-  play = (anim: PetAnimId = 'run') => {
+  play = (anim: PetAnimId = this.defaultAnim) => {
     this.setAnim(anim);
   };
 
@@ -119,6 +124,8 @@ class PetSpriteRenderer {
       return;
     }
     const meta = PET_ANIMATION_SHEETS[anim];
+    const sourceFrame = meta.sourceFrame ?? SOURCE_FRAME;
+    const scale = DISPLAY_SIZE / sourceFrame;
     this.anim = anim;
     this.frame = 0;
     this.leftoverMs = 0;
@@ -128,7 +135,7 @@ class PetSpriteRenderer {
     this.el.style.overflow = 'hidden';
     this.el.style.backgroundImage = `url("${meta.url}")`;
     this.el.style.backgroundRepeat = 'no-repeat';
-    this.el.style.backgroundSize = `${SOURCE_FRAME * meta.frames * (DISPLAY_SIZE / SOURCE_FRAME)}px ${DISPLAY_SIZE}px`;
+    this.el.style.backgroundSize = `${sourceFrame * meta.frames * scale}px ${DISPLAY_SIZE}px`;
     this.el.style.imageRendering = 'pixelated';
     this.el.style.transformOrigin = 'center';
     this.paint();

@@ -1,4 +1,5 @@
 import '@src/SidePanel.css';
+import AdoptionPanel from './AdoptionPanel';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
 import { t } from '@extension/i18n';
 import {
@@ -20,26 +21,17 @@ import {
   learningDraftStorage,
   llmSettingsStorage,
   pomodoroStateStorage,
-  isAdoptionUserInfoFilled,
   normalizeUserProfile,
   userProfileStorage,
 } from '@extension/storage';
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useEffect, useMemo, useState } from 'react';
 import type { LearningMode, MaterialSource, PracticeItem, QuizItem, StudySession } from '@extension/knowledge-base';
-import type { UserGender } from '@extension/storage';
 
 type TabKey = 'study' | 'library';
+type GatePhase = 'adopt' | 'app';
 
-const formatRemain = (endsAt: number | null) => {
-  if (!endsAt) {
-    return '--:--';
-  }
-  const remain = Math.max(0, endsAt - Date.now());
-  const minutes = Math.floor(remain / 60_000);
-  const seconds = Math.floor((remain % 60_000) / 1000);
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-};
+const resolveGatePhase = (petAdopted: boolean): GatePhase => (petAdopted ? 'app' : 'adopt');
 
 const SidePanel = () => {
   const { isLight } = useStorage(exampleThemeStorage);
@@ -63,16 +55,10 @@ const SidePanel = () => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  const [showAdoption, setShowAdoption] = useState(!profile.petAdopted);
+  const [gatePhase, setGatePhase] = useState<GatePhase>(() => resolveGatePhase(profile.petAdopted));
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    setShowAdoption(!profile.petAdopted);
+    setGatePhase(resolveGatePhase(profile.petAdopted));
   }, [profile.petAdopted]);
 
   useEffect(() => {
@@ -84,7 +70,8 @@ const SidePanel = () => {
     if (draft.sessionId) {
       setCurrentId(draft.sessionId);
     }
-  }, [draft]);
+    // 仅在草稿时间戳变化时回填（提取/导入等外部更新），避免输入过程中写 storage 回灌打断 IME
+  }, [draft.updatedAt, draft.sessionId]);
 
   const refreshSessions = async () => {
     const list = await listSessions();
@@ -99,8 +86,6 @@ const SidePanel = () => {
     () => Math.round(pomodoro.accumulatedFocusMs / 60_000) + (pomodoro.phase === 'focus' ? 0 : 0),
     [pomodoro.accumulatedFocusMs, pomodoro.phase],
   );
-
-  void now;
 
   const syncDraft = async (next: Partial<typeof draft>) => {
     await learningDraftStorage.set(prev => ({
@@ -250,126 +235,51 @@ const SidePanel = () => {
     }
   };
 
+  if (gatePhase === 'adopt') {
+    return (
+      <div className="side-panel">
+        <AdoptionPanel profile={profile} isLight={isLight} onAdopted={() => setGatePhase('app')} />
+      </div>
+    );
+  }
+
   return (
-    <div className={cn('side-panel', isLight ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100')}>
-      <header className="space-y-2 border-b border-slate-200 p-3 dark:border-slate-800">
+    <div className={cn('side-panel sm-shell', !isLight && 'sm-shell--dark')}>
+      <header className="sm-shell__header">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="text-base font-semibold">Study Mind AI</h1>
+          <h1 className="sm-shell__brand">Study Mind</h1>
           <Button size="sm" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
             {t('openOptions')}
           </Button>
         </div>
-        <p className="text-xs leading-5 opacity-80">{t('complianceBanner')}</p>
-        <div className="flex gap-2 text-xs">
-          <Button size="sm" variant={tab === 'study' ? 'default' : 'secondary'} onClick={() => setTab('study')}>
-            学习
-          </Button>
-          <Button size="sm" variant={tab === 'library' ? 'default' : 'secondary'} onClick={() => setTab('library')}>
+        <div className="sm-shell__tabs">
+          <button
+            type="button"
+            className={cn('sm-shell__chip', tab === 'study' && 'sm-shell__chip--active')}
+            onClick={() => setTab('study')}>
+            陪伴学习
+          </button>
+          <button
+            type="button"
+            className={cn('sm-shell__chip', tab === 'library' && 'sm-shell__chip--active')}
+            onClick={() => setTab('library')}>
             知识库
-          </Button>
-        </div>
-        <div className="rounded-md bg-slate-200/70 px-2 py-1 text-xs dark:bg-slate-800">
-          番茄钟：{pomodoro.phase === 'idle' ? '未开始' : pomodoro.phase === 'focus' ? '专注' : '休息'}{' '}
-          {formatRemain(pomodoro.endsAt)} · 完成 {pomodoro.focusCompletedCount} 个
-          <div className="mt-1 flex gap-1">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void sendExtensionMessage(ExtensionMessageType.POMODORO_START, { sessionId: currentId })}>
-              开始
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void sendExtensionMessage(ExtensionMessageType.POMODORO_PAUSE)}>
-              暂停
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void sendExtensionMessage(ExtensionMessageType.POMODORO_STOP)}>
-              停止
-            </Button>
-          </div>
+          </button>
         </div>
       </header>
 
-      {showAdoption ? (
-        <section className="space-y-3 border-b border-slate-200 p-3 dark:border-slate-800">
-          <h2 className="text-sm font-medium">{t('adoptTitle')}</h2>
-          <p className="text-xs opacity-80">{t('adoptHint')}</p>
-          <label className="block text-xs">
-            {t('profileNickname')}
-            <input
-              className="mt-1 w-full rounded border px-2 py-1 text-sm"
-              placeholder={t('profileNicknamePlaceholder')}
-              value={profile.nickname}
-              onChange={event => void userProfileStorage.set(prev => ({ ...prev, nickname: event.target.value }))}
-            />
-          </label>
-          <label className="block text-xs">
-            {t('profileGender')}
-            <select
-              className="mt-1 w-full rounded border px-2 py-1 text-sm"
-              value={profile.gender}
-              onChange={event =>
-                void userProfileStorage.set(prev => ({
-                  ...prev,
-                  gender: event.target.value as UserGender,
-                }))
-              }>
-              <option value="">{t('profileGenderUnset')}</option>
-              <option value="male">{t('profileGenderMale')}</option>
-              <option value="female">{t('profileGenderFemale')}</option>
-              <option value="other">{t('profileGenderOther')}</option>
-            </select>
-          </label>
-          <label className="block text-xs">
-            {t('profileOccupation')}
-            <input
-              className="mt-1 w-full rounded border px-2 py-1 text-sm"
-              placeholder={t('profileOccupationPlaceholder')}
-              value={profile.occupation}
-              onChange={event => void userProfileStorage.set(prev => ({ ...prev, occupation: event.target.value }))}
-            />
-          </label>
-          <Button
-            size="sm"
-            disabled={!isAdoptionUserInfoFilled(profile)}
-            onClick={() => {
-              if (!isAdoptionUserInfoFilled(profile)) {
-                return;
-              }
-              void userProfileStorage.set(prev => ({
-                ...prev,
-                onboardingCompleted: true,
-                petAdopted: true,
-              }));
-              setShowAdoption(false);
-            }}>
-            {t('adoptConfirm')}
-          </Button>
-        </section>
-      ) : null}
-
-      <div className="space-y-2 border-b border-slate-200 p-3 text-xs dark:border-slate-800">
-        <p>{t('riskPrivacy')}</p>
-        <p>{t('riskCopyright')}</p>
-        <p>{t('riskAi')}</p>
-      </div>
-
       {tab === 'study' ? (
-        <main className="space-y-3 p-3">
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium">学习素材</h2>
-            <div className="flex flex-wrap gap-1">
+        <main className="sm-shell__main">
+          <section className="sm-shell__card">
+            <h2 className="sm-shell__card-title">当前内容</h2>
+            <div className="sm-shell__actions">
               <Button size="sm" variant="secondary" onClick={() => void extractPage()}>
                 网页正文
               </Button>
               <Button size="sm" variant="secondary" onClick={() => void extractVisibleCaptions()}>
                 可见字幕
               </Button>
-              <label className="bg-secondary inline-flex cursor-pointer items-center rounded-md px-3 text-xs">
+              <label className="sm-shell__file">
                 导入 SRT/VTT
                 <input
                   type="file"
@@ -380,30 +290,27 @@ const SidePanel = () => {
               </label>
             </div>
             <input
-              className="w-full rounded border px-2 py-1 text-sm"
               value={title}
-              onChange={event => {
-                setTitle(event.target.value);
-                void syncDraft({ title: event.target.value });
-              }}
+              onChange={event => setTitle(event.target.value)}
+              onBlur={() => void syncDraft({ title })}
               placeholder="标题"
             />
             <textarea
-              className="min-h-32 w-full rounded border px-2 py-1 text-sm"
+              className="min-h-32"
               value={material}
               onChange={event => {
                 setMaterial(event.target.value);
                 setMaterialSource('paste');
-                void syncDraft({ material: event.target.value, materialSource: 'paste' });
               }}
-              placeholder="粘贴讲义文本，或通过上方按钮导入素材"
+              onBlur={() => void syncDraft({ material, materialSource: 'paste' })}
+              placeholder="粘贴内容，或通过上方按钮导入"
             />
-            <p className="text-[11px] opacity-70">当前来源：{materialSource}</p>
+            <p className="sm-shell__muted">当前来源：{materialSource}</p>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium">学习模式</h2>
-            <div className="flex gap-1">
+          <section className="sm-shell__card">
+            <h2 className="sm-shell__card-title">整理方式</h2>
+            <div className="sm-shell__actions">
               {(
                 [
                   ['note', t('modeNote')],
@@ -411,30 +318,30 @@ const SidePanel = () => {
                   ['practice', t('modePractice')],
                 ] as const
               ).map(([value, label]) => (
-                <Button
+                <button
                   key={value}
-                  size="sm"
-                  variant={mode === value ? 'default' : 'secondary'}
+                  type="button"
+                  className={cn('sm-shell__chip', mode === value && 'sm-shell__chip--active')}
                   onClick={() => {
                     setMode(value);
                     void syncDraft({ mode: value });
                   }}>
                   {label}
-                </Button>
+                </button>
               ))}
             </div>
-            <Button disabled={loading} onClick={() => void runGenerate()}>
-              {loading ? '生成中...' : 'AI 个性化生成'}
+            <Button className="sm-shell__cta" disabled={loading} onClick={() => void runGenerate()}>
+              {loading ? '生成中...' : '让伙伴帮你整理'}
             </Button>
-            {status ? <p className="text-xs text-emerald-600">{status}</p> : null}
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
+            {status ? <p className="text-xs text-emerald-700">{status}</p> : null}
+            {error ? <p className="text-xs text-red-700">{error}</p> : null}
           </section>
 
           {mode === 'note' || noteContent ? (
-            <section className="space-y-2">
-              <h2 className="text-sm font-medium">AI 笔记</h2>
+            <section className="sm-shell__card">
+              <h2 className="sm-shell__card-title">笔记</h2>
               <textarea
-                className="min-h-40 w-full rounded border px-2 py-1 text-sm"
+                className="min-h-40"
                 value={noteContent}
                 onChange={event => setNoteContent(event.target.value)}
               />
@@ -442,16 +349,16 @@ const SidePanel = () => {
           ) : null}
 
           {quizzes.length > 0 ? (
-            <section className="space-y-3">
-              <h2 className="text-sm font-medium">测验（自行校验，不自动判题）</h2>
+            <section className="sm-shell__card">
+              <h2 className="sm-shell__card-title">测验（自行校验）</h2>
               {quizzes.map((quiz, index) => (
-                <div key={quiz.id} className="space-y-1 rounded border p-2">
-                  <p className="text-sm font-medium">
+                <div key={quiz.id} className="sm-shell__item">
+                  <p className="text-sm font-semibold">
                     [{quiz.kind === 'basic' ? '基础' : '拓展'}] {quiz.question}
                   </p>
-                  <p className="text-xs opacity-70">参考思路：{quiz.answer || '无'}</p>
+                  <p className="sm-shell__muted">参考思路：{quiz.answer || '无'}</p>
                   <textarea
-                    className="min-h-16 w-full rounded border px-2 py-1 text-sm"
+                    className="min-h-16"
                     placeholder="写下你的作答"
                     value={quiz.userAnswer}
                     onChange={event => {
@@ -467,14 +374,14 @@ const SidePanel = () => {
           ) : null}
 
           {practices.length > 0 ? (
-            <section className="space-y-3">
-              <h2 className="text-sm font-medium">实践任务</h2>
+            <section className="sm-shell__card">
+              <h2 className="sm-shell__card-title">实践</h2>
               {practices.map((practice, index) => (
-                <div key={practice.id} className="space-y-1 rounded border p-2">
-                  <p className="text-sm font-medium">{practice.task}</p>
+                <div key={practice.id} className="sm-shell__item">
+                  <p className="text-sm font-semibold">{practice.task}</p>
                   <textarea
-                    className="min-h-20 w-full rounded border px-2 py-1 text-sm"
-                    placeholder="回填代码或实践结果"
+                    className="min-h-20"
+                    placeholder="回填实践结果"
                     value={practice.userResult}
                     onChange={event => {
                       const value = event.target.value;
@@ -488,17 +395,14 @@ const SidePanel = () => {
             </section>
           ) : null}
 
-          <section className="space-y-2 pb-6">
-            <label className="block text-sm">
+          <section className="sm-shell__card pb-6">
+            <label className="block text-sm font-bold">
               备注
-              <textarea
-                className="mt-1 min-h-16 w-full rounded border px-2 py-1 text-sm"
-                value={remark}
-                onChange={event => setRemark(event.target.value)}
-              />
+              <textarea className="mt-2 min-h-16" value={remark} onChange={event => setRemark(event.target.value)} />
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="sm-shell__actions">
               <Button
+                className="sm-shell__cta"
                 onClick={() => {
                   void persistSession().then(() => setStatus('已保存到本地知识库'));
                 }}>
@@ -515,22 +419,22 @@ const SidePanel = () => {
           </section>
         </main>
       ) : (
-        <main className="space-y-2 p-3">
+        <main className="sm-shell__main">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium">本地知识库</h2>
+            <h2 className="sm-shell__card-title">本地知识库</h2>
             <Button size="sm" variant="secondary" onClick={() => void refreshSessions()}>
               刷新
             </Button>
           </div>
-          {sessions.length === 0 ? <p className="text-xs opacity-70">暂无学习记录</p> : null}
+          {sessions.length === 0 ? <p className="sm-shell__muted">暂无记录</p> : null}
           {sessions.map(session => (
-            <article key={session.id} className="space-y-2 rounded border p-2 text-sm">
-              <h3 className="font-medium">{session.title}</h3>
-              <p className="text-xs opacity-70">
-                {new Date(session.updatedAt).toLocaleString()} · {session.mode} · 番茄 {session.pomodoroCount}
+            <article key={session.id} className="sm-shell__card">
+              <h3 className="font-bold">{session.title}</h3>
+              <p className="sm-shell__muted">
+                {new Date(session.updatedAt).toLocaleString()} · {session.mode}
               </p>
               <textarea
-                className="min-h-12 w-full rounded border px-2 py-1 text-xs"
+                className="min-h-12 text-xs"
                 defaultValue={session.remark}
                 onBlur={event => {
                   const value = event.target.value;
@@ -541,7 +445,7 @@ const SidePanel = () => {
                 }}
                 placeholder="编辑备注"
               />
-              <div className="flex flex-wrap gap-1">
+              <div className="sm-shell__actions">
                 <Button size="sm" variant="secondary" onClick={() => loadSession(session)}>
                   打开
                 </Button>

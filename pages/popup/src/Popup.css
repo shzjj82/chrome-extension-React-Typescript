@@ -1,7 +1,27 @@
 .App {
-  width: 280px;
-  min-height: 220px;
-  text-align: center;
+  --sm-ink: #3d2e22;
+  --sm-paper: #fff8ef;
+  --sm-paper-deep: #f3e6d4;
+  --sm-card: #fffef8;
+  --sm-line: rgba(61, 46, 34, 0.16);
+  --sm-accent: #d64545;
+  --sm-accent-deep: #b83232;
+  --sm-muted: rgba(61, 46, 34, 0.68);
+  width: 300px;
+  min-height: 280px;
+  color: var(--sm-ink);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(214, 69, 69, 0.14), transparent 46%),
+    linear-gradient(165deg, var(--sm-paper) 0%, var(--sm-paper-deep) 100%);
+}
+
+.App--dark {
+  --sm-ink: #f6efe6;
+  --sm-paper: #1c1612;
+  --sm-paper-deep: #2a211a;
+  --sm-card: #2f261f;
+  --sm-line: rgba(246, 239, 230, 0.14);
+  --sm-muted: rgba(246, 239, 230, 0.68);
 }
 
 .App-header {
@@ -9,4 +29,54 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
+  gap: 12px;
+  padding: 18px 16px 16px;
+}
+
+.App__pet {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+  image-rendering: pixelated;
+  background-image: url('/pet/adopt-idle.png');
+  background-repeat: no-repeat;
+  background-size: 576px 72px;
+  filter: drop-shadow(0 8px 14px rgba(61, 46, 34, 0.18));
+  animation: popup-pet 1.12s steps(8) infinite;
+}
+
+@keyframes popup-pet {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -576px 0;
+  }
+}
+
+.App__brand {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.App__tagline {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sm-muted);
+  text-align: center;
+}
+
+.App .App__cta {
+  border: none !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, #e25555 0%, var(--sm-accent-deep) 100%) !important;
+  color: #fffef8 !important;
+  font-weight: 800 !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 8px 16px rgba(184, 50, 50, 0.24) !important;
 }

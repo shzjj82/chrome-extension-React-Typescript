@@ -44,22 +44,70 @@
     "message": "Learning preferences"
   },
   "userInfoTitle": {
-    "message": "User profile"
+    "message": "About you"
   },
   "userInfoHint": {
-    "message": "Adoption only needs this user info; learning preferences are below."
+    "message": "Adoption only needs this. Preferences can wait below."
   },
   "adoptTitle": {
-    "message": "Adopt your study buddy"
+    "message": "Adopt your companion"
+  },
+  "adoptEyebrow": {
+    "message": "Companion"
   },
   "adoptHint": {
-    "message": "Tell me a bit about yourself so I can study with you better."
+    "message": "Tell me what to call you and who you are, so I can keep you company better."
   },
   "adoptConfirm": {
     "message": "Confirm adoption"
   },
   "adoptSavedHint": {
-    "message": "Adopted! Let's learn together."
+    "message": "Adopted. I'm here with you."
+  },
+  "guideEyebrow": {
+    "message": "With you"
+  },
+  "guideHello": {
+    "message": "{name}, I'll keep you company from now on"
+  },
+  "guideHelloFallback": {
+    "message": "Hey"
+  },
+  "guideTitle": {
+    "message": "How we'll hang out"
+  },
+  "guideHint": {
+    "message": "No rush to start anything — these few steps are enough."
+  },
+  "guideStepPetTitle": {
+    "message": "I'll stay beside the page"
+  },
+  "guideStepPetBody": {
+    "message": "Hover me to choose Focus or Rest."
+  },
+  "guideStepMaterialTitle": {
+    "message": "I can see what you're looking at"
+  },
+  "guideStepMaterialBody": {
+    "message": "When you want, grab page text / captions in the side panel, or paste something to me."
+  },
+  "guideStepGenerateTitle": {
+    "message": "Call me when you want help"
+  },
+  "guideStepGenerateBody": {
+    "message": "Notes, quiz, or practice — saved locally. Fine if you don't need it yet."
+  },
+  "guideStepSettingsTitle": {
+    "message": "Settings can wait"
+  },
+  "guideStepSettingsBody": {
+    "message": "API key and prefs later. First, get used to having me around."
+  },
+  "guideStart": {
+    "message": "Okay, let's hang out"
+  },
+  "guideSkip": {
+    "message": "Skip and enter"
   },
   "profileNickname": {
     "message": "Display name"
@@ -78,9 +126,6 @@
   },
   "profileGenderFemale": {
     "message": "Female"
-  },
-  "profileGenderOther": {
-    "message": "Other"
   },
   "profileOccupation": {
     "message": "Occupation"
@@ -155,13 +200,13 @@
     "message": "显示页面悬浮球"
   },
   "pomodoroTitle": {
-    "message": "番茄钟"
+    "message": "Focus rhythm"
   },
   "pomodoroFocus": {
-    "message": "专注分钟"
+    "message": "Remind me to rest after (minutes)"
   },
   "pomodoroBreak": {
-    "message": "休息分钟"
+    "message": "Suggested break (minutes)"
   },
   "saveSettings": {
     "message": "保存"
@@ -182,16 +227,31 @@
     "message": "重试"
   },
   "petActionStudy": {
-    "message": "Study"
+    "message": "Focus"
   },
   "petActionStudyTitle": {
-    "message": "Start learning"
+    "message": "Enter focus"
   },
   "petActionRest": {
     "message": "Rest"
   },
   "petActionRestTitle": {
     "message": "Take a break"
+  },
+  "petRestReminder": {
+    "message": "Time for a break"
+  },
+  "petRestReminderHead": {
+    "message": "You've focused long enough —"
+  },
+  "petRestReminderAction": {
+    "message": "rest"
+  },
+  "petRestReminderTrailing": {
+    "message": " a bit"
+  },
+  "petRestReminderTitle": {
+    "message": "Your buddy suggests a break"
   },
   "petActionAdopt": {
     "message": "You don't know me yet — adopt me first"
@@ -209,6 +269,6 @@
     "message": " me"
   },
   "petActionAdoptTitle": {
-    "message": "Set up your learning profile, then we can study together"
+    "message": "Say hi first — let me stay by your side"
   }
 }

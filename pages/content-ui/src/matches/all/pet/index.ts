@@ -3,10 +3,12 @@ export { PetController } from './core/PetController';
 export { PetTopicBus } from './core/PetTopicBus';
 export { BubbleController } from './bubble/BubbleController';
 export { animTopic } from './core/topics';
+export { getPetKind, PET_KINDS, registerPetKind } from './core/petKinds';
 export {
   createStudyMindAdoptAction,
   createStudyMindHoverActions,
   createStudyMindPetHoverActions,
+  createRestReminderAction,
 } from './interactions/studyMindActions';
 export { PetSpriteRenderer } from './animation/PetSpriteRenderer';
 export { PET_ANIMATION_SHEETS, registerAnimationSheet } from './animation/sheets';
@@ -25,6 +27,7 @@ export { PetView } from './ui/PetView';
 
 export type { FloatingPetProps, PetBounds, PetInteractionAction, PetMode, PetPhase } from './types';
 export type { PetControllerOptions, PetMountTarget } from './core/PetController';
+export type { PetBehaviorMode, PetKindDef, PetKindId } from './core/petKinds';
 export type { BubbleContentResolver, BubbleControllerState, BubbleStateListener } from './bubble/BubbleController';
 export type {
   PetAggregateTopic,

@@ -25,6 +25,19 @@ const createStudyMindHoverActions = (): PetInteractionAction[] => [
   },
 ];
 
+const createRestReminderAction = (onDismiss: () => void): PetInteractionAction => ({
+  id: 'rest-reminder',
+  label: t('petRestReminder'),
+  headLine: t('petRestReminderHead'),
+  actionText: t('petRestReminderAction'),
+  trailingText: t('petRestReminderTrailing'),
+  title: t('petRestReminderTitle'),
+  ariaLabel: t('petRestReminderAction'),
+  onSelect: () => {
+    onDismiss();
+  },
+});
+
 const createStudyMindAdoptAction = (): PetInteractionAction => ({
   id: 'adopt',
   label: t('petActionAdopt'),
@@ -42,4 +55,9 @@ const createStudyMindAdoptAction = (): PetInteractionAction => ({
 const createStudyMindPetHoverActions = (profile: UserProfileType): PetInteractionAction[] =>
   shouldPromptPetAdoption(profile) ? [createStudyMindAdoptAction()] : createStudyMindHoverActions();
 
-export { createStudyMindAdoptAction, createStudyMindHoverActions, createStudyMindPetHoverActions };
+export {
+  createStudyMindAdoptAction,
+  createStudyMindHoverActions,
+  createStudyMindPetHoverActions,
+  createRestReminderAction,
+};

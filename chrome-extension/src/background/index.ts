@@ -130,7 +130,7 @@ const startBreak = async () => {
   }));
 
   await setPomodoroPhase('break', settings.breakMinutes);
-  await notify('专注结束', '休息一下，稍后再继续学习。');
+  await notify('该休息啦', '已经专注很久了，起来走动一下，我在这儿陪你。');
 };
 
 const handleAlarm = async (alarm: chrome.alarms.Alarm) => {
@@ -141,7 +141,7 @@ const handleAlarm = async (alarm: chrome.alarms.Alarm) => {
 
   if (alarm.name === BREAK_ALARM) {
     await setPomodoroPhase('idle', 0);
-    await notify('休息结束', '可以开始下一轮专注学习了。');
+    await notify('缓过来了吗', '准备好的话，可以再开始专注。');
   }
 };
 

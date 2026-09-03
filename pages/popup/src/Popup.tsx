@@ -39,11 +39,12 @@ const Popup = () => {
   };
 
   return (
-    <div className={cn('App', isLight ? 'bg-slate-50' : 'dark bg-gray-900')}>
-      <header className={cn('App-header gap-3 px-4 py-5', isLight ? 'text-gray-900' : 'text-gray-100')}>
-        <h1 className="text-lg font-semibold">Study Mind AI</h1>
-        <p className="text-sm opacity-80">本地私有化 AI 学习助手</p>
-        <Button className="mt-2 w-full" onClick={() => void startLearning()}>
+    <div className={cn('App', !isLight && 'App--dark')}>
+      <header className="App-header">
+        <div className="App__pet" aria-hidden="true" />
+        <h1 className="App__brand">Study Mind</h1>
+        <p className="App__tagline">陪伴式学习伙伴，陪你专注与休息</p>
+        <Button className="App__cta w-full" onClick={() => void startLearning()}>
           {t('startLearning')}
         </Button>
         <Button className="w-full" variant="secondary" onClick={() => void openSidePanel()}>

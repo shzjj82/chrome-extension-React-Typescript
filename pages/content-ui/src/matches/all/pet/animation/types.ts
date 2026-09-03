@@ -1,10 +1,12 @@
-type PetAnimId = 'run' | 'sit' | 'sit-down';
+type PetAnimId = 'run' | 'sit' | 'sit-down' | 'adopt-idle';
 
 type AnimationSheetDef = {
   url: string;
   frames: number;
   frameMs: number;
   loop: boolean;
+  /** 源图单帧边长（px），默认 96 */
+  sourceFrame?: number;
 };
 
 type PetAnimationStartEvent = {
