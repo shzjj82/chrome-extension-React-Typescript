@@ -29,8 +29,11 @@ type UsePetBehaviorResult = {
     enterHover: () => void;
     leaveHover: () => void;
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+    lockSit: () => void;
+    unlockSit: () => void;
     promptRestReminder: (actions: PetInteractionAction[]) => void;
     clearRestReminder: () => void;
+    showTemporaryBubble: (actions: PetInteractionAction[], durationMs?: number) => void;
   };
 };
 
@@ -134,6 +137,8 @@ const usePetBehavior = ({
       enterHover: () => getController()?.notifyHoverEnter(),
       leaveHover: () => getController()?.notifyHoverLeave(),
       onPointerDown: event => getController()?.handlePointerDown(event.nativeEvent),
+      lockSit: () => getController()?.lockSit(),
+      unlockSit: () => getController()?.unlockSit(),
       promptRestReminder: actions => {
         getController()?.promptRestSit();
         bubbleRef.current?.showPinned(actions);
@@ -141,6 +146,9 @@ const usePetBehavior = ({
       clearRestReminder: () => {
         bubbleRef.current?.hide();
         getController()?.clearRestPrompt();
+      },
+      showTemporaryBubble: (actions, durationMs) => {
+        bubbleRef.current?.showTemporary(actions, durationMs);
       },
     },
   };

@@ -266,8 +266,13 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
         return { ok: true };
 
       case ExtensionMessageType.POMODORO_START_BREAK: {
-        const settings = await pomodoroSettingsStorage.get();
-        await setPomodoroPhase('break', settings.breakMinutes);
+        const state = await pomodoroStateStorage.get();
+        if (state.phase === 'focus') {
+          await startBreak();
+        } else {
+          const settings = await pomodoroSettingsStorage.get();
+          await setPomodoroPhase('break', settings.breakMinutes);
+        }
         return { ok: true };
       }
 

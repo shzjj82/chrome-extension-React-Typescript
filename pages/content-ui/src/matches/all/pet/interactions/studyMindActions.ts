@@ -25,6 +25,28 @@ const createStudyMindHoverActions = (): PetInteractionAction[] => [
   },
 ];
 
+/** 专注中 hover：暂停休息 / 结束；移开后继续保持专注 */
+const createFocusHoverActions = (): PetInteractionAction[] => [
+  {
+    id: 'focus-pause',
+    label: t('petFocusPause'),
+    title: t('petFocusPauseTitle'),
+    ariaLabel: t('petFocusPause'),
+    onSelect: () => {
+      void sendExtensionMessage(ExtensionMessageType.POMODORO_START_BREAK);
+    },
+  },
+  {
+    id: 'focus-end',
+    label: t('petFocusEnd'),
+    title: t('petFocusEndTitle'),
+    ariaLabel: t('petFocusEnd'),
+    onSelect: () => {
+      void sendExtensionMessage(ExtensionMessageType.POMODORO_STOP);
+    },
+  },
+];
+
 const createRestReminderAction = (onDismiss: () => void): PetInteractionAction => ({
   id: 'rest-reminder',
   label: t('petRestReminder'),
@@ -36,6 +58,18 @@ const createRestReminderAction = (onDismiss: () => void): PetInteractionAction =
   onSelect: () => {
     onDismiss();
   },
+});
+
+/** 每 5 分钟：按百分比汇报已走过的专注时间 */
+const createFocusProgressAction = (elapsedMinutes: number, percent: number): PetInteractionAction => ({
+  id: 'focus-progress',
+  label: t('petFocusProgressOk'),
+  headLine: t('petFocusProgressHead'),
+  actionText: `${percent}%`,
+  trailingText: `（${elapsedMinutes}${t('petFocusProgressMinutes')}）`,
+  title: t('petFocusProgressTitle'),
+  ariaLabel: t('petFocusProgressOk'),
+  onSelect: () => undefined,
 });
 
 const createStudyMindAdoptAction = (): PetInteractionAction => ({
@@ -59,5 +93,7 @@ export {
   createStudyMindAdoptAction,
   createStudyMindHoverActions,
   createStudyMindPetHoverActions,
+  createFocusHoverActions,
   createRestReminderAction,
+  createFocusProgressAction,
 };

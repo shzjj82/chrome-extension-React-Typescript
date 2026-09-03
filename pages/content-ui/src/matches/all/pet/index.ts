@@ -8,7 +8,9 @@ export {
   createStudyMindAdoptAction,
   createStudyMindHoverActions,
   createStudyMindPetHoverActions,
+  createFocusHoverActions,
   createRestReminderAction,
+  createFocusProgressAction,
 } from './interactions/studyMindActions';
 export { PetSpriteRenderer } from './animation/PetSpriteRenderer';
 export { PET_ANIMATION_SHEETS, registerAnimationSheet } from './animation/sheets';
@@ -19,13 +21,23 @@ export { PetRoot } from './ui/root/PetRoot';
 export { PetHoverZone } from './ui/hover/PetHoverZone';
 export { PetStage } from './ui/stage/PetStage';
 export { PetSpriteHost } from './ui/stage/PetSpriteHost';
+export { FocusClock } from './ui/stage/FocusClock';
 export { PetThoughtBubble } from './ui/thought-bubble/PetThoughtBubble';
 export { ThoughtBubbleShape } from './ui/thought-bubble/ThoughtBubbleShape';
 export { PetBubbleMenu } from './ui/bubble-menu/PetBubbleMenu';
 export { PetBubbleActionList } from './ui/bubble-menu/PetBubbleActionList';
 export { PetView } from './ui/PetView';
 
-export type { FloatingPetProps, PetBounds, PetInteractionAction, PetMode, PetPhase } from './types';
+export type {
+  FloatingPetProps,
+  PetBounds,
+  PetInteractionAction,
+  PetMode,
+  PetPhase,
+  PetRuntimeApi,
+  StageAccessoryContext,
+  StageAccessoryResolver,
+} from './types';
 export type { PetControllerOptions, PetMountTarget } from './core/PetController';
 export type { PetBehaviorMode, PetKindDef, PetKindId } from './core/petKinds';
 export type { BubbleContentResolver, BubbleControllerState, BubbleStateListener } from './bubble/BubbleController';

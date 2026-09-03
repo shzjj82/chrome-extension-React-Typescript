@@ -1,11 +1,7 @@
 import { usePetBehavior } from './behavior/usePetBehavior';
-import { createRestReminderAction } from './interactions/studyMindActions';
 import { PetView } from './ui/PetView';
-import { useStorage } from '@extension/shared';
-import { pomodoroStateStorage } from '@extension/storage';
-import { useEffect, useRef } from 'react';
-import type { FloatingPetProps } from './types';
-import type { PomodoroPhase } from '@extension/storage';
+import { useEffect, useMemo, useRef } from 'react';
+import type { FloatingPetProps, PetRuntimeApi } from './types';
 
 const FloatingPet = ({
   enabled = true,
@@ -14,9 +10,10 @@ const FloatingPet = ({
   walkSpeed = 54,
   kind = 'study-buddy',
   resolveBubbleActions,
+  resolveStageAccessory,
   ariaLabel = 'Study Mind 陪伴伙伴',
   controllerRef,
-  enableFocusRestReminder = true,
+  onRuntimeReady,
 }: FloatingPetProps) => {
   const { rootRef, hoverZoneRef, hostRef, menuVisible, facingLeft, bubbleActions, handlers } = usePetBehavior({
     enabled,
@@ -28,41 +25,34 @@ const FloatingPet = ({
     controllerRef,
   });
 
-  const { enterHover, leaveHover, onPointerDown, promptRestReminder, clearRestReminder } = handlers;
-  const promptRestReminderRef = useRef(promptRestReminder);
-  const clearRestReminderRef = useRef(clearRestReminder);
-  promptRestReminderRef.current = promptRestReminder;
-  clearRestReminderRef.current = clearRestReminder;
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
 
-  const pomodoro = useStorage(pomodoroStateStorage);
-  const prevPhaseRef = useRef<PomodoroPhase>(pomodoro.phase);
+  const runtimeApi = useMemo<PetRuntimeApi>(
+    () => ({
+      lockSit: () => handlersRef.current.lockSit(),
+      unlockSit: () => handlersRef.current.unlockSit(),
+      promptRestReminder: actions => handlersRef.current.promptRestReminder(actions),
+      clearRestReminder: () => handlersRef.current.clearRestReminder(),
+      showTemporaryBubble: (actions, durationMs) => handlersRef.current.showTemporaryBubble(actions, durationMs),
+    }),
+    [],
+  );
 
   useEffect(() => {
-    if (!enabled || !enableFocusRestReminder) {
-      prevPhaseRef.current = pomodoro.phase;
+    if (!enabled) {
+      onRuntimeReady?.(null);
       return;
     }
-
-    const prev = prevPhaseRef.current;
-    prevPhaseRef.current = pomodoro.phase;
-
-    if (prev === 'focus' && pomodoro.phase === 'break') {
-      promptRestReminderRef.current([
-        createRestReminderAction(() => {
-          clearRestReminderRef.current();
-        }),
-      ]);
-      return;
-    }
-
-    if (prev === 'break' && (pomodoro.phase === 'idle' || pomodoro.phase === 'focus')) {
-      clearRestReminderRef.current();
-    }
-  }, [enabled, enableFocusRestReminder, pomodoro.phase]);
+    onRuntimeReady?.(runtimeApi);
+    return () => onRuntimeReady?.(null);
+  }, [enabled, onRuntimeReady, runtimeApi]);
 
   if (!enabled) {
     return null;
   }
+
+  const stageAccessory = resolveStageAccessory?.({ facingLeft, menuVisible }) ?? null;
 
   return (
     <PetView
@@ -73,9 +63,10 @@ const FloatingPet = ({
       menuVisible={menuVisible}
       facingLeft={facingLeft}
       actions={bubbleActions}
-      onEnterHover={enterHover}
-      onLeaveHover={leaveHover}
-      onPointerDown={onPointerDown}
+      stageAccessory={stageAccessory}
+      onEnterHover={handlers.enterHover}
+      onLeaveHover={handlers.leaveHover}
+      onPointerDown={handlers.onPointerDown}
     />
   );
 };

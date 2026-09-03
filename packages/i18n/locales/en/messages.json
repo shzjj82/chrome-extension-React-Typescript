@@ -238,6 +238,30 @@
   "petActionRestTitle": {
     "message": "Take a break"
   },
+  "petFocusPause": {
+    "message": "Pause"
+  },
+  "petFocusPauseTitle": {
+    "message": "Pause and rest a bit"
+  },
+  "petFocusEnd": {
+    "message": "End"
+  },
+  "petFocusEndTitle": {
+    "message": "End focus"
+  },
+  "petFocusProgressHead": {
+    "message": "Elapsed"
+  },
+  "petFocusProgressMinutes": {
+    "message": "min"
+  },
+  "petFocusProgressOk": {
+    "message": "OK"
+  },
+  "petFocusProgressTitle": {
+    "message": "Focus progress"
+  },
   "petRestReminder": {
     "message": "Time for a break"
   },

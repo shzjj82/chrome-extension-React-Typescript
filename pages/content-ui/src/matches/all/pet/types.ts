@@ -1,7 +1,7 @@
 import type { BubbleContentResolver } from './bubble/BubbleController';
 import type { PetController } from './core/PetController';
 import type { PetKindId } from './core/petKinds';
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 type PetBounds = {
   minX: number;
@@ -32,6 +32,23 @@ type PetInteractionAction = {
   title?: string;
 };
 
+/** 外部业务层可调用的宠物运行时能力（类似气泡由外部驱动） */
+type PetRuntimeApi = {
+  lockSit: () => void;
+  unlockSit: () => void;
+  promptRestReminder: (actions: PetInteractionAction[]) => void;
+  clearRestReminder: () => void;
+  showTemporaryBubble: (actions: PetInteractionAction[], durationMs?: number) => void;
+};
+
+type StageAccessoryContext = {
+  facingLeft: boolean;
+  /** 气泡可见时，外部应隐藏闹钟等附件 */
+  menuVisible: boolean;
+};
+
+type StageAccessoryResolver = (ctx: StageAccessoryContext) => ReactNode;
+
 type FloatingPetProps = {
   enabled?: boolean;
   bounds?: Partial<PetBounds>;
@@ -41,11 +58,25 @@ type FloatingPetProps = {
   kind?: PetKindId;
   /** 气泡文案解析：气泡层自管显隐，内容由此回调提供 */
   resolveBubbleActions?: BubbleContentResolver;
+  /**
+   * 舞台附件解析（如专注闹钟），由外部传入，类似气泡。
+   * 与气泡互斥：ctx.menuVisible 为 true 时应返回 null。
+   */
+  resolveStageAccessory?: StageAccessoryResolver;
   ariaLabel?: string;
   /** 宠物实例引用，创建后可通过 subscribe / unsubscribe 订阅消息 */
   controllerRef?: RefObject<PetController | null>;
-  /** 专注结束后狗狗坐下提醒休息（默认开启） */
-  enableFocusRestReminder?: boolean;
+  /** 运行时 API 就绪回调，供外部专注/休息等业务挂接 */
+  onRuntimeReady?: (api: PetRuntimeApi | null) => void;
 };
 
-export type { FloatingPetProps, PetBounds, PetInteractionAction, PetMode, PetPhase };
+export type {
+  FloatingPetProps,
+  PetBounds,
+  PetInteractionAction,
+  PetMode,
+  PetPhase,
+  PetRuntimeApi,
+  StageAccessoryContext,
+  StageAccessoryResolver,
+};

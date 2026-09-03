@@ -238,6 +238,30 @@
   "petActionRestTitle": {
     "message": "先歇一会儿"
   },
+  "petFocusPause": {
+    "message": "暂停休息"
+  },
+  "petFocusPauseTitle": {
+    "message": "暂停休息一会儿"
+  },
+  "petFocusEnd": {
+    "message": "结束"
+  },
+  "petFocusEndTitle": {
+    "message": "结束专注"
+  },
+  "petFocusProgressHead": {
+    "message": "已走过"
+  },
+  "petFocusProgressMinutes": {
+    "message": "分钟"
+  },
+  "petFocusProgressOk": {
+    "message": "好的"
+  },
+  "petFocusProgressTitle": {
+    "message": "专注进度"
+  },
   "petRestReminder": {
     "message": "该休息一会儿了"
   },

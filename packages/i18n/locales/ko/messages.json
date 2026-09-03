@@ -238,6 +238,30 @@
   "petActionRestTitle": {
     "message": "잠깐 쉬기"
   },
+  "petFocusPause": {
+    "message": "잠시 휴식"
+  },
+  "petFocusPauseTitle": {
+    "message": "잠시 쉬었다가"
+  },
+  "petFocusEnd": {
+    "message": "종료"
+  },
+  "petFocusEndTitle": {
+    "message": "집중 종료"
+  },
+  "petFocusProgressHead": {
+    "message": "지나간 시간"
+  },
+  "petFocusProgressMinutes": {
+    "message": "분"
+  },
+  "petFocusProgressOk": {
+    "message": "알겠어요"
+  },
+  "petFocusProgressTitle": {
+    "message": "집중 진행률"
+  },
   "petRestReminder": {
     "message": "이제 좀 쉬어요"
   },

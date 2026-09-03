@@ -1,16 +1,54 @@
-import { FloatingPet, createStudyMindPetHoverActions, defaultBounds, VIEW_SIZE } from './pet';
+import {
+  FloatingPet,
+  FocusClock,
+  createFocusHoverActions,
+  createStudyMindPetHoverActions,
+  defaultBounds,
+  VIEW_SIZE,
+} from './pet';
+import { useStudyFocusCompanion } from './pet/focus/useStudyFocusCompanion';
 import { useStorage } from '@extension/shared';
-import { normalizeUserProfile, userProfileStorage } from '@extension/storage';
+import { normalizeUserProfile, pomodoroStateStorage, userProfileStorage } from '@extension/storage';
 import { useCallback } from 'react';
-import type { FloatingPetProps, PetBounds } from './pet';
+import type { FloatingPetProps, PetBounds, StageAccessoryContext } from './pet';
 
-type StudyPetProps = Omit<FloatingPetProps, 'resolveBubbleActions' | 'ariaLabel'>;
+type StudyPetProps = Omit<
+  FloatingPetProps,
+  'resolveBubbleActions' | 'resolveStageAccessory' | 'ariaLabel' | 'onRuntimeReady'
+>;
 
 const StudyPet = (props: StudyPetProps) => {
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
-  const resolveBubbleActions = useCallback(() => createStudyMindPetHoverActions(profile), [profile]);
+  const pomodoro = useStorage(pomodoroStateStorage);
+  const { clock, onRuntimeReady } = useStudyFocusCompanion(props.enabled !== false);
 
-  return <FloatingPet {...props} resolveBubbleActions={resolveBubbleActions} ariaLabel="Study Mind 陪伴伙伴" />;
+  const resolveBubbleActions = useCallback(() => {
+    if (pomodoro.phase === 'focus') {
+      return createFocusHoverActions();
+    }
+    return createStudyMindPetHoverActions(profile);
+  }, [profile, pomodoro.phase]);
+
+  const resolveStageAccessory = useCallback(
+    ({ facingLeft, menuVisible }: StageAccessoryContext) => {
+      // 气泡与闹钟互斥：hover / 提醒气泡出现时不显示钟
+      if (!clock || menuVisible) {
+        return null;
+      }
+      return <FocusClock facingLeft={facingLeft} progress={clock.progress} percentLabel={clock.percentLabel} />;
+    },
+    [clock],
+  );
+
+  return (
+    <FloatingPet
+      {...props}
+      resolveBubbleActions={resolveBubbleActions}
+      resolveStageAccessory={resolveStageAccessory}
+      onRuntimeReady={onRuntimeReady}
+      ariaLabel="Study Mind 陪伴伙伴"
+    />
+  );
 };
 
 export type { PetBounds as Bounds, StudyPetProps };

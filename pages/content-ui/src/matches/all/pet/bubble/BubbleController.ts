@@ -26,6 +26,7 @@ class BubbleController {
   private actions: PetInteractionAction[] = [];
   private listeners = new Set<BubbleStateListener>();
   private attached = false;
+  private tempHideTimer: number | null = null;
 
   attach = (pet: PetEventSource, resolveActions: BubbleContentResolver) => {
     this.detach();
@@ -53,6 +54,7 @@ class BubbleController {
     this.dragging = false;
     this.pinned = false;
     this.actions = [];
+    this.clearTempHideTimer();
     this.listeners.clear();
   };
 
@@ -76,16 +78,39 @@ class BubbleController {
   };
 
   hide = () => {
+    this.clearTempHideTimer();
     this.pinned = false;
     this.setVisible(false);
   };
 
   /** 固定展示气泡（不随 hover leave 消失），用于休息提醒等 */
   showPinned = (actions: PetInteractionAction[]) => {
+    this.clearTempHideTimer();
     this.pinned = true;
     this.actions = this.wrapActions(actions);
     this.visible = this.actions.length > 0;
     this.emit();
+  };
+
+  /** 短暂钉住气泡（如专注进度），结束后若未悬停则收起 */
+  showTemporary = (actions: PetInteractionAction[], durationMs = 4200) => {
+    this.showPinned(actions);
+    this.tempHideTimer = window.setTimeout(() => {
+      this.tempHideTimer = null;
+      if (this.hovering) {
+        this.pinned = false;
+        this.showWithFreshActions();
+        return;
+      }
+      this.hide();
+    }, durationMs);
+  };
+
+  private clearTempHideTimer = () => {
+    if (this.tempHideTimer) {
+      window.clearTimeout(this.tempHideTimer);
+      this.tempHideTimer = null;
+    }
   };
 
   private onHoverEnter = () => {

@@ -66,6 +66,8 @@ class PetController {
   private resumeFromSit = false;
   private isHovering = false;
   private restPrompt = false;
+  /** 外部锁定坐下（如专注模式），离开 hover 不恢复散步 */
+  private sitLock = false;
   private drag: DragSession | null = null;
   private detachDragWindow: (() => void) | null = null;
 
@@ -191,23 +193,50 @@ class PetController {
     this.topics.publish('hover:leave', undefined);
   };
 
-  /** 专注结束：坐下并保持，直到 clearRestPrompt */
-  promptRestSit = () => {
-    if (this.idleOnly) {
-      this.playIdleLoop();
-      this.restPrompt = true;
-      this.emitState();
-      return;
-    }
-    this.restPrompt = true;
+  private isSitLocked = () => this.restPrompt || this.sitLock;
+
+  private lockSitPose = () => {
     this.clearResumeTimer();
     this.mode = 'hover';
     this.phase = 'rest';
+    if (this.idleOnly) {
+      this.playIdleLoop();
+      return;
+    }
     if (!this.isSitLike()) {
       this.sitForUser();
     } else {
       this.renderer?.sit();
     }
+  };
+
+  /** 外部请求：保持坐下，直到 unlockSit（不关心业务语义） */
+  lockSit = () => {
+    this.sitLock = true;
+    this.lockSitPose();
+    this.emitState();
+  };
+
+  unlockSit = () => {
+    if (!this.sitLock) {
+      return;
+    }
+    this.sitLock = false;
+    if (this.restPrompt) {
+      this.emitState();
+      return;
+    }
+    this.isHovering = false;
+    this.mode = 'auto';
+    this.scheduleAutoResume();
+    this.emitState();
+  };
+
+  /** 专注结束提醒：坐下并保持，直到 clearRestPrompt */
+  promptRestSit = () => {
+    this.sitLock = false;
+    this.restPrompt = true;
+    this.lockSitPose();
     this.emitState();
   };
 
@@ -216,6 +245,11 @@ class PetController {
       return;
     }
     this.restPrompt = false;
+    if (this.sitLock) {
+      this.lockSitPose();
+      this.emitState();
+      return;
+    }
     this.isHovering = false;
     this.mode = 'auto';
     this.scheduleAutoResume();
@@ -274,7 +308,8 @@ class PetController {
 
   private handleHoverLeaveAnim = () => {
     this.isHovering = false;
-    if (this.restPrompt) {
+    if (this.isSitLocked()) {
+      this.lockSitPose();
       this.emitState();
       return;
     }
@@ -359,13 +394,8 @@ class PetController {
     this.target = { ...this.pos };
     this.topics.publish('drag:end', undefined);
 
-    if (this.restPrompt) {
-      this.mode = 'hover';
-      if (this.idleOnly) {
-        this.playIdleLoop();
-      } else if (!this.isSitLike()) {
-        this.sitForUser();
-      }
+    if (this.isSitLocked()) {
+      this.lockSitPose();
       this.emitState();
       return;
     }
@@ -407,12 +437,12 @@ class PetController {
   };
 
   private scheduleAutoResume = () => {
-    if (this.restPrompt) {
+    if (this.isSitLocked()) {
       return;
     }
     this.clearResumeTimer();
     this.resumeTimer = window.setTimeout(() => {
-      if (this.isDragging() || this.restPrompt) {
+      if (this.isDragging() || this.isSitLocked()) {
         return;
       }
       this.resumeFromSit = true;
@@ -460,7 +490,13 @@ class PetController {
     const dt = Math.min(0.05, (ts - last) / 1000);
     this.lastTs = ts;
 
-    if (this.mode === 'auto' && this.phase === 'rest' && !this.idleOnly && !this.restPrompt && ts >= this.decisionAt) {
+    if (
+      this.mode === 'auto' &&
+      this.phase === 'rest' &&
+      !this.idleOnly &&
+      !this.isSitLocked() &&
+      ts >= this.decisionAt
+    ) {
       this.beginWalkMotion();
     }
 

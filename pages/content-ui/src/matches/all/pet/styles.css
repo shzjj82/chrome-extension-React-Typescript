@@ -227,3 +227,9 @@
   user-select: none;
   pointer-events: none;
 }
+
+.sm-pet__focus-clock {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
