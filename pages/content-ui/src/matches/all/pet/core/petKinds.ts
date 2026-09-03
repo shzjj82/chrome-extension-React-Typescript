@@ -2,7 +2,7 @@ import type { PetSkinId } from '../animation/skins';
 import type { PetAnimId } from '../animation/types';
 
 /** 宠物种类：决定行为模式；皮肤（资源）通过 skinId 绑定 */
-type PetKindId = 'study-buddy' | 'adoptable-pup' | (string & {});
+type PetKindId = 'study-pet' | 'adoptable-pet' | (string & {});
 
 type PetBehaviorMode = 'wander' | 'idle-loop';
 
@@ -16,16 +16,16 @@ type PetKindDef = {
 };
 
 const PET_KINDS: Record<string, PetKindDef> = {
-  'study-buddy': {
-    id: 'study-buddy',
-    skinId: 'skin-buddy-default',
+  'study-pet': {
+    id: 'study-pet',
+    skinId: 'skin-pet-default',
     defaultAnim: 'run',
     anims: ['run', 'sit', 'sit-down'],
     behavior: 'wander',
   },
-  'adoptable-pup': {
-    id: 'adoptable-pup',
-    skinId: 'skin-pup-adopt',
+  'adoptable-pet': {
+    id: 'adoptable-pet',
+    skinId: 'skin-pet-adopt',
     defaultAnim: 'adopt-idle',
     anims: ['adopt-idle'],
     behavior: 'idle-loop',

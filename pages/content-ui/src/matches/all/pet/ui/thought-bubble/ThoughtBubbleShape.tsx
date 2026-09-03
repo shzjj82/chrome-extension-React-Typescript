@@ -2,11 +2,11 @@ import { getThoughtBubbleGeometry } from './thoughtBubbleGeometry';
 import type { ThoughtBubbleSize } from './thoughtBubbleGeometry';
 
 type ThoughtBubbleShapeProps = {
-  tailNearDog: 'left' | 'right';
+  tailNearPet: 'left' | 'right';
   size?: ThoughtBubbleSize;
 };
 
-const ThoughtBubbleShape = ({ tailNearDog, size = 'sm' }: ThoughtBubbleShapeProps) => {
+const ThoughtBubbleShape = ({ tailNearPet, size = 'sm' }: ThoughtBubbleShapeProps) => {
   const { viewBox, cloudPath, midDot, smallDot } = getThoughtBubbleGeometry(size);
 
   return (
@@ -16,7 +16,7 @@ const ThoughtBubbleShape = ({ tailNearDog, size = 'sm' }: ThoughtBubbleShapeProp
       width={viewBox.width}
       height={viewBox.height}
       aria-hidden="true"
-      style={{ transform: tailNearDog === 'left' ? 'scaleX(-1)' : undefined }}>
+      style={{ transform: tailNearPet === 'left' ? 'scaleX(-1)' : undefined }}>
       <path className="sm-pet__thought-cloud" d={cloudPath} />
       <ellipse className="sm-pet__thought-dot" cx={midDot.cx} cy={midDot.cy} rx={midDot.rx} ry={midDot.ry} />
       <circle

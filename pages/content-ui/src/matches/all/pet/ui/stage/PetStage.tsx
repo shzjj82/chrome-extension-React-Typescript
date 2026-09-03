@@ -7,7 +7,7 @@ type PetStageProps = {
   accessory?: ReactNode;
 };
 
-/** 小狗舞台：拖拽手柄 + 精灵容器；附件由外部注入 */
+/** 宠物舞台：拖拽手柄 + 精灵容器；附件由外部注入 */
 const PetStage = ({ hostRef, accessory }: PetStageProps) => (
   <div className="sm-pet__stage">
     {accessory}

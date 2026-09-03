@@ -26,12 +26,12 @@ const PetThoughtBubble = ({ visible, facingLeft, size = 'sm', children }: PetTho
     return null;
   }
 
-  const { offsetX, bottom, tailNearDog } = getThoughtBubbleLayout(facingLeft, size);
+  const { offsetX, bottom, tailNearPet } = getThoughtBubbleLayout(facingLeft, size);
   const { viewBox } = getThoughtBubbleGeometry(size);
   // SVG 翻转时文案区需同步镜像，否则 md/lg 会明显偏到一侧
   const contentRect = getThoughtBubbleContentRect({
     size,
-    mirrorX: tailNearDog === 'left',
+    mirrorX: tailNearPet === 'left',
   });
 
   const bubbleStyle: CSSProperties = {
@@ -61,7 +61,7 @@ const PetThoughtBubble = ({ visible, facingLeft, size = 'sm', children }: PetTho
         // 气泡内点击不触发宠物拖拽
         event.stopPropagation();
       }}>
-      <ThoughtBubbleShape tailNearDog={tailNearDog} size={size} />
+      <ThoughtBubbleShape tailNearPet={tailNearPet} size={size} />
       <div ref={bodyRef} className="sm-pet__thought-body" style={bodyStyle}>
         <div ref={contentRef} className="sm-pet__thought-body-inner">
           {children}

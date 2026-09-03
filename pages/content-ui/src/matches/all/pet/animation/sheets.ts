@@ -18,13 +18,13 @@ const PET_ANIMATION_SHEETS: Record<BuiltinPetAnimId, AnimationSheetDef> = {
 
 const registerAnimationSheet = (id: BuiltinPetAnimId, sheet: AnimationSheetDef) => {
   PET_ANIMATION_SHEETS[id] = sheet;
-  registerSkinSheet('skin-buddy-default', id, sheet);
+  registerSkinSheet('skin-pet-default', id, sheet);
 };
 
 /** 注册内置皮肤动画表（多皮肤差异从这里扩展） */
 const registerBuiltinSkins = () => {
   registerPetSkin({
-    id: 'skin-buddy-default',
+    id: 'skin-pet-default',
     defaultAnim: 'run',
     sheets: {
       run: PET_ANIMATION_SHEETS.run,
@@ -33,7 +33,7 @@ const registerBuiltinSkins = () => {
     },
   });
   registerPetSkin({
-    id: 'skin-pup-adopt',
+    id: 'skin-pet-adopt',
     defaultAnim: 'adopt-idle',
     sheets: {
       'adopt-idle': PET_ANIMATION_SHEETS['adopt-idle'],

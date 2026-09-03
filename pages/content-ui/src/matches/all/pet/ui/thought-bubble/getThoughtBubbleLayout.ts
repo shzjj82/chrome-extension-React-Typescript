@@ -6,7 +6,7 @@ type ThoughtBubbleLayout = {
   offsetX: number;
   /** 相对宠物底部的 bottom，单位 px；锚定小圆点高度与 sm 一致 */
   bottom: number;
-  tailNearDog: 'left' | 'right';
+  tailNearPet: 'left' | 'right';
 };
 
 /** sm 时小圆点相对宠物中心的水平偏移（保持历史观感） */
@@ -21,7 +21,7 @@ const SM_SMALL_DOT_FROM_PET_BOTTOM = 68 + (THOUGHT_BUBBLE_SM.viewBox.height - TH
  */
 const getThoughtBubbleLayout = (facingLeft: boolean, size: ThoughtBubbleSize = 'sm'): ThoughtBubbleLayout => {
   const { viewBox, smallDot } = getThoughtBubbleGeometry(size);
-  const tailNearDog = facingLeft ? 'right' : 'left';
+  const tailNearPet = facingLeft ? 'right' : 'left';
 
   // 翻转时小圆点视觉 x = width - cx
   const visualDotX = facingLeft ? smallDot.cx : viewBox.width - smallDot.cx;
@@ -32,7 +32,7 @@ const getThoughtBubbleLayout = (facingLeft: boolean, size: ThoughtBubbleSize = '
   const gapBelowDot = viewBox.height - smallDot.cy;
   const bottom = SM_SMALL_DOT_FROM_PET_BOTTOM - gapBelowDot;
 
-  return { offsetX, bottom, tailNearDog };
+  return { offsetX, bottom, tailNearPet };
 };
 
 export type { ThoughtBubbleLayout };

@@ -8,7 +8,7 @@ const FloatingPet = ({
   bounds,
   resumeDelayMs = 2200,
   walkSpeed = 54,
-  kind = 'study-buddy',
+  kind = 'study-pet',
   resolveBubbleActions,
   resolveStageAccessory,
   ariaLabel = 'Study Mind 陪伴伙伴',

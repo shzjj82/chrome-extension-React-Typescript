@@ -25,7 +25,7 @@ type PetControllerOptions = {
   bounds?: Partial<PetBounds>;
   /** 固定 bounds，拖拽后不自动重算活动范围 */
   fixedBounds?: boolean;
-  /** 宠物种类：认养前用 adoptable-pup（仅 idle 循环） */
+  /** 宠物种类：认养前用 adoptable-pet（仅 idle 循环） */
   kind?: PetKindId;
 };
 
@@ -88,7 +88,7 @@ class PetController {
     this.fixedBounds = options.fixedBounds ?? false;
     this.boundsOverride = options.bounds;
     this.bounds = resolveBounds(options.bounds);
-    this.kindId = options.kind ?? 'study-buddy';
+    this.kindId = options.kind ?? 'study-pet';
     this.idleOnly = getPetKind(this.kindId).behavior === 'idle-loop';
     if (this.idleOnly) {
       this.phase = 'rest';
@@ -234,7 +234,9 @@ class PetController {
 
   /** Hover 热区进入：直接走反馈事件 + 姿态 */
   notifyHoverEnter = () => {
+    // 拖拽中只同步命中状态，不切 hover 动画（松手后再决定）
     if (this.isDragging()) {
+      this.isHovering = true;
       return;
     }
     this.handleHoverEnterAnim();
@@ -242,10 +244,26 @@ class PetController {
 
   /** Hover 热区离开 */
   notifyHoverLeave = () => {
+    // 拖拽中仍清除 isHovering，避免松手后误判仍在 hover 而永久坐下
     if (this.isDragging()) {
+      this.isHovering = false;
       return;
     }
     this.handleHoverLeaveAnim();
+  };
+
+  /** Shadow DOM 下用 zone 所在 root 做命中测试 */
+  private isPointerOverHoverZone = (clientX: number, clientY: number) => {
+    const zone = this.hoverZone;
+    if (!zone) {
+      return false;
+    }
+    const rootNode = zone.getRootNode();
+    const hit =
+      rootNode instanceof ShadowRoot
+        ? rootNode.elementFromPoint(clientX, clientY)
+        : document.elementFromPoint(clientX, clientY);
+    return Boolean(hit && (hit === zone || zone.contains(hit)));
   };
 
   private isSitLocked = () => this.restPrompt || this.sitLock;
@@ -395,7 +413,7 @@ class PetController {
     this.detachDragListeners();
     this.detachDragWindow = attachWindowPointerSession(pointerId, {
       onMove: (clientX, clientY) => this.applyDragMove(clientX, clientY),
-      onEnd: endedId => this.finishDrag(endedId),
+      onEnd: (endedId, clientX, clientY) => this.finishDrag(endedId, clientX, clientY),
     });
   };
 
@@ -416,7 +434,7 @@ class PetController {
     this.events.emit('drag', 'update', { x: next.x, y: next.y });
   };
 
-  private finishDrag = (pointerId: number) => {
+  private finishDrag = (pointerId: number, clientX?: number, clientY?: number) => {
     if (!this.drag || this.drag.pointerId !== pointerId) {
       return;
     }
@@ -442,6 +460,11 @@ class PetController {
     if (!drag.moved) {
       this.events.fire('click', { x: this.pos.x, y: this.pos.y });
       this.events.emit('click', 'end', { x: this.pos.x, y: this.pos.y });
+    }
+
+    // 以松手时真实命中为准，纠正拖拽期间被吞掉的 leave/enter
+    if (typeof clientX === 'number' && typeof clientY === 'number') {
+      this.isHovering = this.isPointerOverHoverZone(clientX, clientY);
     }
 
     if (this.isSitLocked()) {
@@ -491,7 +514,12 @@ class PetController {
     }
     this.clearResumeTimer();
     this.resumeTimer = window.setTimeout(() => {
+      this.resumeTimer = null;
       if (this.isDragging() || this.isSitLocked()) {
+        // 当时仍被占用：稍后再试，避免一次 return 后永远不恢复
+        if (!this.isSitLocked()) {
+          this.scheduleAutoResume();
+        }
         return;
       }
       this.resumeFromSit = true;
@@ -521,9 +549,14 @@ class PetController {
     this.emitState();
   };
 
+  /** 散步间隙休息：切到坐姿，避免 run 中途 pause 像卡死 */
   private enterRest = (now: number, holdMs?: number) => {
     this.phase = 'rest';
-    this.renderer?.pause();
+    if (!this.idleOnly) {
+      this.renderer?.sit();
+    } else {
+      this.renderer?.pause();
+    }
     this.decisionAt = now + (holdMs ?? rand(2800, 5600));
     this.emitState();
   };

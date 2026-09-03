@@ -11,7 +11,7 @@ import type { PetPublish } from '../core/topics';
  */
 class PetSpriteRenderer {
   private publish: PetPublish | null = null;
-  private skinId: PetSkinId = 'skin-buddy-default';
+  private skinId: PetSkinId = 'skin-pet-default';
 
   private el: HTMLDivElement | null = null;
   private facingLeft = false;

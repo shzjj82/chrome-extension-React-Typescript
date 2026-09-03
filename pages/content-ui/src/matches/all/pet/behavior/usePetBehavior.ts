@@ -48,7 +48,7 @@ const usePetBehavior = ({
   boundsProp,
   walkSpeed,
   resumeDelayMs,
-  kind = 'study-buddy',
+  kind = 'study-pet',
   resolveBubbleActions,
   controllerRef: externalControllerRef,
 }: UsePetBehaviorOptions): UsePetBehaviorResult => {

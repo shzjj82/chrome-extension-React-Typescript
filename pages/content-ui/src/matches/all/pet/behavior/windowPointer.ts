@@ -6,7 +6,7 @@ const attachWindowPointerSession = (
   pointerId: number,
   handlers: {
     onMove: (clientX: number, clientY: number) => void;
-    onEnd: (endedPointerId: number) => void;
+    onEnd: (endedPointerId: number, clientX: number, clientY: number) => void;
   },
 ): (() => void) => {
   const onMove = (e: PointerEvent) => {
@@ -16,7 +16,7 @@ const attachWindowPointerSession = (
   };
   const onEnd = (e: PointerEvent) => {
     if (e.pointerId === pointerId) {
-      handlers.onEnd(pointerId);
+      handlers.onEnd(pointerId, e.clientX, e.clientY);
     }
   };
 
