@@ -37,8 +37,8 @@ type StudySessionInput = Omit<StudySession, 'id' | 'createdAt' | 'updatedAt'> & 
   id?: string;
 };
 
-/** 分页/内容变化后的单页浏览记录（IndexedDB） */
-type BrowsePageTrigger = 'route' | 'pager-click' | 'content-change' | 'manual';
+/** 分页/内容变化后的单页浏览记录（IndexedDB）；仅专注会话内写入 */
+type BrowsePageTrigger = 'route' | 'pager-click' | 'content-change' | 'manual' | 'focus-enter';
 
 type BrowsePageRecord = {
   id: string;

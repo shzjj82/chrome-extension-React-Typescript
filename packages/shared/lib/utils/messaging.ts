@@ -36,7 +36,7 @@ type FocusBrowseRecordPayload = {
   title: string;
   material: string;
   fingerprint: string;
-  trigger: 'route' | 'pager-click' | 'content-change' | 'manual';
+  trigger: 'route' | 'pager-click' | 'content-change' | 'manual' | 'focus-enter';
   similarity: number;
 };
 

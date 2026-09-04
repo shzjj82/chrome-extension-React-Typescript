@@ -505,7 +505,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
       }
 
       case ExtensionMessageType.FOCUS_BROWSE_RECORD: {
-        // 红线：非专注一律拒绝写入浏览正文
+        // 红线：整理「文件」仅专注会话可写入；暂停/休息/idle 一律拒绝
         const focusState = await pomodoroStateStorage.get();
         if (focusState.phase !== 'focus') {
           console.log('[Study Mind][browse] 拒绝写入：非专注', {
@@ -520,7 +520,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
           title?: string;
           material?: string;
           fingerprint?: string;
-          trigger?: 'route' | 'pager-click' | 'content-change' | 'manual';
+          trigger?: 'route' | 'pager-click' | 'content-change' | 'manual' | 'focus-enter';
           similarity?: number;
         };
         if (!browsePayload.url || !browsePayload.fingerprint) {

@@ -6,14 +6,20 @@ import { pomodoroStateStorage } from '@extension/storage';
 
 console.log('[Study Mind] Content script loaded');
 
+type BrowseRecordTrigger = 'route' | 'pager-click' | 'content-change' | 'manual' | 'focus-enter';
+
 /**
- * 红线：仅「专注开始 → 专注结束」窗口内采集。
- * 暂停 / 休息 / idle 一律关闭（含暂停到恢复之间）。
- * 必须同时：storage.phase === 'focus' 且 宠物 focusing === true。
+ * 红线：整理用「文件」仅在专注会话内收集。
+ * - 开启：phase === 'focus' 且 宠物 focusing === true
+ * - 关闭：暂停 / 休息 / idle（含暂停→恢复空档）
+ * - 收集：专注开始落首屏 + 专注中翻页/内容显著变化
  */
 let storageFocusing = false;
 let petFocusing = false;
 let detectorRunning = false;
+/** 同一段专注只落一次首屏，避免门禁抖动重复写 */
+let capturedEnterForStartedAt: number | null = null;
+let focusEnterTimer: number | null = null;
 
 const logFocus = (msg: string, extra?: Record<string, unknown>) => {
   console.log(`[Study Mind][focus] ${msg}`, {
@@ -34,6 +40,117 @@ const logBrowse = (msg: string, extra?: Record<string, unknown>) => {
 
 const canRecord = () => storageFocusing && petFocusing;
 
+const fingerprintText = (text: string): string => {
+  let hash = 2166136261;
+  const step = Math.max(1, Math.floor(text.length / 2000));
+  for (let i = 0; i < text.length; i += step) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${text.length}:${(hash >>> 0).toString(16)}`;
+};
+
+const persistBrowseSnapshot = async (input: {
+  recordedAt: number;
+  url: string;
+  title: string;
+  material: string;
+  fingerprint: string;
+  trigger: BrowseRecordTrigger;
+  similarity: number;
+}) => {
+  const state = await pomodoroStateStorage.get();
+  if (state.phase !== 'focus') {
+    logBrowse('落库前复核失败：phase 已不是 focus，关闭采集', { phase: state.phase, trigger: input.trigger });
+    storageFocusing = false;
+    syncDetector('phase-recheck-fail');
+    return;
+  }
+  if (!canRecord()) {
+    logBrowse('落库前复核失败：门禁关闭', { trigger: input.trigger });
+    return;
+  }
+
+  logBrowse('准备写入整理素材', {
+    trigger: input.trigger,
+    url: input.url,
+    title: input.title,
+    materialLength: input.material.length,
+    similarity: input.similarity,
+    focusStartedAt: state.startedAt,
+    focusEndsAt: state.endsAt,
+  });
+
+  const result = await sendExtensionMessage(ExtensionMessageType.FOCUS_BROWSE_RECORD, {
+    recordedAt: input.recordedAt,
+    url: input.url,
+    title: input.title,
+    material: input.material,
+    fingerprint: input.fingerprint,
+    trigger: input.trigger,
+    similarity: input.similarity,
+  });
+
+  if (result.ok) {
+    logBrowse('整理素材已写入', { id: result.id, recordedAt: input.recordedAt, trigger: input.trigger });
+  } else {
+    logBrowse('整理素材写入被拒绝', { error: result.error, trigger: input.trigger });
+  }
+};
+
+/** 专注刚开启：把当前页也收成一份文件（不依赖翻页） */
+const captureFocusEnterPage = () => {
+  void (async () => {
+    if (!canRecord() || !detectorRunning) {
+      return;
+    }
+    const state = await pomodoroStateStorage.get();
+    if (state.phase !== 'focus' || !state.startedAt) {
+      return;
+    }
+    if (capturedEnterForStartedAt === state.startedAt) {
+      return;
+    }
+
+    const page = extractPageArticle();
+    const captions = extractTrackCaptions();
+    const material = [page.material, captions].filter(Boolean).join('\n\n').trim() || page.material;
+    if (!material.trim()) {
+      logBrowse('专注首屏跳过：正文为空');
+      return;
+    }
+
+    capturedEnterForStartedAt = state.startedAt;
+    const fingerprint = fingerprintText(material);
+
+    try {
+      await persistBrowseSnapshot({
+        recordedAt: Date.now(),
+        url: location.href,
+        title: page.title || document.title || location.href,
+        material,
+        fingerprint,
+        trigger: 'focus-enter',
+        similarity: 1,
+      });
+    } catch (error) {
+      capturedEnterForStartedAt = null;
+      console.warn('[Study Mind][browse] 专注首屏写入异常', error);
+    }
+  })();
+};
+
+const scheduleFocusEnterCapture = () => {
+  if (focusEnterTimer != null) {
+    window.clearTimeout(focusEnterTimer);
+  }
+  // 等正文稍稳定再采，避免 SPA 首屏空壳
+  focusEnterTimer = window.setTimeout(() => {
+    focusEnterTimer = null;
+    captureFocusEnterPage();
+  }, 900);
+};
+
 const paginationDetector = createPaginationDetector({
   onPagination: event => {
     if (!canRecord() || !detectorRunning) {
@@ -51,52 +168,21 @@ const paginationDetector = createPaginationDetector({
     const captions = extractTrackCaptions();
     const material = [page.material, captions].filter(Boolean).join('\n\n').trim() || page.material;
 
-    void (async () => {
-      const state = await pomodoroStateStorage.get();
-      if (state.phase !== 'focus') {
-        logBrowse('落库前复核失败：phase 已不是 focus，关闭采集', { phase: state.phase });
-        storageFocusing = false;
-        syncDetector('phase-recheck-fail');
-        return;
-      }
-      if (!canRecord()) {
-        logBrowse('落库前复核失败：门禁关闭');
-        return;
-      }
-
-      logBrowse('准备写入整理素材', {
-        trigger: event.trigger,
-        url: event.url,
-        title: page.title || event.title,
-        materialLength: material.length,
-        similarity: event.similarity,
-        focusStartedAt: state.startedAt,
-        focusEndsAt: state.endsAt,
-      });
-
-      const result = await sendExtensionMessage(ExtensionMessageType.FOCUS_BROWSE_RECORD, {
-        recordedAt: event.at,
-        url: event.url,
-        title: page.title || event.title || event.url,
-        material,
-        fingerprint: event.fingerprint,
-        trigger: event.trigger,
-        similarity: event.similarity,
-      });
-
-      if (result.ok) {
-        logBrowse('整理素材已写入', { id: result.id, recordedAt: event.at });
-      } else {
-        logBrowse('整理素材写入被拒绝', { error: result.error });
-      }
-    })().catch(error => {
+    void persistBrowseSnapshot({
+      recordedAt: event.at,
+      url: event.url,
+      title: page.title || event.title || event.url,
+      material,
+      fingerprint: event.fingerprint,
+      trigger: event.trigger,
+      similarity: event.similarity,
+    }).catch(error => {
       console.warn('[Study Mind][browse] 写入异常', error);
     });
   },
 });
 
 const syncDetector = (reason: string) => {
-  // 清掉历史调试 HUD（若页面上还留着）
   removeHud();
 
   const shouldRun = canRecord();
@@ -104,11 +190,16 @@ const syncDetector = (reason: string) => {
     detectorRunning = true;
     paginationDetector.start();
     logFocus('专注会话采集已开启', { reason });
+    scheduleFocusEnterCapture();
     return;
   }
   if (!shouldRun && detectorRunning) {
     detectorRunning = false;
     paginationDetector.stop();
+    if (focusEnterTimer != null) {
+      window.clearTimeout(focusEnterTimer);
+      focusEnterTimer = null;
+    }
     logFocus('专注会话采集已关闭', { reason });
     return;
   }
@@ -125,6 +216,7 @@ const applyStoragePhase = (phase: string | undefined, reason: string) => {
     logFocus('storage 进入 focus（专注开始）', { reason, phase });
   } else {
     logFocus('storage 离开 focus（暂停/休息/结束）', { reason, phase });
+    capturedEnterForStartedAt = null;
   }
   syncDetector(reason);
 };
@@ -179,6 +271,7 @@ const bootFocusGatedPagination = () => {
       storageFocusing,
       petFocusing,
       canRecord: canRecord(),
+      capturedEnterForStartedAt,
       detector: paginationDetector.getState(),
     }),
   };
