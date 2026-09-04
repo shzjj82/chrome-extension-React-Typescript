@@ -9,8 +9,15 @@ import {
 } from './pet';
 import { useStudyFocusCompanion } from './pet/focus/useStudyFocusCompanion';
 import { useStorage } from '@extension/shared';
-import { normalizeUserProfile, pomodoroStateStorage, userProfileStorage } from '@extension/storage';
-import { useCallback } from 'react';
+import {
+  focusLogStorage,
+  getLocalDateKey,
+  normalizeUserProfile,
+  pomodoroStateStorage,
+  summarizeDay,
+  userProfileStorage,
+} from '@extension/storage';
+import { useCallback, useMemo } from 'react';
 import type { FloatingPetProps, PetBounds, StageAccessoryContext } from './pet';
 
 type StudyPetProps = Omit<
@@ -21,19 +28,25 @@ type StudyPetProps = Omit<
 const StudyPet = (props: StudyPetProps) => {
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const pomodoro = useStorage(pomodoroStateStorage);
+  const focusLog = useStorage(focusLogStorage);
   const { clock, onRuntimeReady } = useStudyFocusCompanion(props.enabled !== false);
+
+  const todaySummary = useMemo(() => {
+    const dateKey = getLocalDateKey();
+    return summarizeDay(focusLog, dateKey);
+  }, [focusLog]);
 
   const resolveBubbleActions = useCallback(() => {
     if (pomodoro.phase === 'focus') {
       const elapsedMinutes = pomodoro.startedAt ? Math.floor((Date.now() - pomodoro.startedAt) / 60_000) : 0;
       return createFocusHoverActions(elapsedMinutes);
     }
-    // 暂停/休息中：恢复专注；默认 idle：仅「专注」
+    // 暂停/休息中：恢复专注；默认 idle：专注 + 整理（有今日日志时追加摘要）
     if (pomodoro.phase === 'break') {
       return createResumeFocusHoverActions();
     }
-    return createStudyMindPetHoverActions(profile);
-  }, [profile, pomodoro.phase, pomodoro.startedAt]);
+    return createStudyMindPetHoverActions(profile, todaySummary);
+  }, [profile, pomodoro.phase, pomodoro.startedAt, todaySummary]);
 
   const resolveStageAccessory = useCallback(
     ({ facingLeft, menuVisible }: StageAccessoryContext) => {

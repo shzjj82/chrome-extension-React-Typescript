@@ -312,5 +312,41 @@
   },
   "petActionAdoptTitle": {
     "message": "먼저 인사해요 — 곁에 있게 해 주세요"
+  },
+  "petActionOrganize": {
+    "message": "정리"
+  },
+  "petActionOrganizeTitle": {
+    "message": "정리 패널 열기"
+  },
+  "petActionTodayFocus": {
+    "message": "오늘"
+  },
+  "petActionTodayFocusTitle": {
+    "message": "오늘 집중 요약"
+  },
+  "petTodayFocusHead": {
+    "message": "오늘 집중"
+  },
+  "petTodayFocusCount": {
+    "message": "$1회"
+  },
+  "petTodayFocusMinutes": {
+    "message": " · $1분"
+  },
+  "petOrganizeAsk": {
+    "message": "정리할까요"
+  },
+  "petOrganizeAskHead": {
+    "message": "아직 시간이 부족해요,"
+  },
+  "petOrganizeAskAccept": {
+    "message": "정리하기"
+  },
+  "petOrganizeAskDismiss": {
+    "message": "나중에"
+  },
+  "petOrganizeAskTitle": {
+    "message": "이번 브라우징을 정리에 넣을까요?"
   }
 }

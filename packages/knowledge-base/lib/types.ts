@@ -37,4 +37,43 @@ type StudySessionInput = Omit<StudySession, 'id' | 'createdAt' | 'updatedAt'> & 
   id?: string;
 };
 
-export type { LearningMode, MaterialSource, QuizKind, QuizItem, PracticeItem, StudySession, StudySessionInput };
+/** 分页/内容变化后的单页浏览记录（IndexedDB） */
+type BrowsePageTrigger = 'route' | 'pager-click' | 'content-change' | 'manual';
+
+type BrowsePageRecord = {
+  id: string;
+  /** 本地日期 YYYY-MM-DD */
+  dateKey: string;
+  /** 记录时间戳 */
+  recordedAt: number;
+  url: string;
+  title: string;
+  material: string;
+  fingerprint: string;
+  trigger: BrowsePageTrigger;
+  similarity: number;
+};
+
+type BrowsePageInput = Omit<BrowsePageRecord, 'id' | 'dateKey'> & {
+  id?: string;
+  dateKey?: string;
+};
+
+type BrowseDayGroup = {
+  dateKey: string;
+  records: BrowsePageRecord[];
+};
+
+export type {
+  LearningMode,
+  MaterialSource,
+  QuizKind,
+  QuizItem,
+  PracticeItem,
+  StudySession,
+  StudySessionInput,
+  BrowsePageTrigger,
+  BrowsePageRecord,
+  BrowsePageInput,
+  BrowseDayGroup,
+};

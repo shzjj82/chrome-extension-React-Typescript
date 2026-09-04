@@ -7,6 +7,11 @@ const ExtensionMessageType = {
   POMODORO_START_BREAK: 'study-mind/pomodoro-start-break',
   POMODORO_PAUSE: 'study-mind/pomodoro-pause',
   POMODORO_STOP: 'study-mind/pomodoro-stop',
+  FOCUS_ORGANIZE_ACCEPT: 'study-mind/focus-organize-accept',
+  FOCUS_ORGANIZE_DISMISS: 'study-mind/focus-organize-dismiss',
+  FOCUS_BROWSE_RECORD: 'study-mind/focus-browse-record',
+  /** content-ui 宠物专注门禁 → content 采集开关 */
+  FOCUS_GATE: 'study-mind/focus-gate',
   GET_ACTIVE_TAB_INFO: 'study-mind/get-active-tab-info',
 } as const;
 
@@ -25,15 +30,35 @@ type ActiveTabInfoPayload = {
   url: string;
 };
 
+type FocusBrowseRecordPayload = {
+  recordedAt: number;
+  url: string;
+  title: string;
+  material: string;
+  fingerprint: string;
+  trigger: 'route' | 'pager-click' | 'content-change' | 'manual';
+  similarity: number;
+};
+
+type FocusGatePayload = {
+  focusing: boolean;
+};
+
+type SidePanelView = 'study' | 'browse';
+
 type ExtensionRequestMap = {
   [ExtensionMessageType.START_LEARNING]: { tabId?: number };
-  [ExtensionMessageType.OPEN_SIDE_PANEL]: { tabId?: number };
+  [ExtensionMessageType.OPEN_SIDE_PANEL]: { tabId?: number; view?: SidePanelView };
   [ExtensionMessageType.EXTRACT_PAGE_CONTENT]: { tabId?: number };
   [ExtensionMessageType.EXTRACT_VISIBLE_CAPTIONS]: { tabId?: number };
   [ExtensionMessageType.POMODORO_START]: { sessionId?: string | null };
   [ExtensionMessageType.POMODORO_START_BREAK]: undefined;
   [ExtensionMessageType.POMODORO_PAUSE]: undefined;
   [ExtensionMessageType.POMODORO_STOP]: undefined;
+  [ExtensionMessageType.FOCUS_ORGANIZE_ACCEPT]: { tabId?: number };
+  [ExtensionMessageType.FOCUS_ORGANIZE_DISMISS]: undefined;
+  [ExtensionMessageType.FOCUS_BROWSE_RECORD]: FocusBrowseRecordPayload;
+  [ExtensionMessageType.FOCUS_GATE]: FocusGatePayload;
   [ExtensionMessageType.GET_ACTIVE_TAB_INFO]: undefined;
 };
 
@@ -50,6 +75,10 @@ type ExtensionResponseMap = {
   [ExtensionMessageType.POMODORO_START_BREAK]: { ok: true } | { ok: false; error: string };
   [ExtensionMessageType.POMODORO_PAUSE]: { ok: true } | { ok: false; error: string };
   [ExtensionMessageType.POMODORO_STOP]: { ok: true } | { ok: false; error: string };
+  [ExtensionMessageType.FOCUS_ORGANIZE_ACCEPT]: { ok: true } | { ok: false; error: string };
+  [ExtensionMessageType.FOCUS_ORGANIZE_DISMISS]: { ok: true } | { ok: false; error: string };
+  [ExtensionMessageType.FOCUS_BROWSE_RECORD]: { ok: true; id: string } | { ok: false; error: string };
+  [ExtensionMessageType.FOCUS_GATE]: { ok: true };
   [ExtensionMessageType.GET_ACTIVE_TAB_INFO]: { ok: true; data: ActiveTabInfoPayload } | { ok: false; error: string };
 };
 
@@ -68,6 +97,9 @@ export type {
   ExtensionMessageTypeValue,
   ExtractedMaterialPayload,
   ActiveTabInfoPayload,
+  FocusBrowseRecordPayload,
+  FocusGatePayload,
+  SidePanelView,
   ExtensionRequestMap,
   ExtensionResponseMap,
   ExtensionRequest,

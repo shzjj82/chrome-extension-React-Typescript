@@ -1,7 +1,19 @@
 import 'webextension-polyfill';
+import { saveBrowsePage } from '@extension/knowledge-base';
 import { ExtensionMessageType } from '@extension/shared';
-import { learningDraftStorage, pomodoroSettingsStorage, pomodoroStateStorage } from '@extension/storage';
-import type { ExtensionRequest, ExtensionMessageTypeValue, ExtensionResponseMap } from '@extension/shared';
+import {
+  focusLogStorage,
+  isSkippableUrl,
+  learningDraftStorage,
+  pomodoroSettingsStorage,
+  pomodoroStateStorage,
+} from '@extension/storage';
+import type {
+  ExtensionRequest,
+  ExtensionMessageTypeValue,
+  ExtensionResponseMap,
+  SidePanelView,
+} from '@extension/shared';
 import type { PomodoroPhase } from '@extension/storage';
 
 const FOCUS_ALARM = 'study-mind-focus';
@@ -12,17 +24,18 @@ const getActiveTab = async () => {
   return tab;
 };
 
-const LEARNING_PANEL_URL = 'side-panel/index.html';
+const panelPath = (view?: SidePanelView) =>
+  view === 'browse' ? 'side-panel/index.html?view=browse' : 'side-panel/index.html';
 
-const enableSidePanelForTab = async (tabId: number) => {
+const enableSidePanelForTab = async (tabId: number, view?: SidePanelView) => {
   await chrome.sidePanel.setOptions({
     tabId,
-    path: LEARNING_PANEL_URL,
+    path: panelPath(view),
     enabled: true,
   });
 };
 
-const openLearningWindow = async (tabId: number) => {
+const openLearningWindow = async (tabId: number, view?: SidePanelView) => {
   const tab = await chrome.tabs.get(tabId);
   const win = tab.windowId != null ? await chrome.windows.get(tab.windowId) : null;
   const width = 420;
@@ -31,7 +44,7 @@ const openLearningWindow = async (tabId: number) => {
   const top = win?.top ?? 0;
 
   await chrome.windows.create({
-    url: chrome.runtime.getURL(LEARNING_PANEL_URL),
+    url: chrome.runtime.getURL(panelPath(view)),
     type: 'popup',
     width,
     height,
@@ -43,10 +56,10 @@ const openLearningWindow = async (tabId: number) => {
 
 /**
  * Content-script clicks must reach sidePanel.open() in the same message turn
- * (no await before open). setOptions / hydrate can run afterward.
+ * (no await before open). setOptions is fired without await, then open.
  * Falls back to a popup window only when native open fails.
  */
-const openLearningUiForTab = async (tabId: number, sidePanelOpen?: Promise<void>) => {
+const openLearningUiForTab = async (tabId: number, sidePanelOpen?: Promise<void>, view?: SidePanelView) => {
   let openedNatively = false;
 
   if (sidePanelOpen) {
@@ -58,16 +71,21 @@ const openLearningUiForTab = async (tabId: number, sidePanelOpen?: Promise<void>
     }
   }
 
-  await enableSidePanelForTab(tabId).catch(() => undefined);
+  await enableSidePanelForTab(tabId, view).catch(() => undefined);
 
   if (!openedNatively) {
-    await openLearningWindow(tabId);
+    await openLearningWindow(tabId, view);
   }
 };
 
-/** Kick off native side panel open synchronously to preserve user gesture. */
-const startNativeSidePanelOpen = (tabId: number) => {
+/** Kick off path + native side panel open synchronously to preserve user gesture. */
+const startNativeSidePanelOpen = (tabId: number, view?: SidePanelView) => {
   try {
+    void chrome.sidePanel.setOptions({
+      tabId,
+      path: panelPath(view),
+      enabled: true,
+    });
     return chrome.sidePanel.open({ tabId });
   } catch {
     return undefined;
@@ -89,6 +107,42 @@ const notify = async (title: string, message: string) => {
     title,
     message,
   });
+};
+
+const getMinCountedMs = async () => {
+  const settings = await pomodoroSettingsStorage.get();
+  return Math.max(1, settings.focusMinutes) * 60_000;
+};
+
+const recordActiveTabBrowse = async () => {
+  const tab = await getActiveTab();
+  if (!tab?.url || isSkippableUrl(tab.url)) {
+    return;
+  }
+  await focusLogStorage.recordBrowse({
+    url: tab.url,
+    title: tab.title || tab.url,
+    visitedAt: Date.now(),
+  });
+};
+
+const hydrateOrganizeDraftFromBrowse = async (browse: Array<{ url: string; title: string }>, durationMs: number) => {
+  const minutes = Math.max(1, Math.round(durationMs / 60_000));
+  const lines = browse.map(item => `- ${item.title || item.url}\n  ${item.url}`);
+  const material =
+    lines.length > 0
+      ? `本次专注约 ${minutes} 分钟，浏览过：\n${lines.join('\n')}`
+      : `本次专注约 ${minutes} 分钟（暂无浏览记录）。`;
+
+  await learningDraftStorage.set(prev => ({
+    ...prev,
+    sessionId: null,
+    title: prev.title || `专注整理 · ${minutes} 分钟`,
+    material,
+    materialSource: 'page',
+    mode: 'note',
+    updatedAt: Date.now(),
+  }));
 };
 
 const setPomodoroPhase = async (
@@ -122,24 +176,72 @@ const setPomodoroPhase = async (
 const startFocus = async (sessionId?: string | null) => {
   const settings = await pomodoroSettingsStorage.get();
   await setPomodoroPhase('focus', settings.focusMinutes, { sessionId: sessionId ?? null });
+  await focusLogStorage.beginActive();
+  await recordActiveTabBrowse();
+  const state = await pomodoroStateStorage.get();
+  console.log('[Study Mind][focus] 专注开始', {
+    at: new Date().toISOString(),
+    startedAt: state.startedAt,
+    endsAt: state.endsAt,
+    focusMinutes: settings.focusMinutes,
+    sessionId: state.activeSessionId,
+  });
+};
+
+/**
+ * 结束当前专注并写入日志。
+ * 仅达到门槛（默认 40 分钟）才计入每日统计。
+ */
+const finalizeFocusSession = async (options: { promptOrganizeIfShort?: boolean }) => {
+  const before = await pomodoroStateStorage.get();
+  const minCountedMs = await getMinCountedMs();
+  const result = await focusLogStorage.finalizeActive({
+    minCountedMs,
+    promptOrganizeIfShort: options.promptOrganizeIfShort,
+  });
+
+  if (result?.counted) {
+    await pomodoroStateStorage.set(current => ({
+      ...current,
+      focusCompletedCount: current.focusCompletedCount + 1,
+      accumulatedFocusMs: current.accumulatedFocusMs + result.session.durationMs,
+    }));
+  }
+
+  console.log('[Study Mind][focus] 专注段结束（finalize）', {
+    at: new Date().toISOString(),
+    startedAt: before.startedAt,
+    durationMs: result?.session.durationMs ?? null,
+    counted: result?.counted ?? false,
+    promptOrganize: options.promptOrganizeIfShort,
+  });
+
+  return result;
 };
 
 /** @param reason completed=专注时长到点；manual=用户暂停休息 */
 const startBreak = async (reason: 'completed' | 'manual') => {
   const settings = await pomodoroSettingsStorage.get();
-  const prev = await pomodoroStateStorage.get();
-  const focusMs = prev.startedAt ? Date.now() - prev.startedAt : 0;
-
-  await pomodoroStateStorage.set(current => ({
-    ...current,
-    focusCompletedCount: current.focusCompletedCount + 1,
-    accumulatedFocusMs: current.accumulatedFocusMs + Math.max(focusMs, 0),
-  }));
-
+  console.log('[Study Mind][focus] 进入休息（专注中断）', {
+    at: new Date().toISOString(),
+    reason,
+    breakMinutes: settings.breakMinutes,
+  });
+  await finalizeFocusSession({ promptOrganizeIfShort: false });
   await setPomodoroPhase('break', settings.breakMinutes, { breakReason: reason });
   if (reason === 'completed') {
     await notify('该休息啦', '已经专注很久了，起来走动一下，我在这儿陪你。');
   }
+};
+
+const stopFocus = async () => {
+  console.log('[Study Mind][focus] 结束专注 → idle', { at: new Date().toISOString() });
+  await finalizeFocusSession({ promptOrganizeIfShort: true });
+  await setPomodoroPhase('idle', 0);
+  await pomodoroStateStorage.set(prev => ({
+    ...prev,
+    activeSessionId: null,
+  }));
 };
 
 const handleAlarm = async (alarm: chrome.alarms.Alarm) => {
@@ -163,7 +265,7 @@ const extractFromActiveTab = async (type: ExtensionMessageTypeValue, tabId?: num
     throw new Error('当前页面不支持内容提取，请打开普通网页或使用手动导入');
   }
 
-  return sendToTab(tab.id, type);
+  return sendToTab<ExtensionResponseMap[typeof type]>(tab.id, type);
 };
 
 const hydrateDraftFromTab = async (tabId: number) => {
@@ -209,9 +311,45 @@ chrome.alarms.onAlarm.addListener(alarm => {
   void handleAlarm(alarm);
 });
 
+/** 专注期间记录浏览 */
+chrome.tabs.onActivated.addListener(() => {
+  void (async () => {
+    const state = await pomodoroStateStorage.get();
+    if (state.phase !== 'focus') {
+      return;
+    }
+    await recordActiveTabBrowse();
+  })();
+});
+
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete' && !changeInfo.url) {
+    return;
+  }
+  void (async () => {
+    const state = await pomodoroStateStorage.get();
+    if (state.phase !== 'focus' || !tab.active || !tab.url) {
+      return;
+    }
+    if (isSkippableUrl(tab.url)) {
+      return;
+    }
+    await focusLogStorage.recordBrowse({
+      url: tab.url,
+      title: tab.title || tab.url,
+      visitedAt: Date.now(),
+    });
+  })();
+});
+
 chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessageTypeValue>, sender, sendResponse) => {
   const senderTabId = sender.tab?.id;
-  const requestedTabId = message.payload && 'tabId' in (message.payload ?? {}) ? message.payload?.tabId : undefined;
+  const payload = (message.payload ?? {}) as Record<string, unknown>;
+  const requestedTabId = typeof payload.tabId === 'number' ? payload.tabId : undefined;
+  const requestedSessionId =
+    payload.sessionId === null || typeof payload.sessionId === 'string'
+      ? (payload.sessionId as string | null)
+      : undefined;
 
   if (message.type === ExtensionMessageType.OPEN_SIDE_PANEL || message.type === ExtensionMessageType.START_LEARNING) {
     const tabId = requestedTabId ?? senderTabId;
@@ -220,9 +358,18 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
       return false;
     }
 
+    const view = payload.view === 'browse' ? 'browse' : payload.view === 'study' ? 'study' : undefined;
+
     // sidePanel.open must start in this turn — before any await — to keep user gesture.
-    const sidePanelOpen = startNativeSidePanelOpen(tabId);
-    const openPromise = openLearningUiForTab(tabId, sidePanelOpen);
+    const sidePanelOpen = startNativeSidePanelOpen(
+      tabId,
+      message.type === ExtensionMessageType.OPEN_SIDE_PANEL ? (view ?? 'browse') : undefined,
+    );
+    const openPromise = openLearningUiForTab(
+      tabId,
+      sidePanelOpen,
+      message.type === ExtensionMessageType.OPEN_SIDE_PANEL ? (view ?? 'browse') : undefined,
+    );
 
     if (message.type === ExtensionMessageType.OPEN_SIDE_PANEL) {
       void openPromise
@@ -236,6 +383,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
       return true;
     }
 
+    // START_LEARNING：开侧栏整理 + 开始专注（popup 等入口仍用）
     void (async () => {
       try {
         await openPromise;
@@ -243,7 +391,6 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
         await startFocus(null);
         sendResponse({ ok: true });
       } catch (error: unknown) {
-        // Even if UI open fails, still start focus so the float ball reflects learning state.
         try {
           await hydrateDraftFromTab(tabId);
           await startFocus(null);
@@ -259,19 +406,52 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
     return true;
   }
 
+  if (message.type === ExtensionMessageType.FOCUS_ORGANIZE_ACCEPT) {
+    const tabId = requestedTabId ?? senderTabId;
+    if (tabId == null) {
+      sendResponse({ ok: false, error: '未找到可打开侧边栏的标签页' });
+      return false;
+    }
+
+    const sidePanelOpen = startNativeSidePanelOpen(tabId, 'browse');
+    const openPromise = openLearningUiForTab(tabId, sidePanelOpen, 'browse');
+
+    void (async () => {
+      try {
+        const log = await focusLogStorage.get();
+        const pending = log.pendingOrganizeAsk;
+        if (pending) {
+          await hydrateOrganizeDraftFromBrowse(pending.browse, pending.durationMs);
+          await focusLogStorage.clearPendingOrganizeAsk();
+        }
+        await openPromise;
+        sendResponse({ ok: true });
+      } catch (error: unknown) {
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : '打开整理失败',
+        });
+      }
+    })();
+    return true;
+  }
+
   const handle = async (): Promise<ExtensionResponseMap[ExtensionMessageTypeValue]> => {
     switch (message.type) {
       case ExtensionMessageType.EXTRACT_PAGE_CONTENT:
-        return extractFromActiveTab(ExtensionMessageType.EXTRACT_PAGE_CONTENT, message.payload?.tabId ?? senderTabId);
+        return (await extractFromActiveTab(
+          ExtensionMessageType.EXTRACT_PAGE_CONTENT,
+          requestedTabId ?? senderTabId,
+        )) as ExtensionResponseMap[typeof ExtensionMessageType.EXTRACT_PAGE_CONTENT];
 
       case ExtensionMessageType.EXTRACT_VISIBLE_CAPTIONS:
-        return extractFromActiveTab(
+        return (await extractFromActiveTab(
           ExtensionMessageType.EXTRACT_VISIBLE_CAPTIONS,
-          message.payload?.tabId ?? senderTabId,
-        );
+          requestedTabId ?? senderTabId,
+        )) as ExtensionResponseMap[typeof ExtensionMessageType.EXTRACT_VISIBLE_CAPTIONS];
 
       case ExtensionMessageType.POMODORO_START:
-        await startFocus(message.payload?.sessionId);
+        await startFocus(requestedSessionId);
         return { ok: true };
 
       case ExtensionMessageType.POMODORO_START_BREAK: {
@@ -287,23 +467,93 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
 
       case ExtensionMessageType.POMODORO_PAUSE: {
         const state = await pomodoroStateStorage.get();
-        if (state.phase === 'focus' && state.startedAt) {
-          await pomodoroStateStorage.set(prev => ({
-            ...prev,
-            accumulatedFocusMs: prev.accumulatedFocusMs + (Date.now() - (prev.startedAt ?? Date.now())),
-          }));
+        console.log('[Study Mind][focus] 暂停专注', {
+          at: new Date().toISOString(),
+          phaseBefore: state.phase,
+        });
+        if (state.phase === 'focus') {
+          await finalizeFocusSession({ promptOrganizeIfShort: false });
         }
         await setPomodoroPhase('idle', 0);
         return { ok: true };
       }
 
       case ExtensionMessageType.POMODORO_STOP:
-        await setPomodoroPhase('idle', 0);
-        await pomodoroStateStorage.set(prev => ({
-          ...prev,
-          activeSessionId: null,
-        }));
+        await stopFocus();
         return { ok: true };
+
+      case ExtensionMessageType.FOCUS_ORGANIZE_DISMISS:
+        await focusLogStorage.clearPendingOrganizeAsk();
+        return { ok: true };
+
+      case ExtensionMessageType.FOCUS_GATE: {
+        const focusing = payload.focusing === true;
+        console.log('[Study Mind][focus] 收到宠物门禁', {
+          at: new Date().toISOString(),
+          focusing,
+          tabId: senderTabId,
+        });
+        if (senderTabId != null) {
+          await chrome.tabs
+            .sendMessage(senderTabId, {
+              type: ExtensionMessageType.FOCUS_GATE,
+              payload: { focusing },
+            })
+            .catch(() => undefined);
+        }
+        return { ok: true };
+      }
+
+      case ExtensionMessageType.FOCUS_BROWSE_RECORD: {
+        // 红线：非专注一律拒绝写入浏览正文
+        const focusState = await pomodoroStateStorage.get();
+        if (focusState.phase !== 'focus') {
+          console.log('[Study Mind][browse] 拒绝写入：非专注', {
+            at: new Date().toISOString(),
+            phase: focusState.phase,
+          });
+          return { ok: false, error: '非专注模式禁止记录浏览数据' };
+        }
+        const browsePayload = payload as {
+          recordedAt?: number;
+          url?: string;
+          title?: string;
+          material?: string;
+          fingerprint?: string;
+          trigger?: 'route' | 'pager-click' | 'content-change' | 'manual';
+          similarity?: number;
+        };
+        if (!browsePayload.url || !browsePayload.fingerprint) {
+          return { ok: false, error: '浏览记录缺少 url 或 fingerprint' };
+        }
+        const material = (browsePayload.material || '').trim();
+        if (!material) {
+          console.log('[Study Mind][browse] 跳过空正文', { url: browsePayload.url });
+          return { ok: false, error: '浏览记录正文为空，已跳过' };
+        }
+        const saved = await saveBrowsePage({
+          recordedAt: browsePayload.recordedAt ?? Date.now(),
+          url: browsePayload.url,
+          title: browsePayload.title || browsePayload.url,
+          material,
+          fingerprint: browsePayload.fingerprint,
+          trigger: browsePayload.trigger || 'content-change',
+          similarity: typeof browsePayload.similarity === 'number' ? browsePayload.similarity : 0,
+        });
+        console.log('[Study Mind][browse] 整理素材已落库', {
+          at: new Date().toISOString(),
+          id: saved.id,
+          recordedAt: saved.recordedAt,
+          dateKey: saved.dateKey,
+          url: saved.url,
+          title: saved.title,
+          materialLength: saved.material.length,
+          trigger: saved.trigger,
+          focusStartedAt: focusState.startedAt,
+          focusEndsAt: focusState.endsAt,
+        });
+        return { ok: true, id: saved.id };
+      }
 
       case ExtensionMessageType.GET_ACTIVE_TAB_INFO: {
         const tab = await getActiveTab();
@@ -335,3 +585,4 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
 });
 
 void pomodoroStateStorage.get();
+void focusLogStorage.get();

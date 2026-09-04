@@ -5,3 +5,4 @@ export * from './pomodoro-storage.js';
 export * from './ui-settings-storage.js';
 export * from './learning-draft-storage.js';
 export * from './pet-stats-storage.js';
+export * from './focus-log-storage.js';

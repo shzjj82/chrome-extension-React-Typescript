@@ -1,6 +1,10 @@
-import { createFocusProgressAction, createRestReminderAction } from '../interactions/studyMindActions';
-import { useStorage } from '@extension/shared';
-import { pomodoroStateStorage } from '@extension/storage';
+import {
+  createFocusProgressAction,
+  createOrganizeAskAction,
+  createRestReminderAction,
+} from '../interactions/studyMindActions';
+import { ExtensionMessageType, sendExtensionMessage, useStorage } from '@extension/shared';
+import { focusLogStorage, pomodoroStateStorage } from '@extension/storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PetEventHookContext, PetEventPayloadMap } from '../events';
 import type { PetRuntimeApi } from '../types';
@@ -40,17 +44,37 @@ const calcFocusProgress = (startedAt: number | null, endsAt: number | null, now:
  */
 const useStudyFocusCompanion = (enabled = true): UseStudyFocusCompanionResult => {
   const pomodoro = useStorage(pomodoroStateStorage);
+  const focusLog = useStorage(focusLogStorage);
   const runtimeRef = useRef<PetRuntimeApi | null>(null);
   const unsubRef = useRef<(() => void) | null>(null);
   const prevPhaseRef = useRef<PomodoroPhase | null>(null);
   const lastProgressMarkRef = useRef(0);
   const focusingRef = useRef(false);
+  const organizePromptShownRef = useRef(false);
   const [now, setNow] = useState(() => Date.now());
   const [clock, setClock] = useState<FocusClockModel | null>(null);
 
   const focusing = enabled && pomodoro.phase === 'focus';
   focusingRef.current = focusing;
   const clockActiveRef = useRef(false);
+
+  // 把宠物「是否专注」同步给 content 采集脚本（同页门禁）
+  useEffect(() => {
+    console.log('[Study Mind][focus] 宠物 focusing 变化', {
+      at: new Date().toISOString(),
+      focusing,
+      phase: pomodoro.phase,
+      startedAt: pomodoro.startedAt,
+      endsAt: pomodoro.endsAt,
+    });
+    void sendExtensionMessage(ExtensionMessageType.FOCUS_GATE, { focusing });
+    document.documentElement.dataset.smFocusing = focusing ? '1' : '0';
+    document.dispatchEvent(
+      new CustomEvent('study-mind:focus-gate', {
+        detail: { focusing },
+      }),
+    );
+  }, [focusing, pomodoro.phase, pomodoro.startedAt, pomodoro.endsAt]);
 
   const onRuntimeReady = useCallback((api: PetRuntimeApi | null) => {
     unsubRef.current?.();
@@ -145,6 +169,31 @@ const useStudyFocusCompanion = (enabled = true): UseStudyFocusCompanionResult =>
       api?.clearRestReminder();
     }
   }, [enabled, pomodoro.phase, pomodoro.startedAt, pomodoro.breakReason]);
+
+  // 中途结束：未满计入门槛时询问是否加入整理
+  useEffect(() => {
+    if (!enabled) {
+      organizePromptShownRef.current = false;
+      return;
+    }
+
+    const pending = focusLog.pendingOrganizeAsk;
+    if (!pending) {
+      organizePromptShownRef.current = false;
+      return;
+    }
+
+    if (organizePromptShownRef.current || pomodoro.phase !== 'idle') {
+      return;
+    }
+
+    organizePromptShownRef.current = true;
+    runtimeRef.current?.promptRestReminder([
+      createOrganizeAskAction(() => {
+        runtimeRef.current?.clearRestReminder();
+      }),
+    ]);
+  }, [enabled, focusLog.pendingOrganizeAsk, pomodoro.phase]);
 
   useEffect(() => {
     if (!focusing || !pomodoro.startedAt || !pomodoro.endsAt) {

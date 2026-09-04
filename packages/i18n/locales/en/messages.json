@@ -312,5 +312,41 @@
   },
   "petActionAdoptTitle": {
     "message": "Say hi first — let me stay by your side"
+  },
+  "petActionOrganize": {
+    "message": "Organize"
+  },
+  "petActionOrganizeTitle": {
+    "message": "Open organize panel"
+  },
+  "petActionTodayFocus": {
+    "message": "Today"
+  },
+  "petActionTodayFocusTitle": {
+    "message": "Today's focus summary"
+  },
+  "petTodayFocusHead": {
+    "message": "Focused today"
+  },
+  "petTodayFocusCount": {
+    "message": "$1×"
+  },
+  "petTodayFocusMinutes": {
+    "message": " · $1 min"
+  },
+  "petOrganizeAsk": {
+    "message": "Add to organize?"
+  },
+  "petOrganizeAskHead": {
+    "message": "Session was short —"
+  },
+  "petOrganizeAskAccept": {
+    "message": "Organize"
+  },
+  "petOrganizeAskDismiss": {
+    "message": "Not now"
+  },
+  "petOrganizeAskTitle": {
+    "message": "Add this browsing session to organize?"
   }
 }

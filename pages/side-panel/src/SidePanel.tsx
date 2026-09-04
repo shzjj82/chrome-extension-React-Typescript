@@ -1,5 +1,6 @@
 import '@src/SidePanel.css';
 import AdoptionPanel from './AdoptionPanel';
+import BrowseRecordsPanel from './BrowseRecordsPanel';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
 import { t } from '@extension/i18n';
 import {
@@ -33,12 +34,22 @@ type GatePhase = 'adopt' | 'app';
 
 const resolveGatePhase = (petAdopted: boolean): GatePhase => (petAdopted ? 'app' : 'adopt');
 
+const resolvePanelView = (): 'study' | 'browse' => {
+  try {
+    const view = new URLSearchParams(window.location.search).get('view');
+    return view === 'browse' ? 'browse' : 'study';
+  } catch {
+    return 'study';
+  }
+};
+
 const SidePanel = () => {
   const { isLight } = useStorage(exampleThemeStorage);
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const draft = useStorage(learningDraftStorage);
   const llm = useStorage(llmSettingsStorage);
   const pomodoro = useStorage(pomodoroStateStorage);
+  const panelView = resolvePanelView();
 
   const [tab, setTab] = useState<TabKey>('study');
   const [sessions, setSessions] = useState<StudySession[]>([]);
@@ -79,8 +90,11 @@ const SidePanel = () => {
   };
 
   useEffect(() => {
+    if (panelView === 'browse') {
+      return;
+    }
     void refreshSessions();
-  }, []);
+  }, [panelView]);
 
   const pomodoroMinutes = useMemo(
     () => Math.round(pomodoro.accumulatedFocusMs / 60_000) + (pomodoro.phase === 'focus' ? 0 : 0),
@@ -241,6 +255,11 @@ const SidePanel = () => {
         <AdoptionPanel profile={profile} isLight={isLight} onAdopted={() => setGatePhase('app')} />
       </div>
     );
+  }
+
+  // 整理入口：仅展示按日分组的浏览记录，不展示「当前内容」
+  if (panelView === 'browse') {
+    return <BrowseRecordsPanel isLight={isLight} />;
   }
 
   return (

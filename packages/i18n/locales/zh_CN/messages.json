@@ -312,5 +312,41 @@
   },
   "petActionAdoptTitle": {
     "message": "先认识一下，让我陪在你身边"
+  },
+  "petActionOrganize": {
+    "message": "整理"
+  },
+  "petActionOrganizeTitle": {
+    "message": "打开整理侧栏"
+  },
+  "petActionTodayFocus": {
+    "message": "今日"
+  },
+  "petActionTodayFocusTitle": {
+    "message": "今日专注摘要"
+  },
+  "petTodayFocusHead": {
+    "message": "今日已专注"
+  },
+  "petTodayFocusCount": {
+    "message": "$1次"
+  },
+  "petTodayFocusMinutes": {
+    "message": " · $1分钟"
+  },
+  "petOrganizeAsk": {
+    "message": "要加入整理吗"
+  },
+  "petOrganizeAskHead": {
+    "message": "这次还没满时长，"
+  },
+  "petOrganizeAskAccept": {
+    "message": "加入整理"
+  },
+  "petOrganizeAskDismiss": {
+    "message": "先不用"
+  },
+  "petOrganizeAskTitle": {
+    "message": "是否把本次浏览加入整理"
   }
 }

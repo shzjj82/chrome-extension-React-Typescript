@@ -144,6 +144,9 @@ importers:
       '@extension/env':
         specifier: workspace:*
         version: link:../packages/env
+      '@extension/knowledge-base':
+        specifier: workspace:*
+        version: link:../packages/knowledge-base
       '@extension/shared':
         specifier: workspace:*
         version: link:../packages/shared

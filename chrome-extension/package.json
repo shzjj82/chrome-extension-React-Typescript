@@ -22,6 +22,7 @@
     "@extension/env": "workspace:*",
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
+    "@extension/knowledge-base": "workspace:*",
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {

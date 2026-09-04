@@ -2,7 +2,7 @@ import { t } from '@extension/i18n';
 import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { shouldPromptPetAdoption } from '@extension/storage';
 import type { PetInteractionAction } from '../types';
-import type { UserProfileType } from '@extension/storage';
+import type { FocusDaySummary, UserProfileType } from '@extension/storage';
 
 const createStudyMindHoverActions = (): PetInteractionAction[] => [
   {
@@ -11,10 +11,43 @@ const createStudyMindHoverActions = (): PetInteractionAction[] => [
     title: t('petActionStudyTitle'),
     ariaLabel: t('petActionStudy'),
     onSelect: () => {
-      void sendExtensionMessage(ExtensionMessageType.START_LEARNING);
+      // 专注：只启动番茄，不打开侧边栏
+      void sendExtensionMessage(ExtensionMessageType.POMODORO_START);
+    },
+  },
+  {
+    id: 'organize',
+    label: t('petActionOrganize'),
+    title: t('petActionOrganizeTitle'),
+    ariaLabel: t('petActionOrganize'),
+    onSelect: () => {
+      void sendExtensionMessage(ExtensionMessageType.OPEN_SIDE_PANEL, { view: 'browse' });
     },
   },
 ];
+
+/** 今日已有计入的专注日志：在专注/整理之外展示今日摘要 */
+const createTodayFocusSummaryAction = (summary: FocusDaySummary): PetInteractionAction => {
+  const minutes = Math.max(0, Math.round(summary.countedMs / 60_000));
+  return {
+    id: 'today-focus',
+    label: t('petActionTodayFocus'),
+    headLine: t('petTodayFocusHead'),
+    actionText: t('petTodayFocusCount', String(summary.countedCount)),
+    trailingText: t('petTodayFocusMinutes', String(minutes)),
+    title: t('petActionTodayFocusTitle'),
+    ariaLabel: t('petActionTodayFocus'),
+    onSelect: () => undefined,
+  };
+};
+
+const createIdlePetHoverActions = (summary: FocusDaySummary | null): PetInteractionAction[] => {
+  const base = createStudyMindHoverActions();
+  if (!summary || summary.countedCount <= 0) {
+    return base;
+  }
+  return [...base, createTodayFocusSummaryAction(summary)];
+};
 
 /** 暂停 / 休息中：恢复专注（不是重新「专注」） */
 const createResumeFocusHoverActions = (): PetInteractionAction[] => [
@@ -78,6 +111,27 @@ const createFocusProgressAction = (elapsedMinutes: number, percent: number): Pet
   onSelect: () => undefined,
 });
 
+/** 中途结束：询问是否将本次浏览加入整理 */
+const createOrganizeAskAction = (onDone: () => void): PetInteractionAction => ({
+  id: 'organize-ask',
+  label: t('petOrganizeAsk'),
+  headLine: t('petOrganizeAskHead'),
+  actionText: t('petOrganizeAskAccept'),
+  secondaryActionText: t('petOrganizeAskDismiss'),
+  title: t('petOrganizeAskTitle'),
+  ariaLabel: t('petOrganizeAskAccept'),
+  secondaryTitle: t('petOrganizeAskDismiss'),
+  secondaryAriaLabel: t('petOrganizeAskDismiss'),
+  onSelect: () => {
+    onDone();
+    void sendExtensionMessage(ExtensionMessageType.FOCUS_ORGANIZE_ACCEPT);
+  },
+  onSecondarySelect: () => {
+    onDone();
+    void sendExtensionMessage(ExtensionMessageType.FOCUS_ORGANIZE_DISMISS);
+  },
+});
+
 const createStudyMindAdoptAction = (): PetInteractionAction => ({
   id: 'adopt',
   label: t('petActionAdopt'),
@@ -92,15 +146,21 @@ const createStudyMindAdoptAction = (): PetInteractionAction => ({
   },
 });
 
-const createStudyMindPetHoverActions = (profile: UserProfileType): PetInteractionAction[] =>
-  shouldPromptPetAdoption(profile) ? [createStudyMindAdoptAction()] : createStudyMindHoverActions();
+const createStudyMindPetHoverActions = (
+  profile: UserProfileType,
+  todaySummary: FocusDaySummary | null = null,
+): PetInteractionAction[] =>
+  shouldPromptPetAdoption(profile) ? [createStudyMindAdoptAction()] : createIdlePetHoverActions(todaySummary);
 
 export {
   createStudyMindAdoptAction,
   createStudyMindHoverActions,
   createStudyMindPetHoverActions,
+  createIdlePetHoverActions,
+  createTodayFocusSummaryAction,
   createResumeFocusHoverActions,
   createFocusHoverActions,
   createRestReminderAction,
   createFocusProgressAction,
+  createOrganizeAskAction,
 };
