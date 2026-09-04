@@ -623,7 +623,7 @@ body,
 
 /*
  * 整卡 hover：横向扇开（角度略收）
- * 某张纸 hover：该纸上浮并提到纸张最前；其余下沉；黑区下移且始终最高，底部用伪元素封住
+ * 某张纸 hover：该纸上浮并提到纸张最前；其余下沉；黑区 transform 下移（不改高度/不重排）
  */
 .folder-card:hover .folder-card__hit--0 .folder-card__sheet {
   transform: translateY(-4px) scale(1.02);
@@ -638,8 +638,8 @@ body,
 }
 
 .folder-card:has(.folder-card__hit:hover) .folder-card__body {
-  /* 用 margin 下移，避免 transform 在底部露出底色/纸边 */
-  margin-top: calc(var(--folder-body-overlap) + var(--folder-lift));
+  /* transform 不触发布局重排，高度保持不变 */
+  transform: translateY(var(--folder-lift));
 }
 
 /* 悬停时：其余纸退到后面并略下沉，侧页继续扇开以保持三层可见 */
@@ -687,17 +687,18 @@ body,
   border-radius: 20px 20px 0 0;
   /* 让重叠区的纸仍可 hover，按钮/标题自己接事件 */
   pointer-events: none;
-  transition: margin-top 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
-/* 向下延伸同色块，挡住下沉纸张底部与卡片底色 */
+/* 向下延伸同色块，挡住 transform 下移后的纸边与卡片底色 */
 .folder-card__body::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
   top: 100%;
-  height: 64px;
+  height: calc(var(--folder-lift) + 48px);
   background: var(--folder-body);
   pointer-events: none;
 }
@@ -789,13 +790,6 @@ body,
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.28) inset,
     0 8px 16px rgba(184, 50, 50, 0.24);
-}
-
-.folder-card--amber .folder-card__open {
-  background: linear-gradient(180deg, #e2b06a 0%, #c47a3a 100%);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.28) inset,
-    0 8px 16px rgba(196, 122, 58, 0.28);
 }
 
 .folder-card__open:hover {
