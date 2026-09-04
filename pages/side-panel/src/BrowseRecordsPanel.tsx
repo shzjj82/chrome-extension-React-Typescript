@@ -133,20 +133,22 @@ const FileGlyph = () => (
   </svg>
 );
 
-/** 按子文件数量叠图纸，最多 3 张；1 份只显示 1 张；纸面带骨架屏占位 */
+/** 按子文件数量叠图纸；命中层固定不移动，避免 transform 导致 hover 闪动 */
 const FolderSheets = ({ count }: { count: number }) => {
   const sheets = Math.max(1, Math.min(MAX_SHEETS, count));
   return (
-    <div className="folder-card__stage" aria-hidden="true">
+    <div className="folder-card__stage">
       {Array.from({ length: sheets }, (_, index) => {
         const fromBack = sheets - 1 - index;
         return (
-          <span key={index} className={`folder-card__sheet folder-card__sheet--${fromBack}`}>
-            <span className="folder-card__skeleton">
-              <span className="folder-card__skeleton-line folder-card__skeleton-line--title" />
-              <span className="folder-card__skeleton-line folder-card__skeleton-line--lg" />
-              <span className="folder-card__skeleton-line folder-card__skeleton-line--md" />
-              <span className="folder-card__skeleton-line folder-card__skeleton-line--sm" />
+          <span key={index} className={`folder-card__hit folder-card__hit--${fromBack}`}>
+            <span className={`folder-card__sheet folder-card__sheet--${fromBack}`}>
+              <span className="folder-card__skeleton">
+                <span className="folder-card__skeleton-line folder-card__skeleton-line--title" />
+                <span className="folder-card__skeleton-line folder-card__skeleton-line--lg" />
+                <span className="folder-card__skeleton-line folder-card__skeleton-line--md" />
+                <span className="folder-card__skeleton-line folder-card__skeleton-line--sm" />
+              </span>
             </span>
           </span>
         );
@@ -327,9 +329,8 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
                     <article
                       key={`${day.dateKey}::${site.key}`}
                       className={cn('folder-card', `folder-card--${site.accent}`)}>
-                      <div className="folder-card__preview">
-                        <FolderSheets count={site.records.length} />
-                      </div>
+                      <div className="folder-card__preview" />
+                      <FolderSheets count={site.records.length} />
                       <div className="folder-card__body">
                         <div className="folder-card__head">
                           <span className="folder-card__folder-icon">
@@ -352,7 +353,7 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
                               setActiveSite({ dayKey: day.dateKey, site });
                               setActiveRecordId(null);
                             }}>
-                            Open →
+                            查看
                           </button>
                         </div>
                       </div>

@@ -453,11 +453,13 @@ body,
   --folder-body: #3d2e22;
   --folder-body-text: #fff8ef;
   --folder-body-muted: rgba(255, 248, 239, 0.62);
+  --folder-lift: 12px;
+  --folder-body-overlap: -58px;
   position: relative;
   overflow: hidden;
   border-radius: 24px;
   border: 2px solid var(--sm-ink);
-  background: var(--folder-body);
+  background: linear-gradient(145deg, var(--folder-accent) 0%, var(--folder-accent-2) 100%);
   box-shadow: 0 12px 24px rgba(61, 46, 34, 0.12);
 }
 
@@ -480,34 +482,80 @@ body,
 .folder-card__preview {
   position: relative;
   z-index: 1;
-  height: 132px;
+  height: 148px;
   background: linear-gradient(145deg, var(--folder-accent) 0%, var(--folder-accent-2) 100%);
 }
 
 .folder-card__stage {
+  /* 不设 z-index，让 hit 的层级能与 body 直接比较 */
   position: absolute;
-  right: 8%;
-  /* 底部压进深色区，顶部仍留底色 */
-  bottom: 18px;
-  left: 8%;
-  height: 78px;
+  top: 28px;
+  right: 4%;
+  left: 4%;
+  /* 底部多压进黑区，hover 上浮后仍被盖住不露底 */
+  height: 128px;
   pointer-events: none;
+}
+
+/* 命中层固定不位移，避免纸张上移后鼠标离开造成闪动 */
+.folder-card__hit {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 40%;
+  height: 100%;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: z-index 0s;
+}
+
+/* 默认叠层：中 > 左 > 右，侧页更低更开 */
+.folder-card__hit--0 {
+  z-index: 3;
+  transform: translateX(-50%);
+}
+
+.folder-card__hit--1 {
+  z-index: 2;
+  width: 36%;
+  height: 88%;
+  transform: translateX(calc(-50% - 48px)) rotate(-12deg);
+  transform-origin: 50% 100%;
+}
+
+.folder-card__hit--2 {
+  z-index: 1;
+  width: 36%;
+  height: 88%;
+  transform: translateX(calc(-50% + 48px)) rotate(12deg);
+  transform-origin: 50% 100%;
 }
 
 .folder-card__sheet {
   position: absolute;
-  left: 50%;
-  bottom: 0;
+  inset: 0;
   display: block;
   overflow: hidden;
-  width: 38%;
-  height: 100%;
-  border-radius: 10px 10px 4px 4px;
+  border-radius: 10px 10px 2px 2px;
   background-color: var(--sm-card);
-  box-shadow:
-    0 2px 0 rgba(61, 46, 34, 0.06),
-    0 10px 18px rgba(61, 46, 34, 0.16);
   transform-origin: 50% 100%;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.folder-card__sheet--0 {
+  box-shadow:
+    0 2px 0 rgba(61, 46, 34, 0.08),
+    0 12px 22px rgba(61, 46, 34, 0.22);
+}
+
+.folder-card__sheet--1,
+.folder-card__sheet--2 {
+  box-shadow:
+    0 1px 0 rgba(61, 46, 34, 0.05),
+    0 6px 14px rgba(61, 46, 34, 0.12);
 }
 
 .folder-card__skeleton {
@@ -516,6 +564,7 @@ body,
   display: flex;
   flex-direction: column;
   gap: 7px;
+  pointer-events: none;
 }
 
 .folder-card__skeleton-line {
@@ -565,54 +614,98 @@ body,
   .folder-card__skeleton-line {
     animation: none;
   }
+
+  .folder-card__sheet,
+  .folder-card__body {
+    transition: none !important;
+  }
 }
 
-/* 中间一张最高、两侧更开；顶部露底色，底部被黑色盖住 */
-.folder-card__sheet--0 {
-  z-index: 3;
-  height: 100%;
-  transform: translateX(-50%) translateY(0) rotate(0deg);
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+/*
+ * 整卡 hover：横向扇开（角度略收）
+ * 某张纸 hover：该纸上浮并提到纸张最前；其余下沉；黑区下移且始终最高，底部用伪元素封住
+ */
+.folder-card:hover .folder-card__hit--0 .folder-card__sheet {
+  transform: translateY(-4px) scale(1.02);
 }
 
-.folder-card__sheet--1 {
-  z-index: 2;
-  height: 88%;
-  transform: translateX(calc(-50% - 52px)) translateY(6px) rotate(-16deg);
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+.folder-card:hover .folder-card__hit--1 .folder-card__sheet {
+  transform: translateX(-28px) translateY(-2px) rotate(-8deg) scale(1.02);
 }
 
-.folder-card__sheet--2 {
+.folder-card:hover .folder-card__hit--2 .folder-card__sheet {
+  transform: translateX(28px) translateY(-2px) rotate(8deg) scale(1.02);
+}
+
+.folder-card:has(.folder-card__hit:hover) .folder-card__body {
+  /* 用 margin 下移，避免 transform 在底部露出底色/纸边 */
+  margin-top: calc(var(--folder-body-overlap) + var(--folder-lift));
+}
+
+/* 悬停时：其余纸退到后面并略下沉，侧页继续扇开以保持三层可见 */
+.folder-card:has(.folder-card__hit:hover) .folder-card__hit {
   z-index: 1;
-  height: 88%;
-  transform: translateX(calc(-50% + 52px)) translateY(6px) rotate(16deg);
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* hover：只横向扇开，不把纸底甩出黑色区 */
-.folder-card:hover .folder-card__sheet--0 {
-  transform: translateX(-50%) translateY(-4px) rotate(0deg) scale(1.02);
+.folder-card:has(.folder-card__hit:hover) .folder-card__hit:hover {
+  z-index: 6;
 }
 
-.folder-card:hover .folder-card__sheet--1 {
-  transform: translateX(calc(-50% - 78px)) translateY(4px) rotate(-22deg);
+.folder-card:has(.folder-card__hit:hover) .folder-card__hit--0:not(:hover) .folder-card__sheet {
+  transform: translateY(8px) scale(0.96);
+  box-shadow:
+    0 1px 0 rgba(61, 46, 34, 0.05),
+    0 6px 12px rgba(61, 46, 34, 0.1);
 }
 
-.folder-card:hover .folder-card__sheet--2 {
-  transform: translateX(calc(-50% + 78px)) translateY(4px) rotate(22deg);
+.folder-card:has(.folder-card__hit:hover) .folder-card__hit--1:not(:hover) .folder-card__sheet {
+  transform: translateX(-26px) translateY(10px) rotate(-9deg) scale(0.95);
+}
+
+.folder-card:has(.folder-card__hit:hover) .folder-card__hit--2:not(:hover) .folder-card__sheet {
+  transform: translateX(26px) translateY(10px) rotate(9deg) scale(0.95);
+}
+
+.folder-card:has(.folder-card__hit:hover) .folder-card__hit:hover .folder-card__sheet {
+  /* 上浮幅度收小，底部始终压在黑区下 */
+  transform: translateY(-6px) scale(1.03);
+  box-shadow:
+    0 1px 0 rgba(61, 46, 34, 0.06),
+    0 8px 16px rgba(61, 46, 34, 0.16);
 }
 
 .folder-card__body {
   position: relative;
-  z-index: 5;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin-top: -48px;
-  padding: 18px 16px 16px;
+  margin-top: var(--folder-body-overlap);
+  padding: 22px 16px 16px;
   color: var(--folder-body-text);
   background: var(--folder-body);
   border-radius: 20px 20px 0 0;
+  /* 让重叠区的纸仍可 hover，按钮/标题自己接事件 */
+  pointer-events: none;
+  transition: margin-top 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 向下延伸同色块，挡住下沉纸张底部与卡片底色 */
+.folder-card__body::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 64px;
+  background: var(--folder-body);
+  pointer-events: none;
+}
+
+.folder-card__head,
+.folder-card__foot,
+.folder-card__open {
+  pointer-events: auto;
 }
 
 .folder-card__head {
