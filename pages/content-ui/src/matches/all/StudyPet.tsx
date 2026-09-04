@@ -12,6 +12,8 @@ import { useStorage } from '@extension/shared';
 import {
   focusLogStorage,
   getLocalDateKey,
+  isLlmConfigured,
+  llmSettingsStorage,
   normalizeUserProfile,
   pomodoroStateStorage,
   summarizeDay,
@@ -29,12 +31,15 @@ const StudyPet = (props: StudyPetProps) => {
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const pomodoro = useStorage(pomodoroStateStorage);
   const focusLog = useStorage(focusLogStorage);
+  const llm = useStorage(llmSettingsStorage);
   const { clock, onRuntimeReady } = useStudyFocusCompanion(props.enabled !== false);
 
   const todaySummary = useMemo(() => {
     const dateKey = getLocalDateKey();
     return summarizeDay(focusLog, dateKey);
   }, [focusLog]);
+
+  const llmReady = isLlmConfigured(llm);
 
   const resolveBubbleActions = useCallback(() => {
     if (pomodoro.phase === 'focus') {
@@ -45,8 +50,8 @@ const StudyPet = (props: StudyPetProps) => {
     if (pomodoro.phase === 'break') {
       return createResumeFocusHoverActions();
     }
-    return createStudyMindPetHoverActions(profile, todaySummary);
-  }, [profile, pomodoro.phase, pomodoro.startedAt, todaySummary]);
+    return createStudyMindPetHoverActions(profile, todaySummary, { llmReady });
+  }, [profile, pomodoro.phase, pomodoro.startedAt, todaySummary, llmReady]);
 
   const resolveStageAccessory = useCallback(
     ({ facingLeft, menuVisible }: StageAccessoryContext) => {

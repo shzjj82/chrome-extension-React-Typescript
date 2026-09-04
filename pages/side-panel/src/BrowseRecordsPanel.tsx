@@ -1,6 +1,7 @@
+import BrowseDayCalendar, { toLocalDateKey } from './BrowseDayCalendar';
 import { clearBrowsePages, deleteBrowsePage, listBrowsePagesGroupedByDay } from '@extension/knowledge-base';
 import { Button, cn } from '@extension/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BrowseDayGroup, BrowsePageRecord } from '@extension/knowledge-base';
 
 type SiteBucket = {
@@ -163,6 +164,8 @@ type BrowseRecordsPanelProps = {
 
 const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
   const [groups, setGroups] = useState<BrowseDayGroup[]>([]);
+  const [selectedDateKey, setSelectedDateKey] = useState(() => toLocalDateKey(new Date()));
+  const [selectedSiteKeys, setSelectedSiteKeys] = useState<string[]>([]);
   const [activeSite, setActiveSite] = useState<{ dayKey: string; site: SiteBucket } | null>(null);
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
   const [status, setStatus] = useState('');
@@ -188,6 +191,44 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
 
   const daySiteGroups = useMemo(() => groupByDayThenSite(groups), [groups]);
 
+  const recordDateKeys = useMemo(() => new Set(daySiteGroups.map(day => day.dateKey)), [daySiteGroups]);
+  const didInitDateRef = useRef(false);
+
+  // 首次有数据时：若当天无记录，落到最近有数据的一天（不打断用户之后选空日期）
+  useEffect(() => {
+    if (daySiteGroups.length === 0) {
+      didInitDateRef.current = false;
+      return;
+    }
+    if (didInitDateRef.current) {
+      return;
+    }
+    didInitDateRef.current = true;
+    if (!recordDateKeys.has(selectedDateKey)) {
+      setSelectedDateKey(daySiteGroups[0]!.dateKey);
+    }
+  }, [daySiteGroups, recordDateKeys, selectedDateKey]);
+
+  const selectedDay = useMemo(
+    () => daySiteGroups.find(day => day.dateKey === selectedDateKey) ?? null,
+    [daySiteGroups, selectedDateKey],
+  );
+
+  // 换日后清空勾选；勾选仅保留仍存在的站点
+  useEffect(() => {
+    setSelectedSiteKeys(prev => {
+      if (!selectedDay) {
+        return prev.length === 0 ? prev : [];
+      }
+      const allowed = new Set(selectedDay.sites.map(site => site.key));
+      const next = prev.filter(key => allowed.has(key));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [selectedDay]);
+
+  const allSiteKeys = selectedDay?.sites.map(site => site.key) ?? [];
+  const allSelected = allSiteKeys.length > 0 && allSiteKeys.every(key => selectedSiteKeys.includes(key));
+  const someSelected = selectedSiteKeys.length > 0 && !allSelected;
   // 列表刷新后：若当前打开的站点还在，同步其文件列表；否则退回卡片列表
   useEffect(() => {
     if (!activeSite) {
@@ -217,49 +258,56 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
     await refresh();
   };
 
-  const onClearAll = async () => {
+  const onOrganize = () => {
+    setActiveSite(null);
+    setActiveRecordId(null);
+    setSelectedSiteKeys([]);
+    setStatus('');
+  };
+
+  const onClear = async () => {
+    if (activeSite) {
+      return;
+    }
+    if (selectedSiteKeys.length > 0 && selectedDay) {
+      const picked = selectedDay.sites.filter(site => selectedSiteKeys.includes(site.key));
+      const count = picked.reduce((sum, site) => sum + site.records.length, 0);
+      if (!window.confirm(`删除已选 ${picked.length} 个文件夹（共 ${count} 条）？`)) {
+        return;
+      }
+      await Promise.all(picked.flatMap(site => site.records.map(record => deleteBrowsePage(record.id))));
+      setSelectedSiteKeys([]);
+      setStatus('已删除所选');
+      await refresh();
+      return;
+    }
     if (!window.confirm('清空全部浏览记录？')) {
       return;
     }
     await clearBrowsePages();
     setActiveSite(null);
     setActiveRecordId(null);
+    setSelectedSiteKeys([]);
     setStatus('已清空');
     await refresh();
+  };
+
+  const toggleSelectAll = () => {
+    if (!selectedDay || selectedDay.sites.length === 0) {
+      return;
+    }
+    setSelectedSiteKeys(allSelected ? [] : selectedDay.sites.map(site => site.key));
+  };
+
+  const toggleSiteSelected = (siteKey: string) => {
+    setSelectedSiteKeys(prev => (prev.includes(siteKey) ? prev.filter(key => key !== siteKey) : [...prev, siteKey]));
   };
 
   const activeRecord = activeSite?.site.records.find(item => item.id === activeRecordId) ?? null;
 
   return (
-    <div className={cn('side-panel sm-shell', !isLight && 'sm-shell--dark')}>
-      <header className="sm-shell__header">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="sm-shell__brand">整理 · 浏览记录</h1>
-          <div className="sm-shell__actions">
-            {activeSite ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  setActiveSite(null);
-                  setActiveRecordId(null);
-                }}>
-                返回
-              </Button>
-            ) : null}
-            <Button size="sm" variant="secondary" onClick={() => void refresh()}>
-              刷新
-            </Button>
-            {!activeSite && groups.length > 0 ? (
-              <Button size="sm" variant="destructive" onClick={() => void onClearAll()}>
-                清空
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      </header>
-
-      <main className="sm-shell__main">
+    <div className={cn('side-panel sm-shell browse-shell', !isLight && 'sm-shell--dark')}>
+      <main className="sm-shell__main browse-shell__main">
         {status ? <p className="text-xs text-emerald-700">{status}</p> : null}
         {error ? <p className="text-xs text-red-700">{error}</p> : null}
 
@@ -316,19 +364,38 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
             </div>
           </section>
         ) : (
-          <>
+          <section className="browse-day">
+            <BrowseDayCalendar
+              selectedDateKey={selectedDateKey}
+              recordDateKeys={recordDateKeys}
+              dayLabel={selectedDay?.dayLabel ?? formatDayLabel(selectedDateKey)}
+              total={selectedDay?.total ?? 0}
+              onSelect={dateKey => {
+                setSelectedDateKey(dateKey);
+                setActiveSite(null);
+                setActiveRecordId(null);
+                setSelectedSiteKeys([]);
+              }}
+              onRefresh={() => void refresh()}
+            />
             {daySiteGroups.length === 0 ? <p className="sm-shell__muted">暂无记录</p> : null}
-            {daySiteGroups.map(day => (
-              <section key={day.dateKey} className="browse-day">
-                <h2 className="sm-shell__card-title">
-                  {day.dayLabel}
-                  <span className="sm-shell__muted"> · {day.total} 条</span>
-                </h2>
-                <div className="folder-card-grid">
-                  {day.sites.map(site => (
+            {daySiteGroups.length > 0 && !selectedDay ? <p className="sm-shell__muted">这一天还没有浏览记录</p> : null}
+            {selectedDay ? (
+              <div className="folder-card-grid">
+                {selectedDay.sites.map(site => {
+                  const checked = selectedSiteKeys.includes(site.key);
+                  return (
                     <article
-                      key={`${day.dateKey}::${site.key}`}
-                      className={cn('folder-card', `folder-card--${site.accent}`)}>
+                      key={`${selectedDay.dateKey}::${site.key}`}
+                      className={cn('folder-card', `folder-card--${site.accent}`, checked && 'folder-card--selected')}>
+                      <label className="folder-card__check">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSiteSelected(site.key)}
+                          aria-label={`选择 ${site.label}`}
+                        />
+                      </label>
                       <div className="folder-card__preview" />
                       <FolderSheets count={site.records.length} />
                       <div className="folder-card__body">
@@ -350,7 +417,7 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
                             type="button"
                             className="folder-card__open"
                             onClick={() => {
-                              setActiveSite({ dayKey: day.dateKey, site });
+                              setActiveSite({ dayKey: selectedDay.dateKey, site });
                               setActiveRecordId(null);
                             }}>
                             查看
@@ -358,13 +425,49 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
                         </div>
                       </div>
                     </article>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </>
+                  );
+                })}
+              </div>
+            ) : null}
+          </section>
         )}
       </main>
+
+      <footer className="browse-dock" aria-label="浏览记录操作">
+        <div className="browse-dock__left">
+          <label
+            className={cn(
+              'browse-dock__check',
+              (activeSite || allSiteKeys.length === 0) && 'browse-dock__check--disabled',
+            )}>
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={el => {
+                if (el) {
+                  el.indeterminate = someSelected;
+                }
+              }}
+              disabled={Boolean(activeSite) || allSiteKeys.length === 0}
+              onChange={toggleSelectAll}
+            />
+            <span>全选</span>
+          </label>
+          {!activeSite && selectedSiteKeys.length > 0 ? (
+            <span className="browse-dock__selected">已选中 {selectedSiteKeys.length}</span>
+          ) : null}
+        </div>
+        <div className="browse-dock__actions">
+          {!activeSite && groups.length > 0 ? (
+            <Button size="sm" variant="secondary" className="browse-dock__btn" onClick={() => void onClear()}>
+              清空
+            </Button>
+          ) : null}
+          <Button size="sm" className="browse-dock__btn browse-dock__btn--primary" onClick={onOrganize}>
+            整理
+          </Button>
+        </div>
+      </footer>
     </div>
   );
 };

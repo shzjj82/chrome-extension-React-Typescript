@@ -319,6 +319,12 @@
   "petActionOrganizeTitle": {
     "message": "Open organize panel"
   },
+  "petActionChat": {
+    "message": "Chat"
+  },
+  "petActionChatTitle": {
+    "message": "Chat with your companion"
+  },
   "petActionTodayFocus": {
     "message": "Today"
   },

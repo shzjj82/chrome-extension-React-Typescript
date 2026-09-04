@@ -40,7 +40,10 @@ const storage = createStorage<LlmSettingsType>(
   },
 );
 
+const isLlmConfigured = (settings: Pick<LlmSettingsType, 'apiKey' | 'baseUrl'>) =>
+  Boolean(settings.apiKey?.trim() && settings.baseUrl?.trim());
+
 const llmSettingsStorage: LlmSettingsStorageType = storage;
 
 export type { LlmProviderId, LlmSettingsType, LlmSettingsStorageType };
-export { LLM_PROVIDER_PRESETS, llmSettingsStorage };
+export { LLM_PROVIDER_PRESETS, llmSettingsStorage, isLlmConfigured };

@@ -2,6 +2,7 @@ import '@src/SidePanel.css';
 import AdoptionPanel from './AdoptionPanel';
 import BrowseRecordsPanel from './BrowseRecordsPanel';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
+import PetChatPanel from './PetChatPanel';
 import { t } from '@extension/i18n';
 import {
   createEmptySession,
@@ -34,10 +35,13 @@ type GatePhase = 'adopt' | 'app';
 
 const resolveGatePhase = (petAdopted: boolean): GatePhase => (petAdopted ? 'app' : 'adopt');
 
-const resolvePanelView = (): 'study' | 'browse' => {
+const resolvePanelView = (): 'study' | 'browse' | 'chat' => {
   try {
     const view = new URLSearchParams(window.location.search).get('view');
-    return view === 'browse' ? 'browse' : 'study';
+    if (view === 'browse' || view === 'chat') {
+      return view;
+    }
+    return 'study';
   } catch {
     return 'study';
   }
@@ -260,6 +264,10 @@ const SidePanel = () => {
   // 整理入口：仅展示按日分组的浏览记录，不展示「当前内容」
   if (panelView === 'browse') {
     return <BrowseRecordsPanel isLight={isLight} />;
+  }
+
+  if (panelView === 'chat') {
+    return <PetChatPanel isLight={isLight} />;
   }
 
   return (

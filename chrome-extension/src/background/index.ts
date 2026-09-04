@@ -24,9 +24,15 @@ const getActiveTab = async () => {
   return tab;
 };
 
-const panelPath = (view?: SidePanelView) =>
-  view === 'browse' ? 'side-panel/index.html?view=browse' : 'side-panel/index.html';
-
+const panelPath = (view?: SidePanelView) => {
+  if (view === 'browse') {
+    return 'side-panel/index.html?view=browse';
+  }
+  if (view === 'chat') {
+    return 'side-panel/index.html?view=chat';
+  }
+  return 'side-panel/index.html';
+};
 const enableSidePanelForTab = async (tabId: number, view?: SidePanelView) => {
   await chrome.sidePanel.setOptions({
     tabId,

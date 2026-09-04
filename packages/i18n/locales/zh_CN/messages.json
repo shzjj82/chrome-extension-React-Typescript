@@ -319,6 +319,12 @@
   "petActionOrganizeTitle": {
     "message": "打开整理侧栏"
   },
+  "petActionChat": {
+    "message": "聊天"
+  },
+  "petActionChatTitle": {
+    "message": "和陪伴伙伴聊聊天"
+  },
   "petActionTodayFocus": {
     "message": "今日"
   },

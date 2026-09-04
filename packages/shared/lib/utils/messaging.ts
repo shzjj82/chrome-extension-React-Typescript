@@ -44,7 +44,7 @@ type FocusGatePayload = {
   focusing: boolean;
 };
 
-type SidePanelView = 'study' | 'browse';
+type SidePanelView = 'study' | 'browse' | 'chat';
 
 type ExtensionRequestMap = {
   [ExtensionMessageType.START_LEARNING]: { tabId?: number };

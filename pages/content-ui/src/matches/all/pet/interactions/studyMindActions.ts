@@ -4,27 +4,43 @@ import { shouldPromptPetAdoption } from '@extension/storage';
 import type { PetInteractionAction } from '../types';
 import type { FocusDaySummary, UserProfileType } from '@extension/storage';
 
-const createStudyMindHoverActions = (): PetInteractionAction[] => [
-  {
-    id: 'study',
-    label: t('petActionStudy'),
-    title: t('petActionStudyTitle'),
-    ariaLabel: t('petActionStudy'),
-    onSelect: () => {
-      // 专注：只启动番茄，不打开侧边栏
-      void sendExtensionMessage(ExtensionMessageType.POMODORO_START);
+const createStudyMindHoverActions = (options?: { llmReady?: boolean }): PetInteractionAction[] => {
+  const actions: PetInteractionAction[] = [
+    {
+      id: 'study',
+      label: t('petActionStudy'),
+      title: t('petActionStudyTitle'),
+      ariaLabel: t('petActionStudy'),
+      onSelect: () => {
+        // 专注：只启动番茄，不打开侧边栏
+        void sendExtensionMessage(ExtensionMessageType.POMODORO_START);
+      },
     },
-  },
-  {
-    id: 'organize',
-    label: t('petActionOrganize'),
-    title: t('petActionOrganizeTitle'),
-    ariaLabel: t('petActionOrganize'),
-    onSelect: () => {
-      void sendExtensionMessage(ExtensionMessageType.OPEN_SIDE_PANEL, { view: 'browse' });
+    {
+      id: 'organize',
+      label: t('petActionOrganize'),
+      title: t('petActionOrganizeTitle'),
+      ariaLabel: t('petActionOrganize'),
+      onSelect: () => {
+        void sendExtensionMessage(ExtensionMessageType.OPEN_SIDE_PANEL, { view: 'browse' });
+      },
     },
-  },
-];
+  ];
+
+  if (options?.llmReady) {
+    actions.push({
+      id: 'chat',
+      label: t('petActionChat'),
+      title: t('petActionChatTitle'),
+      ariaLabel: t('petActionChat'),
+      onSelect: () => {
+        void sendExtensionMessage(ExtensionMessageType.OPEN_SIDE_PANEL, { view: 'chat' });
+      },
+    });
+  }
+
+  return actions;
+};
 
 /** 今日已有计入的专注日志：在专注/整理之外展示今日摘要 */
 const createTodayFocusSummaryAction = (summary: FocusDaySummary): PetInteractionAction => {
@@ -41,8 +57,11 @@ const createTodayFocusSummaryAction = (summary: FocusDaySummary): PetInteraction
   };
 };
 
-const createIdlePetHoverActions = (summary: FocusDaySummary | null): PetInteractionAction[] => {
-  const base = createStudyMindHoverActions();
+const createIdlePetHoverActions = (
+  summary: FocusDaySummary | null,
+  options?: { llmReady?: boolean },
+): PetInteractionAction[] => {
+  const base = createStudyMindHoverActions(options);
   if (!summary || summary.countedCount <= 0) {
     return base;
   }
@@ -149,8 +168,9 @@ const createStudyMindAdoptAction = (): PetInteractionAction => ({
 const createStudyMindPetHoverActions = (
   profile: UserProfileType,
   todaySummary: FocusDaySummary | null = null,
+  options?: { llmReady?: boolean },
 ): PetInteractionAction[] =>
-  shouldPromptPetAdoption(profile) ? [createStudyMindAdoptAction()] : createIdlePetHoverActions(todaySummary);
+  shouldPromptPetAdoption(profile) ? [createStudyMindAdoptAction()] : createIdlePetHoverActions(todaySummary, options);
 
 export {
   createStudyMindAdoptAction,

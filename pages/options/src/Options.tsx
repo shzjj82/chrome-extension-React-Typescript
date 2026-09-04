@@ -1,4 +1,6 @@
 import '@src/Options.css';
+import SmSelect from './SmSelect';
+import SmSwitch from './SmSwitch';
 import { t } from '@extension/i18n';
 import { useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import {
@@ -12,8 +14,34 @@ import {
   userProfileStorage,
 } from '@extension/storage';
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { LearningModePreference, LlmProviderId } from '@extension/storage';
+
+type OptionsTab = 'companion' | 'profile' | 'llm' | 'focus';
+
+const TAB_FROM_HASH: Record<string, OptionsTab> = {
+  companion: 'companion',
+  profile: 'profile',
+  llm: 'llm',
+  focus: 'focus',
+  pomodoro: 'focus',
+};
+
+const resolveTabFromHash = (): OptionsTab => {
+  try {
+    const id = window.location.hash.replace(/^#/, '');
+    return TAB_FROM_HASH[id] ?? 'companion';
+  } catch {
+    return 'companion';
+  }
+};
+
+const OPTIONS_TABS: Array<{ id: OptionsTab; label: string }> = [
+  { id: 'companion', label: '关于你' },
+  { id: 'profile', label: '学习偏好' },
+  { id: 'llm', label: '大模型' },
+  { id: 'focus', label: '专注与界面' },
+];
 
 const Options = () => {
   const { isLight } = useStorage(exampleThemeStorage);
@@ -21,6 +49,7 @@ const Options = () => {
   const llm = useStorage(llmSettingsStorage);
   const pomodoro = useStorage(pomodoroSettingsStorage);
   const ui = useStorage(uiSettingsStorage);
+  const [tab, setTab] = useState<OptionsTab>(() => resolveTabFromHash());
   const [savedHint, setSavedHint] = useState('');
   // 文本本地草稿，避免 liveUpdate 打断中文输入
   const [nickname, setNickname] = useState(profile.nickname);
@@ -29,6 +58,20 @@ const Options = () => {
   const [domains, setDomains] = useState(profile.domains);
 
   const adoptionDraft = { ...profile, nickname, gender, occupation };
+
+  useEffect(() => {
+    const onHash = () => setTab(resolveTabFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const selectTab = (next: OptionsTab) => {
+    setTab(next);
+    const nextHash = `#${next}`;
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, '', nextHash);
+    }
+  };
 
   const toggleMode = (mode: LearningModePreference) => {
     void userProfileStorage.set(prev => {
@@ -49,251 +92,297 @@ const Options = () => {
     <div className={cn('options-shell', !isLight && 'options-shell--dark')}>
       <div className="options-shell__inner">
         <header className="options-shell__header">
-          <h1 className="options-shell__brand">Study Mind · {t('openOptions')}</h1>
+          <div className="options-shell__title-row">
+            <h1 className="options-shell__brand">Study Mind · {t('openOptions')}</h1>
+            <Button variant="outline" size="sm" onClick={() => void exampleThemeStorage.toggle()}>
+              {t('toggleTheme')}
+            </Button>
+          </div>
           <p className="options-shell__hint">{t('riskPrivacy')}</p>
           {savedHint ? <p className="options-shell__flash">{savedHint}</p> : null}
         </header>
 
-        <section className="sm-card adopt-section">
-          <div className="adopt-section__hero">
-            <div className="adopt-section__pet" aria-hidden="true" />
-            <div>
-              <p className="adopt-section__eyebrow">{t('adoptEyebrow')}</p>
-              <h2 className="adopt-section__title">{t('userInfoTitle')}</h2>
-              <p className="adopt-section__hint">{t('userInfoHint')}</p>
-            </div>
+        <section className="options-pet-hero" aria-label="陪伴伙伴">
+          <div className="options-pet-hero__pet" aria-hidden="true" />
+          <div className="options-pet-hero__copy">
+            <p className="options-pet-hero__eyebrow">{t('adoptEyebrow')}</p>
+            <h2 className="options-pet-hero__title">
+              {profile.nickname ? `嗨，${profile.nickname}` : t('userInfoTitle')}
+            </h2>
+            <p className="options-pet-hero__hint">
+              {profile.petAdopted ? '在下方各分类里调整陪伴与学习设置。' : t('userInfoHint')}
+            </p>
           </div>
-          <label className="adopt-field">
-            <span className="adopt-field__label">{t('profileNickname')}</span>
-            <input
-              className="adopt-field__input"
-              value={nickname}
-              onChange={event => setNickname(event.target.value)}
-              placeholder={t('profileNicknamePlaceholder')}
-            />
-          </label>
-          <div className="adopt-field">
-            <span className="adopt-field__label">{t('profileGender')}</span>
-            <div className="adopt-gender" role="group" aria-label={t('profileGender')}>
-              {(
-                [
-                  ['male', 'profileGenderMale'],
-                  ['female', 'profileGenderFemale'],
-                ] as const
-              ).map(([value, labelKey]) => {
-                const selected = gender === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    className={cn('adopt-gender__chip', selected && 'adopt-gender__chip--active')}
-                    aria-pressed={selected}
-                    onClick={() => setGender(value)}>
-                    {t(labelKey)}
-                  </button>
-                );
-              })}
+        </section>
+
+        <nav className="options-tabs" aria-label="设置分类">
+          {OPTIONS_TABS.map(item => (
+            <button
+              key={item.id}
+              type="button"
+              className={cn('options-tabs__chip', tab === item.id && 'options-tabs__chip--active')}
+              aria-pressed={tab === item.id}
+              onClick={() => selectTab(item.id)}>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === 'companion' ? (
+          <section className="sm-card adopt-section">
+            <h2 className="sm-card__title">{t('userInfoTitle')}</h2>
+            <p className="adopt-section__hint">{t('userInfoHint')}</p>
+            <label className="adopt-field">
+              <span className="adopt-field__label">{t('profileNickname')}</span>
+              <input
+                className="adopt-field__input"
+                value={nickname}
+                onChange={event => setNickname(event.target.value)}
+                placeholder={t('profileNicknamePlaceholder')}
+              />
+            </label>
+            <div className="adopt-field">
+              <span className="adopt-field__label">{t('profileGender')}</span>
+              <div className="adopt-gender" role="group" aria-label={t('profileGender')}>
+                {(
+                  [
+                    ['male', 'profileGenderMale'],
+                    ['female', 'profileGenderFemale'],
+                  ] as const
+                ).map(([value, labelKey]) => {
+                  const selected = gender === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      className={cn('adopt-gender__chip', selected && 'adopt-gender__chip--active')}
+                      aria-pressed={selected}
+                      onClick={() => setGender(value)}>
+                      {t(labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-          <label className="adopt-field">
-            <span className="adopt-field__label">{t('profileOccupation')}</span>
-            <input
-              className="adopt-field__input"
-              value={occupation}
-              onChange={event => setOccupation(event.target.value)}
-              placeholder={t('profileOccupationPlaceholder')}
-            />
-          </label>
-          <div className="flex gap-2">
-            <Button
-              className="adopt-section__cta"
-              disabled={!isAdoptionUserInfoFilled(adoptionDraft)}
-              onClick={() => {
-                if (!isAdoptionUserInfoFilled(adoptionDraft)) {
-                  return;
+            <label className="adopt-field">
+              <span className="adopt-field__label">{t('profileOccupation')}</span>
+              <input
+                className="adopt-field__input"
+                value={occupation}
+                onChange={event => setOccupation(event.target.value)}
+                placeholder={t('profileOccupationPlaceholder')}
+              />
+            </label>
+            <div className="options-shell__actions">
+              <Button
+                className="adopt-section__cta"
+                disabled={!isAdoptionUserInfoFilled(adoptionDraft)}
+                onClick={() => {
+                  if (!isAdoptionUserInfoFilled(adoptionDraft)) {
+                    return;
+                  }
+                  void userProfileStorage.set(prev => ({
+                    ...prev,
+                    nickname: nickname.trim(),
+                    gender,
+                    occupation: occupation.trim(),
+                    petAdopted: true,
+                    onboardingCompleted: true,
+                  }));
+                  flash(t('adoptSavedHint'));
+                }}>
+                {t('adoptConfirm')}
+              </Button>
+            </div>
+          </section>
+        ) : null}
+
+        {tab === 'profile' ? (
+          <section className="sm-card">
+            <h2 className="sm-card__title">{t('profileTitle')}</h2>
+            <label>
+              {t('profileDomains')}
+              <input
+                value={domains}
+                onChange={event => setDomains(event.target.value)}
+                placeholder="前端 / 算法 / 产品..."
+              />
+            </label>
+            <label>
+              {t('profileGoal')}
+              <SmSelect
+                aria-label={t('profileGoal')}
+                value={profile.goal}
+                options={[
+                  { value: 'application', label: t('goalApplication') },
+                  { value: 'principle', label: t('goalPrinciple') },
+                  { value: 'exam', label: t('goalExam') },
+                ]}
+                onChange={next =>
+                  void userProfileStorage.set(prev => ({
+                    ...prev,
+                    goal: next as typeof profile.goal,
+                  }))
                 }
-                void userProfileStorage.set(prev => ({
-                  ...prev,
-                  nickname: nickname.trim(),
-                  gender,
-                  occupation: occupation.trim(),
-                  petAdopted: true,
-                  onboardingCompleted: true,
-                }));
-                flash(t('adoptSavedHint'));
-              }}>
-              {t('adoptConfirm')}
-            </Button>
-          </div>
-        </section>
+              />
+            </label>
+            <label>
+              {t('profileDepth')}
+              <SmSelect
+                aria-label={t('profileDepth')}
+                value={profile.depth}
+                options={[
+                  { value: 'shallow', label: t('depthShallow') },
+                  { value: 'normal', label: t('depthNormal') },
+                  { value: 'deep', label: t('depthDeep') },
+                ]}
+                onChange={next =>
+                  void userProfileStorage.set(prev => ({
+                    ...prev,
+                    depth: next as typeof profile.depth,
+                  }))
+                }
+              />
+            </label>
+            <div className="sm-mode-field">
+              <p className="sm-mode-field__label">{t('profileModes')}</p>
+              <div className="sm-mode-field__chips" role="group" aria-label={t('profileModes')}>
+                {(['note', 'quiz', 'practice'] as LearningModePreference[]).map(mode => {
+                  const selected = profile.preferredModes.includes(mode);
+                  const label = mode === 'note' ? t('modeNote') : mode === 'quiz' ? t('modeQuiz') : t('modePractice');
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={cn('sm-mode-field__chip', selected && 'sm-mode-field__chip--active')}
+                      aria-pressed={selected}
+                      onClick={() => toggleMode(mode)}>
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="options-shell__actions">
+              <Button
+                className="sm-card__cta"
+                onClick={() => {
+                  void userProfileStorage.set(prev => ({
+                    ...prev,
+                    domains: domains.trim(),
+                    onboardingCompleted: true,
+                  }));
+                  flash(t('profileSave'));
+                }}>
+                {t('profileSave')}
+              </Button>
+            </div>
+          </section>
+        ) : null}
 
-        <section className="sm-card">
-          <h2 className="sm-card__title">{t('profileTitle')}</h2>
-          <label>
-            {t('profileDomains')}
-            <input
-              value={domains}
-              onChange={event => setDomains(event.target.value)}
-              placeholder="前端 / 算法 / 产品..."
-            />
-          </label>
-          <label>
-            {t('profileGoal')}
-            <select
-              value={profile.goal}
-              onChange={event =>
-                void userProfileStorage.set(prev => ({
-                  ...prev,
-                  goal: event.target.value as typeof profile.goal,
-                }))
-              }>
-              <option value="application">{t('goalApplication')}</option>
-              <option value="principle">{t('goalPrinciple')}</option>
-              <option value="exam">{t('goalExam')}</option>
-            </select>
-          </label>
-          <label>
-            {t('profileDepth')}
-            <select
-              value={profile.depth}
-              onChange={event =>
-                void userProfileStorage.set(prev => ({
-                  ...prev,
-                  depth: event.target.value as typeof profile.depth,
-                }))
-              }>
-              <option value="shallow">{t('depthShallow')}</option>
-              <option value="normal">{t('depthNormal')}</option>
-              <option value="deep">{t('depthDeep')}</option>
-            </select>
-          </label>
-          <div className="space-y-2 text-sm font-medium text-[color:var(--sm-ink)]">
-            <p className="font-bold text-[color:var(--sm-muted)]">{t('profileModes')}</p>
-            {(['note', 'quiz', 'practice'] as LearningModePreference[]).map(mode => (
-              <label key={mode} className="mr-4 inline-flex flex-row items-center gap-2 font-medium">
-                <input
-                  type="checkbox"
-                  checked={profile.preferredModes.includes(mode)}
-                  onChange={() => toggleMode(mode)}
-                />
-                {mode === 'note' ? t('modeNote') : mode === 'quiz' ? t('modeQuiz') : t('modePractice')}
-              </label>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              className="sm-card__cta"
-              onClick={() => {
-                void userProfileStorage.set(prev => ({
-                  ...prev,
-                  domains: domains.trim(),
-                  onboardingCompleted: true,
-                }));
-                flash(t('profileSave'));
-              }}>
-              {t('profileSave')}
-            </Button>
-          </div>
-        </section>
+        {tab === 'llm' ? (
+          <section className="sm-card" id="llm">
+            <h2 className="sm-card__title">{t('llmTitle')}</h2>
+            <label>
+              {t('llmProvider')}
+              <SmSelect
+                aria-label={t('llmProvider')}
+                value={llm.provider}
+                options={[
+                  { value: 'deepseek', label: 'DeepSeek' },
+                  { value: 'qwen', label: '通义千问' },
+                  { value: 'openai-compatible', label: 'OpenAI Compatible' },
+                ]}
+                onChange={next => {
+                  const provider = next as LlmProviderId;
+                  void llmSettingsStorage.set(prev => ({
+                    ...prev,
+                    provider,
+                    baseUrl: LLM_PROVIDER_PRESETS[provider].baseUrl,
+                    model: LLM_PROVIDER_PRESETS[provider].model,
+                  }));
+                }}
+              />
+            </label>
+            <label>
+              {t('llmBaseUrl')}
+              <input
+                value={llm.baseUrl}
+                onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, baseUrl: event.target.value }))}
+              />
+            </label>
+            <label>
+              {t('llmModel')}
+              <input
+                value={llm.model}
+                onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, model: event.target.value }))}
+              />
+            </label>
+            <label>
+              {t('llmApiKey')}
+              <input
+                type="password"
+                value={llm.apiKey}
+                onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, apiKey: event.target.value }))}
+                placeholder="仅保存在本地"
+              />
+            </label>
+            <div className="options-shell__actions">
+              <Button className="sm-card__cta" onClick={() => flash('模型设置已保存')}>
+                {t('llmSave')}
+              </Button>
+            </div>
+          </section>
+        ) : null}
 
-        <section className="sm-card" id="llm">
-          <h2 className="sm-card__title">{t('llmTitle')}</h2>
-          <label>
-            {t('llmProvider')}
-            <select
-              value={llm.provider}
-              onChange={event => {
-                const provider = event.target.value as LlmProviderId;
-                void llmSettingsStorage.set(prev => ({
-                  ...prev,
-                  provider,
-                  baseUrl: LLM_PROVIDER_PRESETS[provider].baseUrl,
-                  model: LLM_PROVIDER_PRESETS[provider].model,
-                }));
-              }}>
-              <option value="deepseek">DeepSeek</option>
-              <option value="qwen">通义千问</option>
-              <option value="openai-compatible">OpenAI Compatible</option>
-            </select>
-          </label>
-          <label>
-            {t('llmBaseUrl')}
-            <input
-              value={llm.baseUrl}
-              onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, baseUrl: event.target.value }))}
-            />
-          </label>
-          <label>
-            {t('llmModel')}
-            <input
-              value={llm.model}
-              onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, model: event.target.value }))}
-            />
-          </label>
-          <label>
-            {t('llmApiKey')}
-            <input
-              type="password"
-              value={llm.apiKey}
-              onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, apiKey: event.target.value }))}
-              placeholder="仅保存在本地"
-            />
-          </label>
-          <Button className="sm-card__cta" onClick={() => flash('模型设置已保存')}>
-            {t('llmSave')}
-          </Button>
-        </section>
-
-        <section className="sm-card">
-          <h2 className="sm-card__title">{t('pomodoroTitle')}</h2>
-          <label>
-            {t('pomodoroFocus')}
-            <input
-              type="number"
-              min={1}
-              value={pomodoro.focusMinutes}
-              onChange={event =>
-                void pomodoroSettingsStorage.set(prev => ({
-                  ...prev,
-                  focusMinutes: Number(event.target.value) || 40,
-                }))
-              }
-            />
-          </label>
-          <label>
-            {t('pomodoroBreak')}
-            <input
-              type="number"
-              min={1}
-              value={pomodoro.breakMinutes}
-              onChange={event =>
-                void pomodoroSettingsStorage.set(prev => ({
-                  ...prev,
-                  breakMinutes: Number(event.target.value) || 10,
-                }))
-              }
-            />
-          </label>
-          <label className="inline-flex flex-row items-center gap-2 font-medium text-[color:var(--sm-ink)]">
-            <input
-              type="checkbox"
+        {tab === 'focus' ? (
+          <section className="sm-card">
+            <h2 className="sm-card__title">{t('pomodoroTitle')}</h2>
+            <label>
+              {t('pomodoroFocus')}
+              <input
+                type="number"
+                min={1}
+                value={pomodoro.focusMinutes}
+                onChange={event =>
+                  void pomodoroSettingsStorage.set(prev => ({
+                    ...prev,
+                    focusMinutes: Number(event.target.value) || 40,
+                  }))
+                }
+              />
+            </label>
+            <label>
+              {t('pomodoroBreak')}
+              <input
+                type="number"
+                min={1}
+                value={pomodoro.breakMinutes}
+                onChange={event =>
+                  void pomodoroSettingsStorage.set(prev => ({
+                    ...prev,
+                    breakMinutes: Number(event.target.value) || 10,
+                  }))
+                }
+              />
+            </label>
+            <SmSwitch
+              label={t('uiFloatBall')}
               checked={ui.floatBallEnabled}
-              onChange={event =>
+              onChange={next =>
                 void uiSettingsStorage.set(prev => ({
                   ...prev,
-                  floatBallEnabled: event.target.checked,
+                  floatBallEnabled: next,
                 }))
               }
             />
-            {t('uiFloatBall')}
-          </label>
-          <Button className="sm-card__cta" onClick={() => flash('设置已保存')}>
-            {t('saveSettings')}
-          </Button>
-          <Button variant="outline" onClick={() => void exampleThemeStorage.toggle()}>
-            {t('toggleTheme')}
-          </Button>
-        </section>
+            <div className="options-shell__actions">
+              <Button className="sm-card__cta" onClick={() => flash('设置已保存')}>
+                {t('saveSettings')}
+              </Button>
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

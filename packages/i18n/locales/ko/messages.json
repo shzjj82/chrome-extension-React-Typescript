@@ -319,6 +319,12 @@
   "petActionOrganizeTitle": {
     "message": "정리 패널 열기"
   },
+  "petActionChat": {
+    "message": "채팅"
+  },
+  "petActionChatTitle": {
+    "message": "파트너와 대화하기"
+  },
   "petActionTodayFocus": {
     "message": "오늘"
   },
