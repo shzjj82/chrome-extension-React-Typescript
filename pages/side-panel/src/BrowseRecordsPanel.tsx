@@ -308,63 +308,8 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
   return (
     <div className={cn('side-panel sm-shell browse-shell', !isLight && 'sm-shell--dark')}>
       <main className="sm-shell__main browse-shell__main">
-        {status ? <p className="text-xs text-emerald-700">{status}</p> : null}
-        {error ? <p className="text-xs text-red-700">{error}</p> : null}
-
-        {activeSite ? (
-          <section className="sm-shell__card">
-            <h2 className="sm-shell__card-title">{activeSite.site.label}</h2>
-            <p className="sm-shell__muted">
-              {activeSite.site.origin} · {activeSite.site.records.length} 份文件
-            </p>
-            <div className="folder-file-list">
-              {activeSite.site.records.map(record => {
-                const open = activeRecordId === record.id;
-                return (
-                  <article key={record.id} className="folder-file">
-                    <button
-                      type="button"
-                      className="folder-file__row"
-                      onClick={() => setActiveRecordId(open ? null : record.id)}>
-                      <span className="folder-file__icon">
-                        <FileGlyph />
-                      </span>
-                      <span className="folder-file__body">
-                        <span className="folder-file__title">{pageLabel(record)}</span>
-                        <span className="folder-file__meta">{formatTime(record.recordedAt)}</span>
-                      </span>
-                    </button>
-                    {open && activeRecord ? (
-                      <div className="folder-file__detail">
-                        <p className="sm-shell__muted break-all">{activeRecord.url}</p>
-                        <textarea
-                          className="min-h-28 text-xs"
-                          readOnly
-                          value={activeRecord.material || '（无正文快照）'}
-                        />
-                        <div className="sm-shell__actions">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              void navigator.clipboard.writeText(activeRecord.material || activeRecord.url);
-                              setStatus('已复制');
-                            }}>
-                            复制正文
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => void onDelete(activeRecord.id)}>
-                            删除
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ) : (
-          <section className="browse-day">
+        {!activeSite ? (
+          <div className="browse-toolbar">
             <BrowseDayCalendar
               selectedDateKey={selectedDateKey}
               recordDateKeys={recordDateKeys}
@@ -378,59 +323,127 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
               }}
               onRefresh={() => void refresh()}
             />
-            {daySiteGroups.length === 0 ? <p className="sm-shell__muted">暂无记录</p> : null}
-            {daySiteGroups.length > 0 && !selectedDay ? <p className="sm-shell__muted">这一天还没有浏览记录</p> : null}
-            {selectedDay ? (
-              <div className="folder-card-grid">
-                {selectedDay.sites.map(site => {
-                  const checked = selectedSiteKeys.includes(site.key);
+          </div>
+        ) : null}
+
+        <div className="browse-shell__scroll">
+          {status ? <p className="text-xs text-emerald-700">{status}</p> : null}
+          {error ? <p className="text-xs text-red-700">{error}</p> : null}
+
+          {activeSite ? (
+            <section className="sm-shell__card">
+              <h2 className="sm-shell__card-title">{activeSite.site.label}</h2>
+              <p className="sm-shell__muted">
+                {activeSite.site.origin} · {activeSite.site.records.length} 份文件
+              </p>
+              <div className="folder-file-list">
+                {activeSite.site.records.map(record => {
+                  const open = activeRecordId === record.id;
                   return (
-                    <article
-                      key={`${selectedDay.dateKey}::${site.key}`}
-                      className={cn('folder-card', `folder-card--${site.accent}`, checked && 'folder-card--selected')}>
-                      <label className="folder-card__check">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleSiteSelected(site.key)}
-                          aria-label={`选择 ${site.label}`}
-                        />
-                      </label>
-                      <div className="folder-card__preview" />
-                      <FolderSheets count={site.records.length} />
-                      <div className="folder-card__body">
-                        <div className="folder-card__head">
-                          <span className="folder-card__folder-icon">
-                            <FolderGlyph />
-                          </span>
-                          <div className="folder-card__titles">
-                            <p className="folder-card__title">{site.label}</p>
-                            <p className="folder-card__subtitle">{site.origin}</p>
+                    <article key={record.id} className="folder-file">
+                      <button
+                        type="button"
+                        className="folder-file__row"
+                        onClick={() => setActiveRecordId(open ? null : record.id)}>
+                        <span className="folder-file__icon">
+                          <FileGlyph />
+                        </span>
+                        <span className="folder-file__body">
+                          <span className="folder-file__title">{pageLabel(record)}</span>
+                          <span className="folder-file__meta">{formatTime(record.recordedAt)}</span>
+                        </span>
+                      </button>
+                      {open && activeRecord ? (
+                        <div className="folder-file__detail">
+                          <p className="sm-shell__muted break-all">{activeRecord.url}</p>
+                          <textarea
+                            className="min-h-28 text-xs"
+                            readOnly
+                            value={activeRecord.material || '（无正文快照）'}
+                          />
+                          <div className="sm-shell__actions">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(activeRecord.material || activeRecord.url);
+                                setStatus('已复制');
+                              }}>
+                              复制正文
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => void onDelete(activeRecord.id)}>
+                              删除
+                            </Button>
                           </div>
                         </div>
-                        <div className="folder-card__foot">
-                          <span className="folder-card__count">
-                            <FileGlyph />
-                            {site.records.length} Files
-                          </span>
-                          <button
-                            type="button"
-                            className="folder-card__open"
-                            onClick={() => {
-                              setActiveSite({ dayKey: selectedDay.dateKey, site });
-                              setActiveRecordId(null);
-                            }}>
-                            查看
-                          </button>
-                        </div>
-                      </div>
+                      ) : null}
                     </article>
                   );
                 })}
               </div>
-            ) : null}
-          </section>
-        )}
+            </section>
+          ) : (
+            <section className="browse-day">
+              {daySiteGroups.length === 0 ? <p className="sm-shell__muted">暂无记录</p> : null}
+              {daySiteGroups.length > 0 && !selectedDay ? (
+                <p className="sm-shell__muted">这一天还没有浏览记录</p>
+              ) : null}
+              {selectedDay ? (
+                <div className="folder-card-grid">
+                  {selectedDay.sites.map(site => {
+                    const checked = selectedSiteKeys.includes(site.key);
+                    return (
+                      <article
+                        key={`${selectedDay.dateKey}::${site.key}`}
+                        className={cn(
+                          'folder-card',
+                          `folder-card--${site.accent}`,
+                          checked && 'folder-card--selected',
+                        )}>
+                        <label className="folder-card__check">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSiteSelected(site.key)}
+                            aria-label={`选择 ${site.label}`}
+                          />
+                        </label>
+                        <div className="folder-card__preview" />
+                        <FolderSheets count={site.records.length} />
+                        <div className="folder-card__body">
+                          <div className="folder-card__head">
+                            <span className="folder-card__folder-icon">
+                              <FolderGlyph />
+                            </span>
+                            <div className="folder-card__titles">
+                              <p className="folder-card__title">{site.label}</p>
+                              <p className="folder-card__subtitle">{site.origin}</p>
+                            </div>
+                          </div>
+                          <div className="folder-card__foot">
+                            <span className="folder-card__count">
+                              <FileGlyph />
+                              {site.records.length} Files
+                            </span>
+                            <button
+                              type="button"
+                              className="folder-card__open"
+                              onClick={() => {
+                                setActiveSite({ dayKey: selectedDay.dateKey, site });
+                                setActiveRecordId(null);
+                              }}>
+                              查看
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </section>
+          )}
+        </div>
       </main>
 
       <footer className="browse-dock" aria-label="浏览记录操作">

@@ -448,6 +448,32 @@ body,
 }
 
 .browse-shell__main {
+  overflow: hidden;
+  padding-bottom: 0;
+  gap: 10px;
+}
+
+.browse-toolbar {
+  position: relative;
+  z-index: 20;
+  flex-shrink: 0;
+  margin: -14px -14px 0;
+  padding: 14px 14px 10px;
+  background: color-mix(in srgb, var(--sm-paper) 92%, white);
+  border-bottom: 1px solid color-mix(in srgb, var(--sm-line) 70%, transparent);
+}
+
+.sm-shell--dark .browse-toolbar {
+  background: color-mix(in srgb, var(--sm-paper) 92%, black);
+}
+
+.browse-shell__scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
   padding-bottom: 88px;
 }
 
