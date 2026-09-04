@@ -1,3 +1,4 @@
+import BackIconButton from './BackIconButton';
 import { callChatCompletion } from './lib/learning';
 import { useStorage } from '@extension/shared';
 import { isLlmConfigured, llmSettingsStorage, normalizeUserProfile, userProfileStorage } from '@extension/storage';
@@ -14,6 +15,7 @@ type ChatBubble = {
 
 type PetChatPanelProps = {
   isLight: boolean;
+  onBack?: () => void;
 };
 
 const buildPetSystemPrompt = (nickname: string, occupation: string, domains: string, goal: string) => {
@@ -31,7 +33,7 @@ const buildPetSystemPrompt = (nickname: string, occupation: string, domains: str
     .join('');
 };
 
-const PetChatPanel = ({ isLight }: PetChatPanelProps) => {
+const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
   const ready = isLlmConfigured(llm);
@@ -104,7 +106,10 @@ const PetChatPanel = ({ isLight }: PetChatPanelProps) => {
     <div className={cn('side-panel sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
       <header className="sm-shell__header">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="sm-shell__brand">陪伴 · 聊天</h1>
+          <div className="sm-shell__heading">
+            {onBack ? <BackIconButton onClick={onBack} /> : null}
+            <h1 className="sm-shell__brand">短信</h1>
+          </div>
           <Button size="sm" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
             LLM 设置
           </Button>

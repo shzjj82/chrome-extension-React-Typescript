@@ -443,21 +443,343 @@ body,
 }
 
 /* 整理 · 浏览记录：底部操作浮层 */
+.browse-shell.side-panel {
+  overflow: hidden;
+  height: 100%;
+  max-height: 100dvh;
+}
+
 .browse-shell {
   position: relative;
 }
 
 .browse-shell__main {
   overflow: hidden;
-  padding-bottom: 0;
+  padding: 0;
+  gap: 0;
+}
+
+.sm-shell__heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.sm-shell__back {
+  appearance: none;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sm-card) 88%, transparent);
+  color: var(--sm-ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sm-shell__back:hover {
+  border-color: var(--sm-accent);
+}
+
+/* —— 手机桌面（参考 iOS / 小米图标形态） —— */
+.phone-home {
+  --phone-ink: #2b2118;
+  --phone-label: rgba(43, 33, 24, 0.92);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  color: var(--phone-ink);
+  background: #f3e4d4;
+}
+
+.phone-home--dark {
+  --phone-ink: #f6efe6;
+  --phone-label: rgba(246, 239, 230, 0.92);
+  background: #1a1410;
+}
+
+.phone-home__wallpaper {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 18% 12%, rgba(255, 196, 170, 0.7), transparent 58%),
+    radial-gradient(ellipse 80% 50% at 88% 18%, rgba(214, 69, 69, 0.22), transparent 52%),
+    radial-gradient(ellipse 70% 45% at 50% 78%, rgba(214, 168, 90, 0.28), transparent 55%),
+    linear-gradient(165deg, #ffe8d6 0%, #f0d2bc 48%, #e8c4b0 100%);
+}
+
+.phone-home--dark .phone-home__wallpaper {
+  background:
+    radial-gradient(ellipse 90% 55% at 18% 12%, rgba(214, 69, 69, 0.22), transparent 58%),
+    radial-gradient(ellipse 80% 50% at 88% 18%, rgba(214, 168, 90, 0.16), transparent 52%),
+    linear-gradient(165deg, #241c16 0%, #1a1410 55%, #12100e 100%);
+}
+
+.phone-home__status {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.phone-home__carrier {
+  opacity: 0.72;
+  letter-spacing: 0.02em;
+}
+
+.phone-home__status-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.phone-home__status-dots i {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.phone-home__status-dots i:last-child {
+  width: 14px;
+  height: 7px;
+  border-radius: 2px;
+  opacity: 0.7;
+}
+
+.phone-home__widgets {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: 10px;
+  padding: 16px 14px 6px;
+}
+
+.phone-widget {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 112px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 22px;
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.48) 75%, transparent);
+  box-shadow:
+    0 10px 24px rgba(43, 33, 24, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.5) inset;
+  backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.phone-home--dark .phone-widget {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, rgba(28, 22, 18, 0.62) 80%, transparent);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.phone-widget__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.62;
+}
+
+.phone-widget__clock {
+  margin: 8px 0 0;
+  font-size: 40px;
+  font-weight: 300;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.phone-widget__day {
+  margin: 2px 0 0;
+  color: var(--sm-accent, #d64545);
+  font-size: 42px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.phone-widget__sub {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.68;
+}
+
+.phone-widget--cal {
+  align-items: flex-start;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #d64545 14%, transparent) 0%, transparent 42%),
+    color-mix(in srgb, rgba(255, 255, 255, 0.48) 75%, transparent);
+}
+
+.phone-home--dark .phone-widget--cal {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #d64545 22%, transparent) 0%, transparent 48%),
+    color-mix(in srgb, rgba(28, 22, 18, 0.62) 80%, transparent);
+}
+
+.phone-home__page {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  padding: 20px 14px 12px;
+}
+
+.phone-home__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 8px;
+  justify-items: center;
+}
+
+.phone-app {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 72px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--phone-label);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.phone-app:active .phone-app__icon {
+  transform: scale(0.9);
+  filter: brightness(0.96);
+}
+
+.phone-app__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  color: #fffef8;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 8px 16px rgba(43, 33, 24, 0.16);
+  transition:
+    transform 120ms ease,
+    filter 120ms ease;
+}
+
+.phone-app__icon svg {
+  width: 26px;
+  height: 26px;
+  stroke: currentColor;
+}
+
+.phone-app--rose .phone-app__icon {
+  background: linear-gradient(160deg, #ff6b6b 0%, #d64545 55%, #b83232 100%);
+}
+
+.phone-app--amber .phone-app__icon {
+  background: linear-gradient(160deg, #ffc56b 0%, #e29a3a 55%, #c47b2a 100%);
+}
+
+.phone-app--ink .phone-app__icon {
+  background: linear-gradient(160deg, #7a6354 0%, #4a382c 55%, #2f241c 100%);
+}
+
+.phone-app--sage .phone-app__icon {
+  background: linear-gradient(160deg, #8fb089 0%, #628a5d 55%, #4a6b46 100%);
+}
+
+.phone-app__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 2px rgba(255, 248, 239, 0.35);
+}
+
+.phone-home--dark .phone-app__label {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.phone-app--dock {
+  max-width: 58px;
+}
+
+.phone-app--dock .phone-app__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+}
+
+.phone-app--dock .phone-app__icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.phone-home__dock {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 8px;
+  margin: 0 12px 10px;
+  padding: 12px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 28px;
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.42) 70%, transparent);
+  box-shadow:
+    0 10px 28px rgba(43, 33, 24, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.45) inset;
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.phone-home--dark .phone-home__dock {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, rgba(30, 24, 20, 0.72) 80%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.phone-home__home-bar {
+  position: relative;
+  z-index: 1;
+  width: 108px;
+  height: 4px;
+  margin: 0 auto 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--phone-ink) 28%, transparent);
 }
 
 .browse-toolbar {
   position: relative;
   z-index: 20;
+  display: flex;
   flex-shrink: 0;
-  margin: -14px -14px 0;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
   padding: 14px 14px 10px;
   background: color-mix(in srgb, var(--sm-paper) 92%, white);
   border-bottom: 1px solid color-mix(in srgb, var(--sm-line) 70%, transparent);
@@ -467,14 +789,201 @@ body,
   background: color-mix(in srgb, var(--sm-paper) 92%, black);
 }
 
+.browse-toolbar__cal {
+  flex: 1;
+  min-width: 0;
+}
+
+.sm-back-icon {
+  appearance: none;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sm-card) 88%, transparent);
+  color: var(--sm-ink);
+  cursor: pointer;
+}
+
+.sm-back-icon:hover {
+  border-color: var(--sm-accent);
+  color: var(--sm-accent-deep);
+}
+
+.phone-home .sm-back-icon {
+  border-color: rgba(43, 33, 24, 0.14);
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.55) 80%, transparent);
+}
+
+/* 从图标位置展开的揭示层（参考 Animal Island Loading 的 mask 思路） */
+.phone-reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 196, 170, 0.55), transparent 42%),
+    linear-gradient(165deg, #fff8ef 0%, #f3e6d4 100%);
+  clip-path: circle(18px at var(--reveal-x) var(--reveal-y));
+  transition: clip-path 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.phone-reveal--expanded {
+  clip-path: circle(160% at var(--reveal-x) var(--reveal-y));
+}
+
+.phone-reveal--closing {
+  transition-duration: 420ms;
+}
+
+.phone-reveal__scene {
+  display: grid;
+  place-items: center;
+  opacity: 0.95;
+}
+
+.phone-reveal__spinner {
+  width: 42px;
+  height: 42px;
+  animation: phone-reveal-spin 1s linear infinite;
+}
+
+.phone-reveal__track {
+  stroke: color-mix(in srgb, var(--sm-accent, #d64545) 22%, transparent);
+  stroke-width: 3.5;
+}
+
+.phone-reveal__arc {
+  stroke: var(--sm-accent, #d64545);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1, 150;
+  stroke-dashoffset: 0;
+  animation: phone-reveal-dash 1.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes phone-reveal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes phone-reveal-dash {
+  0% {
+    stroke-dasharray: 1, 150;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -35;
+  }
+  100% {
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: -124;
+  }
+}
+
+.browse-toolbar__back-btn {
+  appearance: none;
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sm-card) 88%, transparent);
+  color: var(--sm-ink);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.browse-toolbar__back-btn:hover {
+  border-color: var(--sm-accent);
+}
+
+.browse-toolbar--detail {
+  min-height: 36px;
+}
+
+.browse-toolbar__detail-title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .browse-shell__scroll {
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
-  overflow: auto;
-  padding-bottom: 88px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 12px 14px 88px;
+  /* 细滚动条贴最外缘；默认更淡，悬停时更明显（接近 el-scrollbar） */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(61, 46, 34, 0.14) transparent;
+}
+
+.browse-shell__scroll:hover {
+  scrollbar-color: rgba(61, 46, 34, 0.32) transparent;
+}
+
+.browse-shell__scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.browse-shell__scroll::-webkit-scrollbar-track {
+  margin: 8px 0 88px;
+  background: transparent;
+}
+
+.browse-shell__scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(61, 46, 34, 0.12);
+}
+
+.browse-shell__scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(61, 46, 34, 0.3);
+}
+
+.browse-shell__scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(61, 46, 34, 0.42);
+}
+
+.browse-shell__scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.sm-shell--dark .browse-shell__scroll {
+  scrollbar-color: rgba(246, 239, 230, 0.12) transparent;
+}
+
+.sm-shell--dark .browse-shell__scroll:hover {
+  scrollbar-color: rgba(246, 239, 230, 0.32) transparent;
+}
+
+.sm-shell--dark .browse-shell__scroll::-webkit-scrollbar-thumb {
+  background: rgba(246, 239, 230, 0.12);
+}
+
+.sm-shell--dark .browse-shell__scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(246, 239, 230, 0.3);
+}
+
+.sm-shell--dark .browse-shell__scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(246, 239, 230, 0.42);
 }
 
 .browse-dock {
@@ -586,6 +1095,64 @@ body,
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.browse-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  padding: 28px 20px 48px;
+  text-align: center;
+}
+
+.browse-empty__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.browse-empty__hint {
+  margin: 8px 0 0;
+  max-width: 260px;
+  color: var(--sm-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.browse-empty__link {
+  appearance: none;
+  display: inline;
+  margin: 0 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sm-accent);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.browse-empty__link:hover {
+  color: var(--sm-accent-deep);
+}
+
+.browse-shell__toast {
+  align-self: center;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #1f8a5b 12%, transparent);
+  color: #1f8a5b;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .browse-cal {
@@ -667,6 +1234,23 @@ body,
   width: 28px;
   height: 28px;
   font-size: 16px;
+}
+
+.browse-cal__month-nav {
+  appearance: none;
+  height: 28px;
+  padding: 0 10px;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sm-paper) 70%, white);
+  color: var(--sm-ink);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sm-shell--dark .browse-cal__month-nav {
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .browse-cal__refresh {

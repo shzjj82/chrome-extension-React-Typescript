@@ -97,36 +97,9 @@ const BrowseDayCalendar = ({
 
   const monthTitle = `${viewYear}年${viewMonth + 1}月`;
 
-  const goAdjacentRecordedDay = (direction: -1 | 1) => {
-    const sorted = [...recordDateKeys].sort();
-    if (sorted.length === 0) {
-      return;
-    }
-    const index = sorted.indexOf(selectedDateKey);
-    if (index === -1) {
-      onSelect(direction === 1 ? sorted[0]! : sorted[sorted.length - 1]!);
-      return;
-    }
-    const next = sorted[index + direction];
-    if (next) {
-      onSelect(next);
-    }
-  };
-
-  const canPrev = [...recordDateKeys].some(key => key < selectedDateKey);
-  const canNext = [...recordDateKeys].some(key => key > selectedDateKey);
-
   return (
     <div className={cn('browse-cal', open && 'browse-cal--open')} ref={rootRef}>
       <div className="browse-cal__bar">
-        <button
-          type="button"
-          className="browse-cal__nav"
-          aria-label="上一有记录日"
-          disabled={!canPrev}
-          onClick={() => goAdjacentRecordedDay(-1)}>
-          ‹
-        </button>
         <button
           type="button"
           className={cn('browse-cal__trigger', open && 'browse-cal__trigger--open')}
@@ -149,14 +122,6 @@ const BrowseDayCalendar = ({
               />
             </svg>
           </span>
-        </button>
-        <button
-          type="button"
-          className="browse-cal__nav"
-          aria-label="下一有记录日"
-          disabled={!canNext}
-          onClick={() => goAdjacentRecordedDay(1)}>
-          ›
         </button>
         {onRefresh ? (
           <button type="button" className="browse-cal__nav browse-cal__refresh" aria-label="刷新" onClick={onRefresh}>
@@ -188,26 +153,26 @@ const BrowseDayCalendar = ({
             <div className="browse-cal__month-row">
               <button
                 type="button"
-                className="browse-cal__nav browse-cal__nav--sm"
+                className="browse-cal__month-nav"
                 aria-label="上个月"
                 onClick={() => {
                   const next = shiftMonth(viewYear, viewMonth, -1);
                   setViewYear(next.year);
                   setViewMonth(next.month);
                 }}>
-                ‹
+                上月
               </button>
               <p className="browse-cal__month">{monthTitle}</p>
               <button
                 type="button"
-                className="browse-cal__nav browse-cal__nav--sm"
+                className="browse-cal__month-nav"
                 aria-label="下个月"
                 onClick={() => {
                   const next = shiftMonth(viewYear, viewMonth, 1);
                   setViewYear(next.year);
                   setViewMonth(next.month);
                 }}>
-                ›
+                下月
               </button>
             </div>
 

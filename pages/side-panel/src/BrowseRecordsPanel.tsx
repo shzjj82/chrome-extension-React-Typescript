@@ -1,5 +1,7 @@
+import BackIconButton from './BackIconButton';
 import BrowseDayCalendar, { toLocalDateKey } from './BrowseDayCalendar';
 import { clearBrowsePages, deleteBrowsePage, listBrowsePagesGroupedByDay } from '@extension/knowledge-base';
+import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { Button, cn } from '@extension/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BrowseDayGroup, BrowsePageRecord } from '@extension/knowledge-base';
@@ -21,6 +23,19 @@ type DaySiteGroup = {
 };
 
 const MAX_SHEETS = 3;
+
+const BrowseEmptyState = ({ title, onFocus }: { title: string; onFocus: () => void }) => (
+  <div className="browse-empty">
+    <p className="browse-empty__title">{title}</p>
+    <p className="browse-empty__hint">
+      请先
+      <button type="button" className="browse-empty__link" onClick={onFocus}>
+        专注
+      </button>
+      学习，结束后再来做整理
+    </p>
+  </div>
+);
 
 const formatTime = (at: number) =>
   new Date(at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -160,9 +175,10 @@ const FolderSheets = ({ count }: { count: number }) => {
 
 type BrowseRecordsPanelProps = {
   isLight: boolean;
+  onBack?: () => void;
 };
 
-const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
+const BrowseRecordsPanel = ({ isLight, onBack }: BrowseRecordsPanelProps) => {
   const [groups, setGroups] = useState<BrowseDayGroup[]>([]);
   const [selectedDateKey, setSelectedDateKey] = useState(() => toLocalDateKey(new Date()));
   const [selectedSiteKeys, setSelectedSiteKeys] = useState<string[]>([]);
@@ -174,6 +190,14 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
   useEffect(() => {
     document.title = '整理 · 浏览记录';
   }, []);
+
+  useEffect(() => {
+    if (!status) {
+      return;
+    }
+    const timer = window.setTimeout(() => setStatus(''), 2200);
+    return () => window.clearTimeout(timer);
+  }, [status]);
 
   const refresh = useCallback(async () => {
     try {
@@ -303,6 +327,15 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
     setSelectedSiteKeys(prev => (prev.includes(siteKey) ? prev.filter(key => key !== siteKey) : [...prev, siteKey]));
   };
 
+  const startFocus = async () => {
+    try {
+      await sendExtensionMessage(ExtensionMessageType.POMODORO_START, {});
+      setStatus('已开始专注');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '无法开始专注');
+    }
+  };
+
   const activeRecord = activeSite?.site.records.find(item => item.id === activeRecordId) ?? null;
 
   return (
@@ -310,24 +343,38 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
       <main className="sm-shell__main browse-shell__main">
         {!activeSite ? (
           <div className="browse-toolbar">
-            <BrowseDayCalendar
-              selectedDateKey={selectedDateKey}
-              recordDateKeys={recordDateKeys}
-              dayLabel={selectedDay?.dayLabel ?? formatDayLabel(selectedDateKey)}
-              total={selectedDay?.total ?? 0}
-              onSelect={dateKey => {
-                setSelectedDateKey(dateKey);
+            {onBack ? <BackIconButton onClick={onBack} className="browse-toolbar__back-icon" /> : null}
+            <div className="browse-toolbar__cal">
+              <BrowseDayCalendar
+                selectedDateKey={selectedDateKey}
+                recordDateKeys={recordDateKeys}
+                dayLabel={selectedDay?.dayLabel ?? formatDayLabel(selectedDateKey)}
+                total={selectedDay?.total ?? 0}
+                onSelect={dateKey => {
+                  setSelectedDateKey(dateKey);
+                  setActiveSite(null);
+                  setActiveRecordId(null);
+                  setSelectedSiteKeys([]);
+                }}
+                onRefresh={() => void refresh()}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="browse-toolbar browse-toolbar--detail">
+            <BackIconButton
+              className="browse-toolbar__back-icon"
+              onClick={() => {
                 setActiveSite(null);
                 setActiveRecordId(null);
-                setSelectedSiteKeys([]);
               }}
-              onRefresh={() => void refresh()}
             />
+            <p className="browse-toolbar__detail-title">{activeSite.site.label}</p>
           </div>
-        ) : null}
+        )}
 
         <div className="browse-shell__scroll">
-          {status ? <p className="text-xs text-emerald-700">{status}</p> : null}
+          {status ? <p className="browse-shell__toast">{status}</p> : null}
           {error ? <p className="text-xs text-red-700">{error}</p> : null}
 
           {activeSite ? (
@@ -384,9 +431,11 @@ const BrowseRecordsPanel = ({ isLight }: BrowseRecordsPanelProps) => {
             </section>
           ) : (
             <section className="browse-day">
-              {daySiteGroups.length === 0 ? <p className="sm-shell__muted">暂无记录</p> : null}
+              {daySiteGroups.length === 0 ? (
+                <BrowseEmptyState title="暂无需整理的文件" onFocus={() => void startFocus()} />
+              ) : null}
               {daySiteGroups.length > 0 && !selectedDay ? (
-                <p className="sm-shell__muted">这一天还没有浏览记录</p>
+                <BrowseEmptyState title="暂无需整理的文件" onFocus={() => void startFocus()} />
               ) : null}
               {selectedDay ? (
                 <div className="folder-card-grid">

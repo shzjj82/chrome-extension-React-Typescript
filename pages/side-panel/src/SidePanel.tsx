@@ -1,6 +1,9 @@
 import '@src/SidePanel.css';
 import AdoptionPanel from './AdoptionPanel';
+import AppRevealOverlay from './AppRevealOverlay';
+import BackIconButton from './BackIconButton';
 import BrowseRecordsPanel from './BrowseRecordsPanel';
+import HomeLauncher from './HomeLauncher';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
 import PetChatPanel from './PetChatPanel';
 import { t } from '@extension/i18n';
@@ -27,23 +30,47 @@ import {
   userProfileStorage,
 } from '@extension/storage';
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { AppRevealPhase } from './AppRevealOverlay';
+import type { HomeAppId } from './HomeLauncher';
 import type { LearningMode, MaterialSource, PracticeItem, QuizItem, StudySession } from '@extension/knowledge-base';
+import type { MouseEvent } from 'react';
 
 type TabKey = 'study' | 'library';
 type GatePhase = 'adopt' | 'app';
+type AppView = 'home' | 'files' | 'messages' | 'study';
 
 const resolveGatePhase = (petAdopted: boolean): GatePhase => (petAdopted ? 'app' : 'adopt');
 
-const resolvePanelView = (): 'study' | 'browse' | 'chat' => {
+const resolveAppView = (): AppView => {
   try {
     const view = new URLSearchParams(window.location.search).get('view');
-    if (view === 'browse' || view === 'chat') {
-      return view;
+    if (view === 'browse') {
+      return 'files';
     }
-    return 'study';
+    if (view === 'chat') {
+      return 'messages';
+    }
+    if (view === 'study') {
+      return 'study';
+    }
+    return 'home';
   } catch {
-    return 'study';
+    return 'home';
+  }
+};
+
+const clearViewQuery = () => {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('view')) {
+      return;
+    }
+    url.searchParams.delete('view');
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, '', next);
+  } catch {
+    // ignore
   }
 };
 
@@ -53,7 +80,14 @@ const SidePanel = () => {
   const draft = useStorage(learningDraftStorage);
   const llm = useStorage(llmSettingsStorage);
   const pomodoro = useStorage(pomodoroStateStorage);
-  const panelView = resolvePanelView();
+  const panelView = resolveAppView();
+  const [appView, setAppView] = useState<AppView>(panelView);
+  const [reveal, setReveal] = useState<{
+    phase: AppRevealPhase;
+    x: number;
+    y: number;
+    pendingView?: AppView;
+  } | null>(null);
 
   const [tab, setTab] = useState<TabKey>('study');
   const [sessions, setSessions] = useState<StudySession[]>([]);
@@ -94,11 +128,45 @@ const SidePanel = () => {
   };
 
   useEffect(() => {
-    if (panelView === 'browse') {
+    if (appView !== 'study') {
       return;
     }
     void refreshSessions();
-  }, [panelView]);
+  }, [appView]);
+
+  const goHome = useCallback(() => {
+    clearViewQuery();
+    setReveal({
+      phase: 'close',
+      x: window.innerWidth / 2,
+      y: Math.max(window.innerHeight - 72, window.innerHeight * 0.82),
+      pendingView: 'home',
+    });
+  }, []);
+
+  const onRevealDone = useCallback(() => {
+    setReveal(current => {
+      if (current?.phase === 'close' && current.pendingView) {
+        setAppView(current.pendingView);
+      }
+      return null;
+    });
+  }, []);
+
+  const openApp = (id: HomeAppId, event?: MouseEvent<HTMLButtonElement>) => {
+    if (id === 'settings') {
+      void chrome.runtime.openOptionsPage();
+      return;
+    }
+
+    const rect = event?.currentTarget.getBoundingClientRect();
+    const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+    const y = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+    const next: AppView = id === 'files' ? 'files' : id === 'messages' ? 'messages' : 'study';
+
+    setReveal({ phase: 'open', x, y });
+    setAppView(next);
+  };
 
   const pomodoroMinutes = useMemo(
     () => Math.round(pomodoro.accumulatedFocusMs / 60_000) + (pomodoro.phase === 'focus' ? 0 : 0),
@@ -261,238 +329,272 @@ const SidePanel = () => {
     );
   }
 
-  // 整理入口：仅展示按日分组的浏览记录，不展示「当前内容」
-  if (panelView === 'browse') {
-    return <BrowseRecordsPanel isLight={isLight} />;
+  const revealLayer = (
+    <AppRevealOverlay
+      active={Boolean(reveal)}
+      phase={reveal?.phase ?? 'open'}
+      originX={reveal?.x ?? 0}
+      originY={reveal?.y ?? 0}
+      onDone={onRevealDone}
+    />
+  );
+
+  if (appView === 'home') {
+    return (
+      <>
+        <HomeLauncher isLight={isLight} onOpenApp={openApp} />
+        {revealLayer}
+      </>
+    );
   }
 
-  if (panelView === 'chat') {
-    return <PetChatPanel isLight={isLight} />;
+  if (appView === 'files') {
+    return (
+      <>
+        <BrowseRecordsPanel isLight={isLight} onBack={goHome} />
+        {revealLayer}
+      </>
+    );
+  }
+
+  if (appView === 'messages') {
+    return (
+      <>
+        <PetChatPanel isLight={isLight} onBack={goHome} />
+        {revealLayer}
+      </>
+    );
   }
 
   return (
-    <div className={cn('side-panel sm-shell', !isLight && 'sm-shell--dark')}>
-      <header className="sm-shell__header">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="sm-shell__brand">Study Mind</h1>
-          <Button size="sm" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
-            {t('openOptions')}
-          </Button>
-        </div>
-        <div className="sm-shell__tabs">
-          <button
-            type="button"
-            className={cn('sm-shell__chip', tab === 'study' && 'sm-shell__chip--active')}
-            onClick={() => setTab('study')}>
-            陪伴学习
-          </button>
-          <button
-            type="button"
-            className={cn('sm-shell__chip', tab === 'library' && 'sm-shell__chip--active')}
-            onClick={() => setTab('library')}>
-            知识库
-          </button>
-        </div>
-      </header>
-
-      {tab === 'study' ? (
-        <main className="sm-shell__main">
-          <section className="sm-shell__card">
-            <h2 className="sm-shell__card-title">当前内容</h2>
-            <div className="sm-shell__actions">
-              <Button size="sm" variant="secondary" onClick={() => void extractPage()}>
-                网页正文
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => void extractVisibleCaptions()}>
-                可见字幕
-              </Button>
-              <label className="sm-shell__file">
-                导入 SRT/VTT
-                <input
-                  type="file"
-                  accept=".srt,.vtt,text/vtt,application/x-subrip"
-                  className="hidden"
-                  onChange={event => void onSubtitleFile(event.target.files?.[0] ?? null)}
-                />
-              </label>
+    <>
+      <div className={cn('side-panel sm-shell', !isLight && 'sm-shell--dark')}>
+        <header className="sm-shell__header">
+          <div className="flex items-center justify-between gap-2">
+            <div className="sm-shell__heading">
+              <BackIconButton onClick={goHome} />
+              <h1 className="sm-shell__brand">学习</h1>
             </div>
-            <input
-              value={title}
-              onChange={event => setTitle(event.target.value)}
-              onBlur={() => void syncDraft({ title })}
-              placeholder="标题"
-            />
-            <textarea
-              className="min-h-32"
-              value={material}
-              onChange={event => {
-                setMaterial(event.target.value);
-                setMaterialSource('paste');
-              }}
-              onBlur={() => void syncDraft({ material, materialSource: 'paste' })}
-              placeholder="粘贴内容，或通过上方按钮导入"
-            />
-            <p className="sm-shell__muted">当前来源：{materialSource}</p>
-          </section>
-
-          <section className="sm-shell__card">
-            <h2 className="sm-shell__card-title">整理方式</h2>
-            <div className="sm-shell__actions">
-              {(
-                [
-                  ['note', t('modeNote')],
-                  ['quiz', t('modeQuiz')],
-                  ['practice', t('modePractice')],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={cn('sm-shell__chip', mode === value && 'sm-shell__chip--active')}
-                  onClick={() => {
-                    setMode(value);
-                    void syncDraft({ mode: value });
-                  }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <Button className="sm-shell__cta" disabled={loading} onClick={() => void runGenerate()}>
-              {loading ? '生成中...' : '让伙伴帮你整理'}
-            </Button>
-            {status ? <p className="text-xs text-emerald-700">{status}</p> : null}
-            {error ? <p className="text-xs text-red-700">{error}</p> : null}
-          </section>
-
-          {mode === 'note' || noteContent ? (
-            <section className="sm-shell__card">
-              <h2 className="sm-shell__card-title">笔记</h2>
-              <textarea
-                className="min-h-40"
-                value={noteContent}
-                onChange={event => setNoteContent(event.target.value)}
-              />
-            </section>
-          ) : null}
-
-          {quizzes.length > 0 ? (
-            <section className="sm-shell__card">
-              <h2 className="sm-shell__card-title">测验（自行校验）</h2>
-              {quizzes.map((quiz, index) => (
-                <div key={quiz.id} className="sm-shell__item">
-                  <p className="text-sm font-semibold">
-                    [{quiz.kind === 'basic' ? '基础' : '拓展'}] {quiz.question}
-                  </p>
-                  <p className="sm-shell__muted">参考思路：{quiz.answer || '无'}</p>
-                  <textarea
-                    className="min-h-16"
-                    placeholder="写下你的作答"
-                    value={quiz.userAnswer}
-                    onChange={event => {
-                      const value = event.target.value;
-                      setQuizzes(prev =>
-                        prev.map((item, itemIndex) => (itemIndex === index ? { ...item, userAnswer: value } : item)),
-                      );
-                    }}
-                  />
-                </div>
-              ))}
-            </section>
-          ) : null}
-
-          {practices.length > 0 ? (
-            <section className="sm-shell__card">
-              <h2 className="sm-shell__card-title">实践</h2>
-              {practices.map((practice, index) => (
-                <div key={practice.id} className="sm-shell__item">
-                  <p className="text-sm font-semibold">{practice.task}</p>
-                  <textarea
-                    className="min-h-20"
-                    placeholder="回填实践结果"
-                    value={practice.userResult}
-                    onChange={event => {
-                      const value = event.target.value;
-                      setPractices(prev =>
-                        prev.map((item, itemIndex) => (itemIndex === index ? { ...item, userResult: value } : item)),
-                      );
-                    }}
-                  />
-                </div>
-              ))}
-            </section>
-          ) : null}
-
-          <section className="sm-shell__card pb-6">
-            <label className="block text-sm font-bold">
-              备注
-              <textarea className="mt-2 min-h-16" value={remark} onChange={event => setRemark(event.target.value)} />
-            </label>
-            <div className="sm-shell__actions">
-              <Button
-                className="sm-shell__cta"
-                onClick={() => {
-                  void persistSession().then(() => setStatus('已保存到本地知识库'));
-                }}>
-                保存记录
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  void persistSession().then(session => downloadSessionMarkdown(session));
-                }}>
-                导出 Markdown
-              </Button>
-            </div>
-          </section>
-        </main>
-      ) : (
-        <main className="sm-shell__main">
-          <div className="flex items-center justify-between">
-            <h2 className="sm-shell__card-title">本地知识库</h2>
-            <Button size="sm" variant="secondary" onClick={() => void refreshSessions()}>
-              刷新
+            <Button size="sm" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
+              {t('openOptions')}
             </Button>
           </div>
-          {sessions.length === 0 ? <p className="sm-shell__muted">暂无记录</p> : null}
-          {sessions.map(session => (
-            <article key={session.id} className="sm-shell__card">
-              <h3 className="font-bold">{session.title}</h3>
-              <p className="sm-shell__muted">
-                {new Date(session.updatedAt).toLocaleString()} · {session.mode}
-              </p>
-              <textarea
-                className="min-h-12 text-xs"
-                defaultValue={session.remark}
-                onBlur={event => {
-                  const value = event.target.value;
-                  void saveSession({
-                    ...session,
-                    remark: value,
-                  }).then(() => refreshSessions());
-                }}
-                placeholder="编辑备注"
-              />
+          <div className="sm-shell__tabs">
+            <button
+              type="button"
+              className={cn('sm-shell__chip', tab === 'study' && 'sm-shell__chip--active')}
+              onClick={() => setTab('study')}>
+              陪伴学习
+            </button>
+            <button
+              type="button"
+              className={cn('sm-shell__chip', tab === 'library' && 'sm-shell__chip--active')}
+              onClick={() => setTab('library')}>
+              知识库
+            </button>
+          </div>
+        </header>
+
+        {tab === 'study' ? (
+          <main className="sm-shell__main">
+            <section className="sm-shell__card">
+              <h2 className="sm-shell__card-title">当前内容</h2>
               <div className="sm-shell__actions">
-                <Button size="sm" variant="secondary" onClick={() => loadSession(session)}>
-                  打开
+                <Button size="sm" variant="secondary" onClick={() => void extractPage()}>
+                  网页正文
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => downloadSessionMarkdown(session)}>
-                  导出
+                <Button size="sm" variant="secondary" onClick={() => void extractVisibleCaptions()}>
+                  可见字幕
+                </Button>
+                <label className="sm-shell__file">
+                  导入 SRT/VTT
+                  <input
+                    type="file"
+                    accept=".srt,.vtt,text/vtt,application/x-subrip"
+                    className="hidden"
+                    onChange={event => void onSubtitleFile(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+              <input
+                value={title}
+                onChange={event => setTitle(event.target.value)}
+                onBlur={() => void syncDraft({ title })}
+                placeholder="标题"
+              />
+              <textarea
+                className="min-h-32"
+                value={material}
+                onChange={event => {
+                  setMaterial(event.target.value);
+                  setMaterialSource('paste');
+                }}
+                onBlur={() => void syncDraft({ material, materialSource: 'paste' })}
+                placeholder="粘贴内容，或通过上方按钮导入"
+              />
+              <p className="sm-shell__muted">当前来源：{materialSource}</p>
+            </section>
+
+            <section className="sm-shell__card">
+              <h2 className="sm-shell__card-title">整理方式</h2>
+              <div className="sm-shell__actions">
+                {(
+                  [
+                    ['note', t('modeNote')],
+                    ['quiz', t('modeQuiz')],
+                    ['practice', t('modePractice')],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={cn('sm-shell__chip', mode === value && 'sm-shell__chip--active')}
+                    onClick={() => {
+                      setMode(value);
+                      void syncDraft({ mode: value });
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <Button className="sm-shell__cta" disabled={loading} onClick={() => void runGenerate()}>
+                {loading ? '生成中...' : '让伙伴帮你整理'}
+              </Button>
+              {status ? <p className="text-xs text-emerald-700">{status}</p> : null}
+              {error ? <p className="text-xs text-red-700">{error}</p> : null}
+            </section>
+
+            {mode === 'note' || noteContent ? (
+              <section className="sm-shell__card">
+                <h2 className="sm-shell__card-title">笔记</h2>
+                <textarea
+                  className="min-h-40"
+                  value={noteContent}
+                  onChange={event => setNoteContent(event.target.value)}
+                />
+              </section>
+            ) : null}
+
+            {quizzes.length > 0 ? (
+              <section className="sm-shell__card">
+                <h2 className="sm-shell__card-title">测验（自行校验）</h2>
+                {quizzes.map((quiz, index) => (
+                  <div key={quiz.id} className="sm-shell__item">
+                    <p className="text-sm font-semibold">
+                      [{quiz.kind === 'basic' ? '基础' : '拓展'}] {quiz.question}
+                    </p>
+                    <p className="sm-shell__muted">参考思路：{quiz.answer || '无'}</p>
+                    <textarea
+                      className="min-h-16"
+                      placeholder="写下你的作答"
+                      value={quiz.userAnswer}
+                      onChange={event => {
+                        const value = event.target.value;
+                        setQuizzes(prev =>
+                          prev.map((item, itemIndex) => (itemIndex === index ? { ...item, userAnswer: value } : item)),
+                        );
+                      }}
+                    />
+                  </div>
+                ))}
+              </section>
+            ) : null}
+
+            {practices.length > 0 ? (
+              <section className="sm-shell__card">
+                <h2 className="sm-shell__card-title">实践</h2>
+                {practices.map((practice, index) => (
+                  <div key={practice.id} className="sm-shell__item">
+                    <p className="text-sm font-semibold">{practice.task}</p>
+                    <textarea
+                      className="min-h-20"
+                      placeholder="回填实践结果"
+                      value={practice.userResult}
+                      onChange={event => {
+                        const value = event.target.value;
+                        setPractices(prev =>
+                          prev.map((item, itemIndex) => (itemIndex === index ? { ...item, userResult: value } : item)),
+                        );
+                      }}
+                    />
+                  </div>
+                ))}
+              </section>
+            ) : null}
+
+            <section className="sm-shell__card pb-6">
+              <label className="block text-sm font-bold">
+                备注
+                <textarea className="mt-2 min-h-16" value={remark} onChange={event => setRemark(event.target.value)} />
+              </label>
+              <div className="sm-shell__actions">
+                <Button
+                  className="sm-shell__cta"
+                  onClick={() => {
+                    void persistSession().then(() => setStatus('已保存到本地知识库'));
+                  }}>
+                  保存记录
                 </Button>
                 <Button
-                  size="sm"
-                  variant="destructive"
+                  variant="secondary"
                   onClick={() => {
-                    void deleteSession(session.id).then(() => refreshSessions());
+                    void persistSession().then(session => downloadSessionMarkdown(session));
                   }}>
-                  删除
+                  导出 Markdown
                 </Button>
               </div>
-            </article>
-          ))}
-        </main>
-      )}
-    </div>
+            </section>
+          </main>
+        ) : (
+          <main className="sm-shell__main">
+            <div className="flex items-center justify-between">
+              <h2 className="sm-shell__card-title">本地知识库</h2>
+              <Button size="sm" variant="secondary" onClick={() => void refreshSessions()}>
+                刷新
+              </Button>
+            </div>
+            {sessions.length === 0 ? <p className="sm-shell__muted">暂无记录</p> : null}
+            {sessions.map(session => (
+              <article key={session.id} className="sm-shell__card">
+                <h3 className="font-bold">{session.title}</h3>
+                <p className="sm-shell__muted">
+                  {new Date(session.updatedAt).toLocaleString()} · {session.mode}
+                </p>
+                <textarea
+                  className="min-h-12 text-xs"
+                  defaultValue={session.remark}
+                  onBlur={event => {
+                    const value = event.target.value;
+                    void saveSession({
+                      ...session,
+                      remark: value,
+                    }).then(() => refreshSessions());
+                  }}
+                  placeholder="编辑备注"
+                />
+                <div className="sm-shell__actions">
+                  <Button size="sm" variant="secondary" onClick={() => loadSession(session)}>
+                    打开
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => downloadSessionMarkdown(session)}>
+                    导出
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      void deleteSession(session.id).then(() => refreshSessions());
+                    }}>
+                    删除
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </main>
+        )}
+      </div>
+      {revealLayer}
+    </>
   );
 };
 
