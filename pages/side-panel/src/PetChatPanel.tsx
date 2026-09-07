@@ -1,23 +1,59 @@
 import BackIconButton from './BackIconButton';
-import { callChatCompletion } from './lib/learning';
+import { callChatCompletionStream } from './lib/learning';
+import PhoneStatusBar from './PhoneStatusBar';
+import { listPetChatMessagesPage, savePetChatMessage } from '@extension/knowledge-base';
 import { useStorage } from '@extension/shared';
 import { isLlmConfigured, llmSettingsStorage, normalizeUserProfile, userProfileStorage } from '@extension/storage';
 import { cn } from '@extension/ui';
 import { ArrowUp } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-
-type ChatRole = 'user' | 'assistant';
-
-type ChatBubble = {
-  id: string;
-  role: ChatRole;
-  content: string;
-};
+import type { PetChatMessage } from '@extension/knowledge-base';
 
 type PetChatPanelProps = {
   isLight: boolean;
   onBack?: () => void;
 };
+
+const PAGE_SIZE = 20;
+const TIME_GAP_MS = 5 * 60_000;
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const sameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+/** 聊天历史距离文案 */
+const formatChatDistance = (at: number, now = Date.now()) => {
+  const diff = Math.max(0, now - at);
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const date = new Date(at);
+  const current = new Date(now);
+  const hm = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+
+  if (diff < minute) {
+    return '刚刚';
+  }
+  if (diff < hour) {
+    return `${Math.floor(diff / minute)} 分钟前`;
+  }
+  if (sameDay(date, current)) {
+    return `今天 ${hm}`;
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(current.getDate() - 1);
+  if (sameDay(date, yesterday)) {
+    return `昨天 ${hm}`;
+  }
+  if (date.getFullYear() === current.getFullYear()) {
+    return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${hm}`;
+  }
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${hm}`;
+};
+
+const shouldShowTimeLabel = (currentAt: number, previousAt?: number) =>
+  previousAt == null || currentAt - previousAt >= TIME_GAP_MS;
 
 const buildPetSystemPrompt = (nickname: string, occupation: string, domains: string, goal: string) => {
   const name = nickname.trim() || '你';
@@ -34,6 +70,11 @@ const buildPetSystemPrompt = (nickname: string, occupation: string, domains: str
     .join('');
 };
 
+const createLocalId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `msg-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
 const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
@@ -43,21 +84,58 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [booting, setBooting] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
-  const [messages, setMessages] = useState<ChatBubble[]>(() => [
-    { id: 'welcome', role: 'assistant', content: welcomeText },
-  ]);
+  const [messages, setMessages] = useState<PetChatMessage[]>([]);
+  const [streamingId, setStreamingId] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const stickToBottomRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const page = await listPetChatMessagesPage({ limit: PAGE_SIZE });
+        if (cancelled) {
+          return;
+        }
+        setMessages(page.messages);
+        setHasMore(page.hasMore);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '加载聊天记录失败');
+        }
+      } finally {
+        if (!cancelled) {
+          setBooting(false);
+          stickToBottomRef.current = true;
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      abortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     const el = listRef.current;
-    if (!el) {
+    if (!el || !stickToBottomRef.current) {
       return;
     }
     el.scrollTop = el.scrollHeight;
-  }, [messages, loading, error]);
+  }, [messages, loading, streamingId, error, booting]);
 
   useLayoutEffect(() => {
     const el = inputRef.current;
@@ -67,6 +145,53 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [input]);
+
+  const loadOlder = async () => {
+    if (loadingMore || !hasMore || messages.length === 0) {
+      return;
+    }
+    const el = listRef.current;
+    const prevHeight = el?.scrollHeight ?? 0;
+    const prevTop = el?.scrollTop ?? 0;
+    const oldest = messages[0];
+    if (!oldest) {
+      return;
+    }
+
+    setLoadingMore(true);
+    stickToBottomRef.current = false;
+    try {
+      const page = await listPetChatMessagesPage({
+        beforeCreatedAt: oldest.createdAt,
+        limit: PAGE_SIZE,
+      });
+      setMessages(prev => [...page.messages, ...prev]);
+      setHasMore(page.hasMore);
+      requestAnimationFrame(() => {
+        const list = listRef.current;
+        if (!list) {
+          return;
+        }
+        list.scrollTop = list.scrollHeight - prevHeight + prevTop;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载更早消息失败');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const onListScroll = () => {
+    const el = listRef.current;
+    if (!el) {
+      return;
+    }
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceToBottom < 48;
+    if (el.scrollTop < 48) {
+      void loadOlder();
+    }
+  };
 
   const sendText = async (raw: string) => {
     const text = raw.trim();
@@ -78,59 +203,125 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       return;
     }
 
-    const userMsg: ChatBubble = { id: `u-${Date.now()}`, role: 'user', content: text };
+    const now = Date.now();
+    const userMsg: PetChatMessage = {
+      id: createLocalId(),
+      role: 'user',
+      content: text,
+      createdAt: now,
+    };
+    const assistantId = createLocalId();
+    const assistantMsg: PetChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      createdAt: now + 1,
+    };
+
     setInput('');
     setError('');
-    setMessages(prev => [...prev, userMsg]);
+    stickToBottomRef.current = true;
+    setMessages(prev => [...prev, userMsg, assistantMsg]);
+    setStreamingId(assistantId);
     setLoading(true);
 
     try {
-      const history = [...messages, userMsg]
-        .filter(m => m.id !== 'welcome' || m.role === 'assistant')
-        .slice(-12)
-        .map(m => ({ role: m.role, content: m.content }));
+      await savePetChatMessage(userMsg);
 
-      const reply = await callChatCompletion(llm, [
-        {
-          role: 'system',
-          content: buildPetSystemPrompt(profile.nickname, profile.occupation, profile.domains, profile.goal),
+      const history = [...messages, userMsg].slice(-12).map(m => ({ role: m.role, content: m.content }));
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const full = await callChatCompletionStream(
+        llm,
+        [
+          {
+            role: 'system',
+            content: buildPetSystemPrompt(profile.nickname, profile.occupation, profile.domains, profile.goal),
+          },
+          ...history,
+        ],
+        chunk => {
+          setMessages(prev =>
+            prev.map(item => (item.id === assistantId ? { ...item, content: `${item.content}${chunk}` } : item)),
+          );
         },
-        ...history,
-      ]);
+        controller.signal,
+      );
 
-      setMessages(prev => [
-        ...prev,
-        { id: `a-${Date.now()}`, role: 'assistant', content: reply.trim() || '（我这边没想好，再说一次？）' },
-      ]);
+      const finalText = full.trim() || '（我这边没想好，再说一次？）';
+      const saved = await savePetChatMessage({
+        id: assistantId,
+        role: 'assistant',
+        content: finalText,
+        createdAt: assistantMsg.createdAt,
+      });
+      setMessages(prev => prev.map(item => (item.id === assistantId ? saved : item)));
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return;
+      }
+      setMessages(prev => prev.filter(item => item.id !== assistantId || item.content.trim()));
       setError(err instanceof Error ? err.message : '发送失败');
     } finally {
+      setStreamingId(null);
       setLoading(false);
     }
   };
 
   const canSend = Boolean(input.trim()) && !loading;
+  const showWelcome = !booting && messages.length === 0;
 
   return (
     <div className={cn('side-panel sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
-      <div className="browse-toolbar pet-chat__toolbar">{onBack ? <BackIconButton onClick={onBack} /> : null}</div>
+      <PhoneStatusBar className="pet-chat__status" leading={onBack ? <BackIconButton onClick={onBack} /> : null} />
 
-      <div className="pet-chat__list" ref={listRef}>
-        {messages.map(msg => (
-          <div
-            key={msg.id}
-            className={cn('pet-chat__row', msg.role === 'user' ? 'pet-chat__row--user' : 'pet-chat__row--pet')}>
-            <div
-              className={cn(
-                'pet-chat__bubble',
-                msg.role === 'user' ? 'pet-chat__bubble--user' : 'pet-chat__bubble--pet',
-              )}>
-              <p className="pet-chat__text">{msg.content}</p>
+      <div className="pet-chat__list" ref={listRef} onScroll={onListScroll}>
+        {loadingMore ? <p className="pet-chat__load-more">加载更早消息…</p> : null}
+        {hasMore && !loadingMore ? (
+          <p className="pet-chat__load-more pet-chat__load-more--hint">上滑加载更早消息</p>
+        ) : null}
+
+        {booting ? <p className="pet-chat__load-more">加载中…</p> : null}
+
+        {showWelcome ? (
+          <div className="pet-chat__row pet-chat__row--pet">
+            <div className="pet-chat__bubble pet-chat__bubble--pet">
+              <p className="pet-chat__text">{welcomeText}</p>
             </div>
           </div>
-        ))}
+        ) : null}
 
-        {loading ? (
+        {messages.map((msg, index) => {
+          const prev = messages[index - 1];
+          const showTime = shouldShowTimeLabel(msg.createdAt, prev?.createdAt);
+          return (
+            <div key={msg.id} className="pet-chat__block">
+              {showTime ? (
+                <p className="pet-chat__time" title={new Date(msg.createdAt).toLocaleString()}>
+                  {formatChatDistance(msg.createdAt, nowTick)}
+                </p>
+              ) : null}
+              <div className={cn('pet-chat__row', msg.role === 'user' ? 'pet-chat__row--user' : 'pet-chat__row--pet')}>
+                <div
+                  className={cn(
+                    'pet-chat__bubble',
+                    msg.role === 'user' ? 'pet-chat__bubble--user' : 'pet-chat__bubble--pet',
+                    streamingId === msg.id && 'pet-chat__bubble--streaming',
+                  )}>
+                  <p className="pet-chat__text">
+                    {msg.content}
+                    {streamingId === msg.id ? <span className="pet-chat__caret" aria-hidden="true" /> : null}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {loading && !streamingId ? (
           <div className="pet-chat__row pet-chat__row--pet">
             <div className="pet-chat__bubble pet-chat__bubble--pet pet-chat__bubble--typing" aria-label="对方正在输入">
               <span className="pet-chat__dot" />

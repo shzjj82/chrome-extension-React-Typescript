@@ -1,9 +1,19 @@
-import type { BrowseDayGroup, BrowsePageInput, BrowsePageRecord, StudySession, StudySessionInput } from './types.js';
+import type {
+  BrowseDayGroup,
+  BrowsePageInput,
+  BrowsePageRecord,
+  PetChatMessage,
+  PetChatMessageInput,
+  PetChatPage,
+  StudySession,
+  StudySessionInput,
+} from './types.js';
 
 const DB_NAME = 'study-mind';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const SESSION_STORE = 'sessions';
 const BROWSE_STORE = 'browse-pages';
+const PET_CHAT_STORE = 'pet-chat-messages';
 
 const openDb = (): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
@@ -21,6 +31,11 @@ const openDb = (): Promise<IDBDatabase> =>
         const store = db.createObjectStore(BROWSE_STORE, { keyPath: 'id' });
         store.createIndex('dateKey', 'dateKey', { unique: false });
         store.createIndex('recordedAt', 'recordedAt', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(PET_CHAT_STORE)) {
+        const store = db.createObjectStore(PET_CHAT_STORE, { keyPath: 'id' });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
       }
     };
 
@@ -260,6 +275,62 @@ const getBrowsePage = async (id: string): Promise<BrowsePageRecord | null> => {
   });
 };
 
+const savePetChatMessage = async (input: PetChatMessageInput): Promise<PetChatMessage> => {
+  const db = await openDb();
+  const message: PetChatMessage = {
+    id: input.id ?? createId(),
+    role: input.role,
+    content: input.content,
+    createdAt: input.createdAt ?? Date.now(),
+  };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PET_CHAT_STORE, 'readwrite');
+    const request = tx.objectStore(PET_CHAT_STORE).put(message);
+
+    request.onsuccess = () => resolve(message);
+    request.onerror = () => reject(request.error ?? new Error('Failed to save pet chat message'));
+  });
+};
+
+/**
+ * 分页拉取聊天记录（时间正序返回，便于直接渲染）。
+ * - 首次：取最新 limit 条
+ * - 向上翻页：传 beforeCreatedAt，取更早的 limit 条
+ */
+const listPetChatMessagesPage = async (options?: {
+  beforeCreatedAt?: number;
+  limit?: number;
+}): Promise<PetChatPage> => {
+  const limit = Math.max(1, options?.limit ?? 20);
+  const beforeCreatedAt = options?.beforeCreatedAt;
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PET_CHAT_STORE, 'readonly');
+    const index = tx.objectStore(PET_CHAT_STORE).index('createdAt');
+    const range = typeof beforeCreatedAt === 'number' ? IDBKeyRange.upperBound(beforeCreatedAt, true) : undefined;
+    const request = index.openCursor(range, 'prev');
+    const collected: PetChatMessage[] = [];
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor || collected.length >= limit + 1) {
+        const hasMore = collected.length > limit;
+        const page = hasMore ? collected.slice(0, limit) : collected;
+        resolve({
+          messages: page.reverse(),
+          hasMore,
+        });
+        return;
+      }
+      collected.push(cursor.value as PetChatMessage);
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error ?? new Error('Failed to list pet chat messages'));
+  });
+};
+
 export {
   createEmptySession,
   listSessions,
@@ -275,4 +346,6 @@ export {
   deleteBrowsePage,
   clearBrowsePages,
   getBrowsePage,
+  savePetChatMessage,
+  listPetChatMessagesPage,
 };

@@ -64,6 +64,27 @@ type BrowseDayGroup = {
   records: BrowsePageRecord[];
 };
 
+/** 短信 / 宠物聊天消息（IndexedDB） */
+type PetChatRole = 'user' | 'assistant';
+
+type PetChatMessage = {
+  id: string;
+  role: PetChatRole;
+  content: string;
+  createdAt: number;
+};
+
+type PetChatMessageInput = Omit<PetChatMessage, 'id' | 'createdAt'> & {
+  id?: string;
+  createdAt?: number;
+};
+
+type PetChatPage = {
+  messages: PetChatMessage[];
+  /** 是否还有更早的消息 */
+  hasMore: boolean;
+};
+
 export type {
   LearningMode,
   MaterialSource,
@@ -76,4 +97,8 @@ export type {
   BrowsePageRecord,
   BrowsePageInput,
   BrowseDayGroup,
+  PetChatRole,
+  PetChatMessage,
+  PetChatMessageInput,
+  PetChatPage,
 };

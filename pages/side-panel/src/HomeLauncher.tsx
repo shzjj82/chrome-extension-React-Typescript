@@ -1,4 +1,5 @@
 import { DOCK_APPS, PAGE_APPS } from './appCatalog';
+import PhoneStatusBar from './PhoneStatusBar';
 import { cn } from '@extension/ui';
 import { useEffect, useMemo, useState } from 'react';
 import type { HomeApp, HomeAppId } from './appCatalog';
@@ -56,14 +57,7 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
     <div className={cn('side-panel phone-home', !isLight && 'phone-home--dark')}>
       <div className="phone-home__wallpaper" aria-hidden="true" />
 
-      <header className="phone-home__status" aria-hidden="true">
-        <span className="phone-home__carrier">Study Mind</span>
-        <span className="phone-home__status-dots">
-          <i />
-          <i />
-          <i />
-        </span>
-      </header>
+      <PhoneStatusBar className="phone-home__status-bar" />
 
       <section className="phone-home__widgets" aria-label="桌面组件">
         <article className="phone-widget phone-widget--time">

@@ -102,6 +102,113 @@ const callChatCompletion = async (settings: LlmSettingsType, messages: ChatMessa
   return content;
 };
 
+/** 流式对话：优先 SSE；不支持时回退整段 + 本地逐字回调 */
+const callChatCompletionStream = async (
+  settings: LlmSettingsType,
+  messages: ChatMessage[],
+  onDelta: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<string> => {
+  if (!settings.apiKey) {
+    throw new Error('请先在设置页填写 API Key');
+  }
+  if (!settings.baseUrl) {
+    throw new Error('请先配置接口地址');
+  }
+
+  const endpoint = `${settings.baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      messages,
+      temperature: 0.7,
+      stream: true,
+    }),
+    signal,
+  });
+
+  if (!response.ok) {
+    // 部分兼容接口不支持 stream，回退普通请求再本地逐字
+    const fallback = await callChatCompletion(settings, messages);
+    await typewriterEmit(fallback, onDelta, signal);
+    return fallback;
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!response.body || !contentType.includes('text/event-stream')) {
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('模型未返回有效内容');
+    }
+    await typewriterEmit(content, onDelta, signal);
+    return content;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let full = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line.startsWith('data:')) {
+        continue;
+      }
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') {
+        continue;
+      }
+      try {
+        const json = JSON.parse(payload) as {
+          choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
+        };
+        const piece = json.choices?.[0]?.delta?.content ?? json.choices?.[0]?.message?.content ?? '';
+        if (piece) {
+          full += piece;
+          onDelta(piece);
+        }
+      } catch {
+        // 忽略残缺 SSE 行
+      }
+    }
+  }
+
+  if (!full.trim()) {
+    throw new Error('模型未返回有效内容');
+  }
+  return full;
+};
+
+const typewriterEmit = async (text: string, onDelta: (chunk: string) => void, signal?: AbortSignal) => {
+  const chars = Array.from(text);
+  for (const ch of chars) {
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+    onDelta(ch);
+    await new Promise<void>(resolve => {
+      window.setTimeout(resolve, ch === '\n' ? 28 : 16);
+    });
+  }
+};
+
 const generateLearningContent = async ({
   settings,
   profile,
@@ -176,4 +283,4 @@ const generateLearningContent = async ({
   }
 };
 
-export { parseSubtitleFile, callChatCompletion, generateLearningContent };
+export { parseSubtitleFile, callChatCompletion, callChatCompletionStream, generateLearningContent };
