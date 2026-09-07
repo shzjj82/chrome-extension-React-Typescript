@@ -1,4 +1,6 @@
+import { getCnDayMark } from './cnCalendar';
 import { summarizeDay } from '@extension/storage';
+import type { CnDayMark } from './cnCalendar';
 import type { FocusLogStateType } from '@extension/storage';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
@@ -52,6 +54,7 @@ type CalendarCell = {
   isToday: boolean;
   progress: number;
   countedCount: number;
+  cn: CnDayMark;
 } | null;
 
 const buildDayProgress = (focusLog: FocusLogStateType, dateKey: string, goalMinutes: number): DayProgress => {
@@ -93,6 +96,7 @@ const buildMonthCells = (
       isToday: key === todayKey,
       progress: info?.progress ?? 0,
       countedCount: info?.countedCount ?? 0,
+      cn: getCnDayMark(year, month, day),
     });
   }
 

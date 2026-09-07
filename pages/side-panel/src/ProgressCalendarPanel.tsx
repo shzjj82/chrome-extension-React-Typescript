@@ -1,4 +1,5 @@
 import BackIconButton from './BackIconButton';
+import { getCnDayMarkByKey } from './lib/cnCalendar';
 import {
   buildDayProgress,
   buildMonthDayMap,
@@ -49,6 +50,8 @@ const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) 
     }
     return buildDayProgress(focusLog, selectedDateKey, goalMinutes);
   }, [dayMap, selectedDateKey, focusLog, goalMinutes]);
+
+  const selectedCn = useMemo(() => getCnDayMarkByKey(selectedDateKey), [selectedDateKey]);
 
   const selectedLabel = useMemo(() => {
     const date = parseDateKey(selectedDateKey);
@@ -113,6 +116,25 @@ const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) 
             <h2 className="progress-cal-day__title">{selectedLabel}</h2>
             <span className="progress-cal-day__percent">{formatPercent(selected.progress)}</span>
           </div>
+          {selectedCn.holidayName || selectedCn.solarTerm ? (
+            <p className="progress-cal-day__marks">
+              {selectedCn.isHolidayOff ? (
+                <span className="progress-cal-day__mark progress-cal-day__mark--holiday">
+                  休假 · {selectedCn.holidayName}
+                </span>
+              ) : null}
+              {selectedCn.isHolidayWork ? (
+                <span className="progress-cal-day__mark progress-cal-day__mark--work">
+                  调休上班 · {selectedCn.holidayName}
+                </span>
+              ) : null}
+              {selectedCn.solarTerm ? (
+                <span className="progress-cal-day__mark progress-cal-day__mark--jieqi">
+                  节气 · {selectedCn.solarTerm}
+                </span>
+              ) : null}
+            </p>
+          ) : null}
           <div className="progress-cal-day__bar" aria-hidden="true">
             <span className="progress-cal-day__bar-fill" style={{ width: formatPercent(selected.progress) }} />
           </div>

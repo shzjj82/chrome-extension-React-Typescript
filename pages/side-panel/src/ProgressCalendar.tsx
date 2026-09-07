@@ -77,13 +77,19 @@ const ProgressCalendar = ({
                     ? 2
                     : 1;
 
+          const markParts = [
+            cell.cn.isHolidayOff ? `休假 ${cell.cn.holidayName}` : '',
+            cell.cn.isHolidayWork ? `调休上班（${cell.cn.holidayName}）` : '',
+            cell.cn.solarTerm ? `节气 ${cell.cn.solarTerm}` : '',
+          ].filter(Boolean);
+
           return (
             <button
               key={cell.key}
               type="button"
               role="gridcell"
               disabled={cell.isFuture}
-              aria-label={`${cell.key} 完成度 ${Math.round(cell.progress * 100)}%`}
+              aria-label={`${cell.key} 完成度 ${Math.round(cell.progress * 100)}%${markParts.length ? `，${markParts.join('，')}` : ''}`}
               aria-selected={cell.key === selectedDateKey}
               className={cn(
                 'progress-cal__cell',
@@ -91,10 +97,30 @@ const ProgressCalendar = ({
                 cell.isToday && 'progress-cal__cell--today',
                 cell.key === selectedDateKey && 'progress-cal__cell--selected',
                 cell.isFuture && 'progress-cal__cell--future',
+                cell.cn.isHolidayOff && 'progress-cal__cell--holiday',
+                cell.cn.isHolidayWork && 'progress-cal__cell--work',
+                cell.cn.solarTerm && !cell.cn.isHolidayOff && !cell.cn.isHolidayWork && 'progress-cal__cell--jieqi',
               )}
               onClick={() => onSelect(cell.key)}>
               <span className="progress-cal__day">{cell.day}</span>
-              {!cell.isFuture && cell.progress > 0 ? <span className="progress-cal__dot" aria-hidden="true" /> : null}
+              {cell.cn.badge ? (
+                <span
+                  className={cn(
+                    'progress-cal__badge',
+                    cell.cn.isHolidayOff && 'progress-cal__badge--holiday',
+                    cell.cn.isHolidayWork && 'progress-cal__badge--work',
+                    cell.cn.solarTerm &&
+                      !cell.cn.isHolidayOff &&
+                      !cell.cn.isHolidayWork &&
+                      'progress-cal__badge--jieqi',
+                  )}>
+                  {cell.cn.badge}
+                </span>
+              ) : !cell.isFuture && cell.progress > 0 ? (
+                <span className="progress-cal__dot" aria-hidden="true" />
+              ) : (
+                <span className="progress-cal__badge progress-cal__badge--spacer" aria-hidden="true" />
+              )}
             </button>
           );
         })}

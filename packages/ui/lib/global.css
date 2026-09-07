@@ -59,3 +59,103 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* 大胶囊包裹多项，高亮小胶囊平移切换 */
+.sm-segmented-switch {
+  --sm-segmented-count: 1;
+  --sm-segmented-index: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sm-ink, #2b2118) 8%, transparent);
+  isolation: isolate;
+}
+
+.sm-segmented-switch--md {
+  padding: 4px;
+}
+
+.sm-segmented-switch--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.sm-segmented-switch__pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  z-index: 0;
+  width: calc((100% - 6px) / var(--sm-segmented-count));
+  border-radius: 999px;
+  background: #fffef8;
+  box-shadow:
+    0 1px 2px rgb(43 33 24 / 10%),
+    0 0 0 1px color-mix(in srgb, var(--sm-ink, #2b2118) 6%, transparent);
+  transform: translateX(calc(var(--sm-segmented-index) * 100%));
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.sm-segmented-switch--md .sm-segmented-switch__pill {
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / var(--sm-segmented-count));
+}
+
+.sm-segmented-switch__option {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sm-muted, rgb(43 33 24 / 62%));
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.sm-segmented-switch--md .sm-segmented-switch__option {
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.sm-segmented-switch__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+}
+
+.sm-segmented-switch--md .sm-segmented-switch__label {
+  height: 28px;
+}
+
+.sm-segmented-switch__option--active {
+  color: var(--sm-ink, #2b2118);
+  font-weight: 750;
+}
+
+.sm-segmented-switch__option--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.sm-segmented-switch__option:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--sm-accent, #d64545) 45%, transparent);
+  outline-offset: 1px;
+}

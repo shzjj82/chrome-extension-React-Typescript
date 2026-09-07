@@ -11,7 +11,10 @@
     "message": "切换主题"
   },
   "openSidePanel": {
-    "message": "打开学习侧栏"
+    "message": "打开侧边栏"
+  },
+  "closeSidePanel": {
+    "message": "关闭侧边栏"
   },
   "openOptions": {
     "message": "设置"

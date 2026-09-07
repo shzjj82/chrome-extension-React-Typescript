@@ -402,15 +402,9 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
     const view = resolveSidePanelView(payload.view);
 
     // sidePanel.open must start in this turn — before any await — to keep user gesture.
-    const sidePanelOpen = startNativeSidePanelOpen(
-      tabId,
-      message.type === ExtensionMessageType.OPEN_SIDE_PANEL ? (view ?? 'browse') : undefined,
-    );
-    const openPromise = openLearningUiForTab(
-      tabId,
-      sidePanelOpen,
-      message.type === ExtensionMessageType.OPEN_SIDE_PANEL ? (view ?? 'browse') : undefined,
-    );
+    const panelView = message.type === ExtensionMessageType.OPEN_SIDE_PANEL ? view : undefined;
+    const sidePanelOpen = startNativeSidePanelOpen(tabId, panelView);
+    const openPromise = openLearningUiForTab(tabId, sidePanelOpen, panelView);
 
     if (message.type === ExtensionMessageType.OPEN_SIDE_PANEL) {
       void openPromise
