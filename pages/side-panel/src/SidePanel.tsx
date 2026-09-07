@@ -4,13 +4,11 @@ import { getHomeApp } from './appCatalog';
 import AppRevealOverlay from './AppRevealOverlay';
 import BackIconButton from './BackIconButton';
 import BrowserAppPage from './BrowserAppPage';
-import BrowseRecordsPanel from './BrowseRecordsPanel';
 import BrowserFrame from './BrowserFrame';
+import FilesHubPanel from './FilesHubPanel';
 import HomeLauncher from './HomeLauncher';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
 import PetChatPanel from './PetChatPanel';
-import ProgressCalendarPanel from './ProgressCalendarPanel';
-import SelectionAskPanel from './SelectionAskPanel';
 import SheetFrame from './SheetFrame';
 import { t } from '@extension/i18n';
 import {
@@ -38,13 +36,14 @@ import {
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { HomeAppId, HomeAppTone } from './appCatalog';
+import type { FilesHubTab } from './FilesHubPanel';
 import type { LearningMode, MaterialSource, PracticeItem, QuizItem, StudySession } from '@extension/knowledge-base';
 import type { MouseEvent, ReactNode } from 'react';
 
 type TabKey = 'study' | 'library';
 type GatePhase = 'adopt' | 'app';
-/** 全页路由（浏览器 / 电话 / 商店走浮层，不占 AppView） */
-type AppView = 'home' | 'files' | 'messages' | 'study' | 'calendar' | 'ask';
+/** 全页路由（浏览器 / 电话 / 商店走浮层，不占 AppView）；ask/calendar 并入 files Hub */
+type AppView = 'home' | 'files' | 'messages' | 'study';
 
 type FloatingOverlay =
   | {
@@ -65,10 +64,25 @@ type FloatingOverlay =
 
 const resolveGatePhase = (petAdopted: boolean): GatePhase => (petAdopted ? 'app' : 'adopt');
 
+const resolveFilesHubTab = (): FilesHubTab => {
+  try {
+    const view = new URLSearchParams(window.location.search).get('view');
+    if (view === 'ask') {
+      return 'ask';
+    }
+    if (view === 'calendar' || view === 'browse') {
+      return 'focus';
+    }
+    return 'focus';
+  } catch {
+    return 'focus';
+  }
+};
+
 const resolveAppView = (): AppView => {
   try {
     const view = new URLSearchParams(window.location.search).get('view');
-    if (view === 'browse') {
+    if (view === 'browse' || view === 'ask' || view === 'calendar') {
       return 'files';
     }
     if (view === 'chat') {
@@ -76,12 +90,6 @@ const resolveAppView = (): AppView => {
     }
     if (view === 'study') {
       return 'study';
-    }
-    if (view === 'ask') {
-      return 'ask';
-    }
-    if (view === 'calendar') {
-      return 'calendar';
     }
     return 'home';
   } catch {
@@ -111,6 +119,9 @@ const SidePanel = () => {
   const pomodoro = useStorage(pomodoroStateStorage);
   const panelView = resolveAppView();
   const [appView, setAppView] = useState<AppView>(panelView);
+  const [filesHubTab, setFilesHubTab] = useState<FilesHubTab>(() => resolveFilesHubTab());
+  /** 文件页首次进入后保活，返回桌面只隐藏，避免提问会话反复重建 */
+  const [filesHubAlive, setFilesHubAlive] = useState(() => panelView === 'files');
   const [floating, setFloating] = useState<FloatingOverlay | null>(null);
   const [reveal, setReveal] = useState<{
     x: number;
@@ -178,6 +189,9 @@ const SidePanel = () => {
   const onRevealCovered = useCallback(() => {
     setReveal(current => {
       if (current?.pendingView) {
+        if (current.pendingView === 'files') {
+          setFilesHubAlive(true);
+        }
         setAppView(current.pendingView);
       }
       return current;
@@ -226,8 +240,21 @@ const SidePanel = () => {
       return;
     }
 
-    // page：色圆放大入场
-    if (id === 'files' || id === 'messages' || id === 'study' || id === 'calendar') {
+    // page：色圆放大入场（原日历页已并入文件 Hub）
+    if (id === 'files') {
+      setFloating(null);
+      setFilesHubTab('focus');
+      setFilesHubAlive(true);
+      setReveal({
+        x,
+        y,
+        tone: app.tone,
+        pendingView: 'files',
+      });
+      return;
+    }
+
+    if (id === 'messages' || id === 'study') {
       setFloating(null);
       setReveal({
         x,
@@ -453,13 +480,9 @@ const SidePanel = () => {
   if (appView === 'home') {
     appContent = <HomeLauncher isLight={isLight} onOpenApp={openApp} />;
   } else if (appView === 'files') {
-    appContent = <BrowseRecordsPanel isLight={isLight} onBack={goHome} />;
+    appContent = null;
   } else if (appView === 'messages') {
     appContent = <PetChatPanel isLight={isLight} onBack={goHome} />;
-  } else if (appView === 'calendar') {
-    appContent = <ProgressCalendarPanel isLight={isLight} onBack={goHome} />;
-  } else if (appView === 'ask') {
-    appContent = <SelectionAskPanel isLight={isLight} onBack={goHome} />;
   } else {
     appContent = (
       <div className={cn('side-panel sm-shell', !isLight && 'sm-shell--dark')}>
@@ -693,6 +716,13 @@ const SidePanel = () => {
   return (
     <>
       {appContent}
+      {filesHubAlive ? (
+        <div
+          className={cn('files-hub-keepalive', appView !== 'files' && 'files-hub-keepalive--hidden')}
+          aria-hidden={appView !== 'files'}>
+          <FilesHubPanel isLight={isLight} onBack={goHome} initialTab={filesHubTab} />
+        </div>
+      ) : null}
       {floatingLayer}
       {revealLayer}
     </>

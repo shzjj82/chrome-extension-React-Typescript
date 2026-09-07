@@ -89,11 +89,9 @@ const PhoneStatusBar = ({ className, leading, clockLeft = false }: PhoneStatusBa
 
   return (
     <header
-      className={
-        className
-          ? `phone-status${clockLeft ? 'phone-status--clock-left' : ''} ${className}`
-          : `phone-status${clockLeft ? 'phone-status--clock-left' : ''}`
-      }>
+      className={['phone-status', clockLeft ? 'phone-status--clock-left' : '', className ?? '']
+        .filter(Boolean)
+        .join(' ')}>
       {clockLeft ? (
         <>
           <div className="phone-status__left" aria-hidden="true">

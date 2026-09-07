@@ -28,6 +28,8 @@ type BrowseDayCalendarProps = {
   recordDateKeys: Set<string>;
   dayLabel: string;
   total: number;
+  /** 隐藏日期触发器与面板，保留刷新等操作 */
+  hideCalendar?: boolean;
   onSelect: (dateKey: string) => void;
   onRefresh?: () => void;
 };
@@ -37,6 +39,7 @@ const BrowseDayCalendar = ({
   recordDateKeys,
   dayLabel,
   total,
+  hideCalendar = false,
   onSelect,
   onRefresh,
 }: BrowseDayCalendarProps) => {
@@ -46,6 +49,12 @@ const BrowseDayCalendar = ({
   const [viewMonth, setViewMonth] = useState(selected.getMonth());
   const rootRef = useRef<HTMLDivElement>(null);
   const todayKey = toLocalDateKey(new Date());
+
+  useEffect(() => {
+    if (hideCalendar) {
+      setOpen(false);
+    }
+  }, [hideCalendar]);
 
   useEffect(() => {
     if (!open) {
@@ -105,7 +114,14 @@ const BrowseDayCalendar = ({
           className={cn('browse-cal__trigger', open && 'browse-cal__trigger--open')}
           aria-expanded={open}
           aria-haspopup="dialog"
-          onClick={() => setOpen(value => !value)}>
+          aria-hidden={hideCalendar}
+          tabIndex={hideCalendar ? -1 : undefined}
+          onClick={() => {
+            if (hideCalendar) {
+              return;
+            }
+            setOpen(value => !value);
+          }}>
           <span className="browse-cal__trigger-label">
             {dayLabel}
             <span className="sm-shell__muted"> · {total} 条</span>

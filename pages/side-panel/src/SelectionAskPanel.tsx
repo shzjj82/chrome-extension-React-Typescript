@@ -1,4 +1,5 @@
 import BackIconButton from './BackIconButton';
+import { toLocalDateKey } from './BrowseDayCalendar';
 import { callChatCompletionStream } from './lib/learning';
 import { useStickToBottomScroll } from './lib/useStickToBottomScroll';
 import PhoneStatusBar from './PhoneStatusBar';
@@ -10,6 +11,7 @@ import {
   llmSettingsStorage,
   normalizeUserProfile,
   selectionAskDraftStorage,
+  selectionAskSessionStorage,
   userProfileStorage,
 } from '@extension/storage';
 import { SegmentedSwitch, cn } from '@extension/ui';
@@ -23,6 +25,17 @@ import type { LearningGoal, KnowledgeDepth, UserProfileType } from '@extension/s
 type SelectionAskPanelProps = {
   isLight: boolean;
   onBack?: () => void;
+  /** 嵌入文件 Hub：不渲染状态栏与顶部分段 */
+  embedded?: boolean;
+  /** 嵌入时由 Hub 控制当前子页 */
+  embeddedTab?: 'ask' | 'favorites';
+  /** 收藏列表按本地日过滤（提问页不传） */
+  filterDateKey?: string;
+  /** 嵌入时出现新划选草稿时通知 Hub 切到提问 */
+  onRequestAskTab?: () => void;
+  onFavoritesRefreshReady?: (refresh: () => Promise<void>) => void;
+  onFavoriteDateKeysChange?: (keys: Set<string>) => void;
+  onFilteredFavoritesCountChange?: (count: number) => void;
 };
 
 type AskLink = {
@@ -276,12 +289,32 @@ const AskMarkdown = ({ content, streaming }: { content: string; streaming?: bool
   );
 };
 
-const SelectionAskPanel = ({ isLight, onBack }: SelectionAskPanelProps) => {
+const SelectionAskPanel = ({
+  isLight,
+  onBack,
+  embedded = false,
+  embeddedTab,
+  filterDateKey,
+  onRequestAskTab,
+  onFavoritesRefreshReady,
+  onFavoriteDateKeysChange,
+  onFilteredFavoritesCountChange,
+}: SelectionAskPanelProps) => {
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
   const draft = useStorage(selectionAskDraftStorage);
 
-  const [tab, setTab] = useState<'ask' | 'favorites'>(draft?.text ? 'ask' : 'favorites');
+  const [tabState, setTabState] = useState<'ask' | 'favorites'>(draft?.text ? 'ask' : 'favorites');
+  const tab = embedded && embeddedTab ? embeddedTab : tabState;
+  const setTab = (next: 'ask' | 'favorites') => {
+    if (embedded) {
+      if (next === 'ask') {
+        onRequestAskTab?.();
+      }
+      return;
+    }
+    setTabState(next);
+  };
   const [sourceExpanded, setSourceExpanded] = useState(true);
   const [favorites, setFavorites] = useState<SelectionFavorite[]>([]);
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
@@ -322,13 +355,33 @@ const SelectionAskPanel = ({ isLight, onBack }: SelectionAskPanelProps) => {
     () => messages.filter(msg => !msg.hidden && msg.content.trim().length > 0),
     [messages],
   );
+  const visibleFavorites = useMemo(() => {
+    if (!filterDateKey) {
+      return favorites;
+    }
+    return favorites.filter(item => toLocalDateKey(new Date(item.createdAt)) === filterDateKey);
+  }, [favorites, filterDateKey]);
   const showComposer =
     Boolean(draft?.text) && !pendingFirstToken && !error && (visibleMessages.length > 0 || askedKey === draftKey);
+
+  useEffect(() => {
+    if (!onFavoriteDateKeysChange) {
+      return;
+    }
+    const keys = new Set(favorites.map(item => toLocalDateKey(new Date(item.createdAt))));
+    onFavoriteDateKeysChange(keys);
+  }, [favorites, onFavoriteDateKeysChange]);
+
+  useEffect(() => {
+    onFilteredFavoritesCountChange?.(visibleFavorites.length);
+  }, [visibleFavorites.length, onFilteredFavoritesCountChange]);
 
   useEffect(() => {
     if (!draftKey) {
       return;
     }
+
+    let cancelled = false;
     abortRef.current?.abort();
     setTab('ask');
     setError('');
@@ -347,15 +400,59 @@ const SelectionAskPanel = ({ isLight, onBack }: SelectionAskPanelProps) => {
       favoriteCreatedAtRef.current = restore.createdAt;
       setAskedKey(draftKey);
       pinToBottom();
+      void selectionAskSessionStorage.set({
+        draftKey,
+        askedKey: draftKey,
+        messages: restore.messages,
+        links: restore.links,
+        favoriteId: restore.favoriteId,
+        favoriteCreatedAt: restore.createdAt,
+      });
       return;
     }
 
-    setMessages([]);
-    setLinks([]);
-    setAskedKey('');
-    setFavoriteId(null);
-    favoriteCreatedAtRef.current = null;
-    pinToBottom();
+    void (async () => {
+      const cached = await selectionAskSessionStorage.get();
+      if (cancelled) {
+        return;
+      }
+
+      const hasCachedAnswer =
+        cached?.draftKey === draftKey &&
+        cached.askedKey === draftKey &&
+        cached.messages.some(msg => msg.role === 'assistant' && msg.content.trim().length > 0);
+
+      if (hasCachedAnswer && cached) {
+        setMessages(cached.messages);
+        setLinks(cached.links ?? []);
+        setFavoriteId(cached.favoriteId);
+        favoriteCreatedAtRef.current = cached.favoriteCreatedAt;
+        setAskedKey(cached.askedKey);
+        pinToBottom();
+        return;
+      }
+
+      setMessages([]);
+      setLinks([]);
+      setAskedKey('');
+      setFavoriteId(null);
+      favoriteCreatedAtRef.current = null;
+      pinToBottom();
+
+      if (cancelled) {
+        return;
+      }
+      if (!isLlmConfigured(llm)) {
+        return;
+      }
+      // 新划选：只在这里发起首轮，避免与下方 effect 竞态导致重复请求
+      void sendFollowUp(INITIAL_ASK_USER_PROMPT, { initial: true, hideUser: true });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey]);
 
   useEffect(() => {
@@ -393,11 +490,12 @@ const SelectionAskPanel = ({ isLight, onBack }: SelectionAskPanelProps) => {
         }
       }
     };
+    onFavoritesRefreshReady?.(refreshFavorites);
     void refreshFavorites();
     return () => {
       cancelled = true;
     };
-  }, [tab]);
+  }, [tab, onFavoritesRefreshReady]);
 
   /** 已收藏的提问：后续解答/追问/链接持续同步到同一条收藏 */
   useEffect(() => {
@@ -494,7 +592,7 @@ const SelectionAskPanel = ({ isLight, onBack }: SelectionAskPanelProps) => {
       content: '',
     };
 
-    const history = [...messages, userMsg];
+    const history = options?.initial ? [userMsg] : [...messages, userMsg];
     startedRef.current = false;
     reservoirRef.current = '';
     setInput('');
@@ -583,16 +681,27 @@ const SelectionAskPanel = ({ isLight, onBack }: SelectionAskPanelProps) => {
     }
   };
 
+  // 会话落盘：切 Tab / 离开再进入时直接恢复，不重复打模型
   useEffect(() => {
-    if (!draft?.text || loading || askedKey === draftKey) {
+    if (!draftKey || askedKey !== draftKey) {
       return;
     }
-    if (!isLlmConfigured(llm)) {
+    if (loading || pendingFirstToken || streamingId) {
       return;
     }
-    void sendFollowUp(INITIAL_ASK_USER_PROMPT, { initial: true, hideUser: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftKey]);
+    const hasAnswer = messages.some(msg => msg.role === 'assistant' && msg.content.trim().length > 0);
+    if (!hasAnswer) {
+      return;
+    }
+    void selectionAskSessionStorage.set({
+      draftKey,
+      askedKey,
+      messages,
+      links,
+      favoriteId,
+      favoriteCreatedAt: favoriteCreatedAtRef.current,
+    });
+  }, [draftKey, askedKey, messages, links, favoriteId, loading, pendingFirstToken, streamingId]);
 
   const saveCurrent = async () => {
     if (!draft?.text) {
@@ -681,26 +790,33 @@ const SelectionAskPanel = ({ isLight, onBack }: SelectionAskPanelProps) => {
   const canSend = Boolean(input.trim()) && !loading && Boolean(draft?.text) && isLlmConfigured(llm);
 
   return (
-    <div className={cn('side-panel sm-shell selection-ask', !isLight && 'sm-shell--dark')}>
-      <PhoneStatusBar className="selection-ask__status" clockLeft />
+    <div
+      className={cn(
+        'side-panel sm-shell selection-ask',
+        embedded && 'selection-ask--embedded',
+        !isLight && 'sm-shell--dark',
+      )}>
+      {embedded ? null : <PhoneStatusBar className="selection-ask__status" clockLeft />}
 
-      <div className="selection-ask__header">
-        {onBack ? (
-          <BackIconButton className="selection-ask__back" iconSize={16} onClick={onBack} />
-        ) : (
-          <span className="selection-ask__header-spacer" />
-        )}
-        <h1 className="selection-ask__title">{tab === 'ask' ? '提问' : '收藏'}</h1>
-        <SegmentedSwitch
-          aria-label="提问与收藏切换"
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: 'ask', label: '提问' },
-            { value: 'favorites', label: '收藏' },
-          ]}
-        />
-      </div>
+      {embedded ? null : (
+        <div className="selection-ask__header">
+          {onBack ? (
+            <BackIconButton className="selection-ask__back" iconSize={16} onClick={onBack} />
+          ) : (
+            <span className="selection-ask__header-spacer" />
+          )}
+          <h1 className="selection-ask__title">{tab === 'ask' ? '提问' : '收藏'}</h1>
+          <SegmentedSwitch
+            aria-label="提问与收藏切换"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'ask', label: '提问' },
+              { value: 'favorites', label: '收藏' },
+            ]}
+          />
+        </div>
+      )}
 
       {tab === 'ask' ? (
         <>
@@ -904,9 +1020,13 @@ const SelectionAskPanel = ({ isLight, onBack }: SelectionAskPanelProps) => {
             <section className="selection-ask__empty">
               <p>还没有收藏。点提问页书签后，之后的解答、追问和相关链接都会持续同步到这里。</p>
             </section>
+          ) : visibleFavorites.length === 0 ? (
+            <section className="selection-ask__empty">
+              <p>这一天还没有收藏。换个日期看看，或先去提问页收藏。</p>
+            </section>
           ) : (
             <div className="selection-ask__fav-list">
-              {favorites.map(item => (
+              {visibleFavorites.map(item => (
                 <article
                   key={item.id}
                   className="selection-ask__card selection-ask__card--source selection-ask__fav-card">

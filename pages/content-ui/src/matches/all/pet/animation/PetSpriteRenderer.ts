@@ -8,6 +8,7 @@ import type { PetPublish } from '../core/topics';
 
 /**
  * CSS 雪碧图渲染器。按皮肤查 sheet；通过 publish 推送 `run:start` 等。
+ * 帧推进只在换帧时 paint，不广播 anim:frame（避免每帧事件开销）。
  */
 class PetSpriteRenderer {
   private publish: PetPublish | null = null;
@@ -67,23 +68,28 @@ class PetSpriteRenderer {
 
     const meta = this.resolveSheet(this.anim);
     this.leftoverMs += dtMs;
+    let dirty = false;
     while (this.leftoverMs >= meta.frameMs) {
       this.leftoverMs -= meta.frameMs;
       if (meta.loop) {
         this.frame = (this.frame + 1) % meta.frames;
-        this.notifyFrame();
+        dirty = true;
       } else if (this.frame < meta.frames - 1) {
         this.frame += 1;
-        this.notifyFrame();
+        dirty = true;
       } else if (!this.oneShotFinished) {
         this.oneShotFinished = true;
         this.playing = false;
         this.paint();
         this.notifyComplete();
         return;
+      } else {
+        break;
       }
     }
-    this.paint();
+    if (dirty) {
+      this.paint();
+    }
   };
 
   setFacingLeft = (facingLeft: boolean) => {
@@ -174,16 +180,6 @@ class PetSpriteRenderer {
     };
     this.publish(animTopic(this.anim, 'start'), payload);
     this.publish('animation', { type: 'start', anim: this.anim, ...payload });
-  };
-
-  private notifyFrame = () => {
-    if (!this.publish) {
-      return;
-    }
-    const meta = this.resolveSheet(this.anim);
-    const payload = { frame: this.frame, frames: meta.frames };
-    this.publish(animTopic(this.anim, 'frame'), payload);
-    this.publish('animation', { type: 'frame', anim: this.anim, ...payload });
   };
 
   private notifyComplete = () => {

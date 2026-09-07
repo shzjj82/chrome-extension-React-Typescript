@@ -1,7 +1,7 @@
-import { BookOpen, CalendarDays, FolderOpen, Globe, MessageCircle, Phone, Settings2, Store } from 'lucide-react';
+import { BookOpen, FolderOpen, Globe, MessageCircle, Phone, Settings2, Store } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-type HomeAppId = 'files' | 'messages' | 'study' | 'settings' | 'browser' | 'phone' | 'store' | 'calendar';
+type HomeAppId = 'files' | 'messages' | 'study' | 'settings' | 'browser' | 'phone' | 'store';
 
 type HomeAppTone = 'rose' | 'amber' | 'ink' | 'sage' | 'sky' | 'violet' | 'coral';
 
@@ -44,14 +44,6 @@ const HOME_APPS: HomeApp[] = [
     label: '学习',
     tone: 'ink',
     Icon: BookOpen,
-    openMode: 'page',
-    enterEffect: 'circle-expand',
-  },
-  {
-    id: 'calendar',
-    label: '日历',
-    tone: 'rose',
-    Icon: CalendarDays,
     openMode: 'page',
     enterEffect: 'circle-expand',
   },

@@ -468,6 +468,269 @@ body,
   gap: 0;
 }
 
+/* 文件 Hub：顶栏对齐提问/短信页；内容区再统一左右 gutter */
+.files-hub.side-panel {
+  --files-hub-gutter: 14px;
+  display: flex;
+  flex-direction: column;
+  /* 日历弹出层可超出；高度由 keepalive 撑满 */
+  overflow: visible;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  box-sizing: border-box;
+}
+
+.files-hub__status {
+  flex-shrink: 0;
+  padding: 8px 14px 0;
+}
+
+.files-hub__header {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 4px 14px 10px;
+}
+
+.files-hub__header > .sm-back-icon,
+.files-hub__header > .files-hub__header-spacer:first-child {
+  justify-self: start;
+}
+
+.files-hub__back.sm-back-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border-width: 1px;
+}
+
+.files-hub__header-spacer {
+  display: block;
+  width: 28px;
+  height: 28px;
+  justify-self: end;
+}
+
+.files-hub__title {
+  margin: 0;
+  justify-self: center;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--sm-ink, #2b2118);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sm-shell--dark .files-hub__title {
+  color: #f6efe6;
+}
+
+.files-hub__toolbar {
+  position: relative;
+  z-index: 40;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 var(--files-hub-gutter) 10px;
+  overflow: visible;
+}
+
+.files-hub__cal {
+  position: relative;
+  z-index: 30;
+  flex: 0 0 auto;
+}
+
+.files-hub__cal--hidden {
+  display: none;
+}
+
+/* 提问 Tab：只藏日期触发器（仍占位），刷新按钮保留 */
+.files-hub__cal--calendar-hidden .browse-cal__trigger {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.files-hub-keepalive {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100dvh;
+  box-sizing: border-box;
+}
+
+.files-hub-keepalive--hidden {
+  display: none;
+}
+
+.files-hub-keepalive > .files-hub {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.files-hub__cal .browse-cal {
+  width: auto;
+}
+
+.files-hub__cal .browse-cal__bar {
+  gap: 4px;
+  width: auto;
+}
+
+/* 固定触发器宽度，避免「N 条」位数变化带动 Tab 抖动 */
+.files-hub__cal .browse-cal__trigger {
+  flex: 0 0 132px;
+  box-sizing: border-box;
+  width: 132px;
+  max-width: 132px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  justify-content: flex-start;
+  gap: 0;
+}
+
+.files-hub__cal .browse-cal__trigger-label {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.files-hub__cal .browse-cal__trigger-icon {
+  display: none;
+}
+
+.files-hub__cal .browse-cal__nav {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+/* 弹出层不跟触发器缩窄，保持可读月历宽度 */
+.files-hub__cal .browse-cal__panel {
+  left: 0;
+  right: auto;
+  width: min(288px, calc(100vw - 2 * var(--files-hub-gutter)));
+  min-width: 248px;
+}
+
+.files-hub__tabs {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  padding: 2px;
+}
+
+.files-hub__toolbar--tabs-only .files-hub__tabs {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+}
+
+.files-hub__tabs .sm-segmented-switch__pill {
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / var(--sm-segmented-count));
+}
+
+.files-hub__tabs .sm-segmented-switch__option {
+  min-height: 26px;
+  padding: 0 6px;
+}
+
+.files-hub__tabs .sm-segmented-switch__label {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.files-hub__body {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 var(--files-hub-gutter) 12px;
+  box-sizing: border-box;
+}
+
+.files-hub__pane {
+  display: none;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.files-hub__pane--active {
+  display: flex;
+}
+
+.browse-shell--embedded.side-panel,
+.selection-ask--embedded.side-panel {
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.selection-ask--embedded {
+  display: flex;
+  flex-direction: column;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden;
+}
+
+/* 嵌入时左右边距由 files-hub 统一提供，避免与卡片双重缩进 */
+.selection-ask--embedded .selection-ask__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.selection-ask--embedded .selection-ask__footer {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.selection-ask--embedded .selection-ask__source-sticky::before {
+  inset: 0;
+}
+
+.browse-shell--embedded .browse-shell__scroll {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.browse-shell--embedded .browse-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
 .sm-shell__heading {
   display: flex;
   min-width: 0;
@@ -1394,21 +1657,29 @@ body,
 }
 
 .sheet-frame__handle {
+  position: relative;
   flex: 0 0 auto;
+  align-self: center;
   width: 36px;
-  height: 4px;
-  margin: 10px auto 4px;
-  padding: 8px 40px;
+  height: 5px;
+  margin: 10px auto 8px;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
-  background: rgba(43, 33, 24, 0.18);
-  background-clip: content-box;
+  background: rgba(43, 33, 24, 0.22);
   cursor: grab;
   touch-action: none;
 }
 
+/* 扩大拖拽热区，不挤占表线可视尺寸（border-box 下勿用 padding+content-box） */
+.sheet-frame__handle::before {
+  content: '';
+  position: absolute;
+  inset: -12px -44px;
+}
+
 .sheet-layer--dark .sheet-frame__handle {
-  background: rgba(246, 239, 230, 0.22);
-  background-clip: content-box;
+  background: rgba(246, 239, 230, 0.28);
 }
 
 .sheet-frame__header {

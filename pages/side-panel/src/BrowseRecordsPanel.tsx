@@ -176,11 +176,29 @@ const FolderSheets = ({ count }: { count: number }) => {
 type BrowseRecordsPanelProps = {
   isLight: boolean;
   onBack?: () => void;
+  /** 嵌入文件 Hub：列表顶栏不重复返回/日历 */
+  embedded?: boolean;
+  selectedDateKey?: string;
+  onSelectedDateKeyChange?: (dateKey: string) => void;
+  onRecordDateKeysChange?: (keys: Set<string>) => void;
+  onRefreshReady?: (refresh: () => Promise<void>) => void;
+  onDayTotalChange?: (total: number) => void;
 };
 
-const BrowseRecordsPanel = ({ isLight, onBack }: BrowseRecordsPanelProps) => {
+const BrowseRecordsPanel = ({
+  isLight,
+  onBack,
+  embedded = false,
+  selectedDateKey: selectedDateKeyProp,
+  onSelectedDateKeyChange,
+  onRecordDateKeysChange,
+  onRefreshReady,
+  onDayTotalChange,
+}: BrowseRecordsPanelProps) => {
   const [groups, setGroups] = useState<BrowseDayGroup[]>([]);
-  const [selectedDateKey, setSelectedDateKey] = useState(() => toLocalDateKey(new Date()));
+  const [selectedDateKeyState, setSelectedDateKeyState] = useState(() => toLocalDateKey(new Date()));
+  const selectedDateKey = selectedDateKeyProp ?? selectedDateKeyState;
+  const setSelectedDateKey = onSelectedDateKeyChange ?? setSelectedDateKeyState;
   const [selectedSiteKeys, setSelectedSiteKeys] = useState<string[]>([]);
   const [activeSite, setActiveSite] = useState<{ dayKey: string; site: SiteBucket } | null>(null);
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
@@ -213,9 +231,18 @@ const BrowseRecordsPanel = ({ isLight, onBack }: BrowseRecordsPanelProps) => {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    onRefreshReady?.(refresh);
+  }, [onRefreshReady, refresh]);
+
   const daySiteGroups = useMemo(() => groupByDayThenSite(groups), [groups]);
 
   const recordDateKeys = useMemo(() => new Set(daySiteGroups.map(day => day.dateKey)), [daySiteGroups]);
+
+  useEffect(() => {
+    onRecordDateKeysChange?.(recordDateKeys);
+  }, [onRecordDateKeysChange, recordDateKeys]);
+
   const didInitDateRef = useRef(false);
 
   // 首次有数据时：若当天无记录，落到最近有数据的一天（不打断用户之后选空日期）
@@ -231,12 +258,22 @@ const BrowseRecordsPanel = ({ isLight, onBack }: BrowseRecordsPanelProps) => {
     if (!recordDateKeys.has(selectedDateKey)) {
       setSelectedDateKey(daySiteGroups[0]!.dateKey);
     }
-  }, [daySiteGroups, recordDateKeys, selectedDateKey]);
+  }, [daySiteGroups, recordDateKeys, selectedDateKey, setSelectedDateKey]);
 
   const selectedDay = useMemo(
     () => daySiteGroups.find(day => day.dateKey === selectedDateKey) ?? null,
     [daySiteGroups, selectedDateKey],
   );
+
+  useEffect(() => {
+    onDayTotalChange?.(selectedDay?.total ?? 0);
+  }, [onDayTotalChange, selectedDay?.total]);
+
+  // 换日时退出站点详情
+  useEffect(() => {
+    setActiveSite(null);
+    setActiveRecordId(null);
+  }, [selectedDateKey]);
 
   // 换日后清空勾选；勾选仅保留仍存在的站点
   useEffect(() => {
@@ -386,27 +423,35 @@ const BrowseRecordsPanel = ({ isLight, onBack }: BrowseRecordsPanelProps) => {
   }, []);
 
   return (
-    <div ref={shellRef} className={cn('side-panel sm-shell browse-shell', !isLight && 'sm-shell--dark')}>
+    <div
+      ref={shellRef}
+      className={cn(
+        'side-panel sm-shell browse-shell',
+        embedded && 'browse-shell--embedded',
+        !isLight && 'sm-shell--dark',
+      )}>
       <main className="sm-shell__main browse-shell__main">
         {!activeSite ? (
-          <div className="browse-toolbar">
-            {onBack ? <BackIconButton onClick={onBack} className="browse-toolbar__back-icon" /> : null}
-            <div className="browse-toolbar__cal">
-              <BrowseDayCalendar
-                selectedDateKey={selectedDateKey}
-                recordDateKeys={recordDateKeys}
-                dayLabel={selectedDay?.dayLabel ?? formatDayLabel(selectedDateKey)}
-                total={selectedDay?.total ?? 0}
-                onSelect={dateKey => {
-                  setSelectedDateKey(dateKey);
-                  setActiveSite(null);
-                  setActiveRecordId(null);
-                  setSelectedSiteKeys([]);
-                }}
-                onRefresh={() => void refresh()}
-              />
+          embedded ? null : (
+            <div className="browse-toolbar">
+              {onBack ? <BackIconButton onClick={onBack} className="browse-toolbar__back-icon" /> : null}
+              <div className="browse-toolbar__cal">
+                <BrowseDayCalendar
+                  selectedDateKey={selectedDateKey}
+                  recordDateKeys={recordDateKeys}
+                  dayLabel={selectedDay?.dayLabel ?? formatDayLabel(selectedDateKey)}
+                  total={selectedDay?.total ?? 0}
+                  onSelect={dateKey => {
+                    setSelectedDateKey(dateKey);
+                    setActiveSite(null);
+                    setActiveRecordId(null);
+                    setSelectedSiteKeys([]);
+                  }}
+                  onRefresh={() => void refresh()}
+                />
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <div className="browse-toolbar browse-toolbar--detail">
             <BackIconButton

@@ -69,8 +69,12 @@ class PetController {
   private detachDragWindow: (() => void) | null = null;
 
   private rafId: number | null = null;
+  private wakeTimer: number | null = null;
   private lastTs: number | null = null;
   private walkLegsLeft = 0;
+  private pageVisible = typeof document !== 'undefined' ? !document.hidden : true;
+  /** 当前是否在 tick 回调内，避免事件链里重复排 RAF */
+  private inTick = false;
 
   private mounted = false;
   private disposed = false;
@@ -194,8 +198,10 @@ class PetController {
     } else {
       this.events.fire('walk');
     }
-    this.rafId = window.requestAnimationFrame(this.tick);
+    this.pageVisible = !document.hidden;
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
     window.addEventListener('resize', this.handleResize);
+    this.requestTick();
   };
 
   dispose = () => {
@@ -205,14 +211,12 @@ class PetController {
     this.disposed = true;
     this.mounted = false;
 
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     window.removeEventListener('resize', this.handleResize);
     this.clearResumeTimer();
+    this.clearWakeTimer();
     this.detachDragListeners();
-
-    if (this.rafId) {
-      window.cancelAnimationFrame(this.rafId);
-      this.rafId = null;
-    }
+    this.stopTickLoop();
 
     this.renderer?.destroy();
     this.renderer = null;
@@ -277,6 +281,7 @@ class PetController {
   private lockSitImpl = () => {
     this.sitLock = true;
     this.lockSitPose();
+    this.requestTick();
     this.emitState();
   };
 
@@ -299,6 +304,7 @@ class PetController {
     this.sitLock = false;
     this.restPrompt = true;
     this.lockSitPose();
+    this.requestTick();
     this.emitState();
   };
 
@@ -379,6 +385,7 @@ class PetController {
     if (!this.isSitLike()) {
       this.sitForUser();
     }
+    this.requestTick();
     this.emitState();
   };
 
@@ -387,6 +394,7 @@ class PetController {
     this.events.emit('hover', 'end');
     if (this.isSitLocked()) {
       this.lockSitPose();
+      this.requestTick();
       this.emitState();
       return;
     }
@@ -460,6 +468,7 @@ class PetController {
 
     if (this.isSitLocked()) {
       this.lockSitPose();
+      this.requestTick();
       this.emitState();
       return;
     }
@@ -471,6 +480,7 @@ class PetController {
       } else if (!this.isSitLike()) {
         this.sitForUser();
       }
+      this.requestTick();
       this.emitState();
       return;
     }
@@ -490,12 +500,14 @@ class PetController {
     }
     this.phase = 'rest';
     this.renderer.play(animId);
+    this.requestTick();
   };
 
   private playIdleLoop = () => {
     const kind = getPetKind(this.kindId);
     this.phase = 'rest';
     this.renderer?.play(kind.defaultAnim);
+    this.requestTick();
   };
 
   private sitForUser = () => {
@@ -505,6 +517,7 @@ class PetController {
     this.clearResumeTimer();
     this.phase = 'rest';
     this.renderer.sit();
+    this.requestTick();
   };
 
   private scheduleAutoResume = () => {
@@ -526,6 +539,7 @@ class PetController {
       this.phase = 'rest';
       this.decisionAt = performance.now() + rand(400, 900);
       this.emitState();
+      this.requestTick();
     }, this.resumeDelayMs);
   };
 
@@ -546,6 +560,7 @@ class PetController {
     this.renderer?.play('walk');
     this.walkLegsLeft = Math.floor(rand(2, 5));
     this.emitState();
+    this.requestTick();
   };
 
   /** 散步间隙休息：切到坐姿，避免 run 中途 pause 像卡死 */
@@ -558,31 +573,118 @@ class PetController {
     }
     this.decisionAt = now + (holdMs ?? rand(2800, 5600));
     this.emitState();
+    this.requestTick();
   };
 
   private tick = (ts: number) => {
-    if (this.disposed) {
+    this.rafId = null;
+    if (this.disposed || !this.mounted || !this.pageVisible) {
       return;
     }
 
-    const last = this.lastTs ?? ts;
-    const dt = Math.min(0.05, (ts - last) / 1000);
-    this.lastTs = ts;
+    this.inTick = true;
+    try {
+      const last = this.lastTs ?? ts;
+      const dt = Math.min(0.05, (ts - last) / 1000);
+      this.lastTs = ts;
 
-    if (
-      this.mode === 'auto' &&
-      this.phase === 'rest' &&
-      !this.idleOnly &&
-      !this.isSitLocked() &&
-      ts >= this.decisionAt
-    ) {
-      // 常规事件：按权重随机（run 为主）
-      this.events.scheduleRegular();
+      if (
+        this.mode === 'auto' &&
+        this.phase === 'rest' &&
+        !this.idleOnly &&
+        !this.isSitLocked() &&
+        ts >= this.decisionAt
+      ) {
+        // 常规事件：按权重随机（run 为主）
+        this.events.scheduleRegular();
+      }
+
+      this.tickWalk(dt);
+      this.renderer?.tick(dt * 1000);
+
+      if (this.needsContinuousTick()) {
+        this.rafId = window.requestAnimationFrame(this.tick);
+        return;
+      }
+
+      this.armWakeIfNeeded();
+    } finally {
+      this.inTick = false;
     }
+  };
 
-    this.tickWalk(dt);
-    this.renderer?.tick(dt * 1000);
+  /** 仅在走动 / 播放动画时需要每帧推进 */
+  private needsContinuousTick = () => {
+    if (!this.pageVisible || this.disposed || !this.mounted) {
+      return false;
+    }
+    if (this.phase === 'walk' && this.mode === 'auto') {
+      return true;
+    }
+    return Boolean(this.renderer?.isPlaying());
+  };
+
+  private requestTick = () => {
+    if (this.disposed || !this.mounted || !this.pageVisible) {
+      return;
+    }
+    // 当前帧末尾会根据 needsContinuousTick 续排或休眠
+    if (this.inTick) {
+      return;
+    }
+    this.clearWakeTimer();
+    if (!this.needsContinuousTick()) {
+      this.armWakeIfNeeded();
+      return;
+    }
+    if (this.rafId != null) {
+      return;
+    }
+    this.lastTs = null;
     this.rafId = window.requestAnimationFrame(this.tick);
+  };
+
+  private stopTickLoop = () => {
+    if (this.rafId != null) {
+      window.cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    this.lastTs = null;
+  };
+
+  private armWakeIfNeeded = () => {
+    if (this.disposed || !this.mounted || !this.pageVisible) {
+      return;
+    }
+    if (this.idleOnly || this.isSitLocked() || this.mode !== 'auto' || this.phase !== 'rest') {
+      return;
+    }
+    if (this.decisionAt <= 0) {
+      return;
+    }
+    const delay = Math.max(16, this.decisionAt - performance.now());
+    this.clearWakeTimer();
+    this.wakeTimer = window.setTimeout(() => {
+      this.wakeTimer = null;
+      this.requestTick();
+    }, delay);
+  };
+
+  private clearWakeTimer = () => {
+    if (this.wakeTimer != null) {
+      window.clearTimeout(this.wakeTimer);
+      this.wakeTimer = null;
+    }
+  };
+
+  private handleVisibilityChange = () => {
+    this.pageVisible = !document.hidden;
+    if (!this.pageVisible) {
+      this.clearWakeTimer();
+      this.stopTickLoop();
+      return;
+    }
+    this.requestTick();
   };
 
   private tickWalk = (dt: number) => {

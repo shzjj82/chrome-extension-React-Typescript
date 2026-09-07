@@ -33,8 +33,8 @@ const PAGER_TEXT_RE = /^(下一页|上一页|下页|上页|next|prev|previous|�
 const PAGER_ATTR_RE = /paginat|pager|page[-_]?next|page[-_]?prev|page[-_]?num|pagination/i;
 
 const DEFAULTS = {
-  settleMs: 700,
-  minIntervalMs: 2500,
+  settleMs: 900,
+  minIntervalMs: 3200,
   replaceSimilarity: 0.45,
   appendMinChars: 1800,
   /** 高于此相似度的指纹漂移视为噪音，静默对齐基线 */
@@ -52,21 +52,43 @@ const getMainRoot = (): HTMLElement => {
   return el as HTMLElement;
 };
 
+const SKIP_IN_TEXT_SEL =
+  'script, style, noscript, nav, footer, header, iframe, svg, button, form, aside, [role="tooltip"], [class*="tooltip"], [class*="popover"], [class*="advert"], [class*="ads"], [id*="ads"]';
+
+const TEXT_NODE_SEL = 'p, li, h1, h2, h3, h4, pre, code, blockquote, td, th';
+
+/** 不 clone 整棵主内容树，直接采样可见文本节点（显著降低 Mutation 后的主线程开销） */
 const extractMainText = (): string => {
   const root = getMainRoot();
-  const clone = root.cloneNode(true) as HTMLElement;
-  clone
-    .querySelectorAll(
-      'script, style, noscript, nav, footer, header, iframe, svg, button, form, aside, [role="tooltip"], [class*="tooltip"], [class*="popover"], [class*="advert"], [class*="ads"], [id*="ads"]',
-    )
-    .forEach(node => node.remove());
+  const chunks: string[] = [];
+  let total = 0;
 
-  const chunks = Array.from(clone.querySelectorAll('p, li, h1, h2, h3, h4, pre, code, blockquote, td, th'))
-    .map(node => normalizeText(node.textContent ?? ''))
-    .filter(text => text.length > 1);
+  const nodes = root.querySelectorAll(TEXT_NODE_SEL);
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    if (!(node instanceof HTMLElement)) {
+      continue;
+    }
+    if (node.closest(SKIP_IN_TEXT_SEL)) {
+      continue;
+    }
+    const text = normalizeText(node.textContent ?? '');
+    if (text.length <= 1) {
+      continue;
+    }
+    chunks.push(text);
+    total += text.length + 1;
+    if (total >= 60000) {
+      break;
+    }
+  }
 
-  const text = chunks.length > 0 ? chunks.join('\n') : normalizeText(clone.innerText || clone.textContent || '');
-  return text.slice(0, 60000);
+  if (chunks.length > 0) {
+    return chunks.join('\n').slice(0, 60000);
+  }
+
+  // 极少页面没有语义节点：退回轻量 innerText（仍避免 cloneNode）
+  return normalizeText(root.innerText || root.textContent || '').slice(0, 60000);
 };
 
 const fingerprintText = (text: string): string => {
