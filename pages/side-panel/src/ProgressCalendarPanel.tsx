@@ -3,7 +3,6 @@ import { getCnDayMarkByKey } from './lib/cnCalendar';
 import {
   buildDayProgress,
   buildMonthDayMap,
-  buildMonthStats,
   formatDuration,
   formatPercent,
   parseDateKey,
@@ -38,11 +37,6 @@ const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) 
     [focusLog, viewYear, viewMonth, goalMinutes],
   );
 
-  const monthStats = useMemo(
-    () => buildMonthStats(viewYear, viewMonth, dayMap, todayKey),
-    [viewYear, viewMonth, dayMap, todayKey],
-  );
-
   const selected = useMemo(() => {
     const fromMap = dayMap[selectedDateKey];
     if (fromMap) {
@@ -72,33 +66,10 @@ const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) 
       />
 
       <div className="progress-cal-panel__header">
-        <h1 className="progress-cal-panel__title">专注日历</h1>
-        <p className="progress-cal-panel__hint">每日目标 {goalMinutes} 分钟计入完成</p>
+        <h1 className="progress-cal-panel__title">日历</h1>
       </div>
 
       <div className="progress-cal-panel__scroll">
-        <section className="progress-cal-panel__stats" aria-label="本月完成度">
-          <div className="progress-cal-stat progress-cal-stat--hero">
-            <p className="progress-cal-stat__label">本月完成度</p>
-            <p className="progress-cal-stat__value">{formatPercent(monthStats.completionRate)}</p>
-            <p className="progress-cal-stat__sub">
-              {monthStats.completedDays}/{monthStats.elapsedDays} 天达标
-            </p>
-          </div>
-          <div className="progress-cal-stat">
-            <p className="progress-cal-stat__label">有效专注</p>
-            <p className="progress-cal-stat__value progress-cal-stat__value--sm">{monthStats.countedCount}</p>
-            <p className="progress-cal-stat__sub">次</p>
-          </div>
-          <div className="progress-cal-stat">
-            <p className="progress-cal-stat__label">累计时长</p>
-            <p className="progress-cal-stat__value progress-cal-stat__value--sm">
-              {Math.round(monthStats.countedMs / 60_000)}
-            </p>
-            <p className="progress-cal-stat__sub">分钟</p>
-          </div>
-        </section>
-
         <ProgressCalendar
           year={viewYear}
           month={viewMonth}

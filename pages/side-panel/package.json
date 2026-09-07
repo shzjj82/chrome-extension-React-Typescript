@@ -27,7 +27,8 @@
     "@extension/ui": "workspace:*",
     "lucide-react": "^1.38.0",
     "lunar-javascript": "^1.7.7",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@extension/tailwindcss-config": "workspace:*",

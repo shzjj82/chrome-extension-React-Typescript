@@ -140,24 +140,51 @@ const callChatCompletionStream = async (
   }
 
   const contentType = response.headers.get('content-type') || '';
-  if (!response.body || !contentType.includes('text/event-stream')) {
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('模型未返回有效内容');
+  const canTrySse = Boolean(
+    response.body &&
+      (contentType.includes('text/event-stream') ||
+        contentType.includes('octet-stream') ||
+        contentType.includes('text/plain') ||
+        !contentType.includes('application/json')),
+  );
+
+  if (canTrySse && response.body) {
+    const full = await readSseChatStream(response.body, onDelta, signal);
+    if (full.trim()) {
+      return full;
     }
-    await typewriterEmit(content, onDelta, signal);
-    return content;
+    // body 已读完仍无有效增量：另发非流式请求再本地逐字
+    const fallback = await callChatCompletion(settings, messages);
+    await typewriterEmit(fallback, onDelta, signal);
+    return fallback;
   }
 
-  const reader = response.body.getReader();
+  // 明确 JSON 响应：整段后再本地逐字
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('模型未返回有效内容');
+  }
+  await typewriterEmit(content, onDelta, signal);
+  return content;
+};
+
+const readSseChatStream = async (
+  body: ReadableStream<Uint8Array>,
+  onDelta: (chunk: string) => void,
+  signal?: AbortSignal,
+) => {
+  const reader = body.getReader();
   const decoder = new TextDecoder('utf-8');
   let buffer = '';
   let full = '';
 
   while (true) {
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
     const { done, value } = await reader.read();
     if (done) {
       break;
@@ -190,21 +217,21 @@ const callChatCompletionStream = async (
     }
   }
 
-  if (!full.trim()) {
-    throw new Error('模型未返回有效内容');
-  }
   return full;
 };
 
 const typewriterEmit = async (text: string, onDelta: (chunk: string) => void, signal?: AbortSignal) => {
   const chars = Array.from(text);
-  for (const ch of chars) {
+  // 小块输出，便于上层蓄水池尽快达到阈值并结束 loading
+  const chunkSize = 4;
+  for (let i = 0; i < chars.length; i += chunkSize) {
     if (signal?.aborted) {
       throw new DOMException('Aborted', 'AbortError');
     }
-    onDelta(ch);
+    const piece = chars.slice(i, i + chunkSize).join('');
+    onDelta(piece);
     await new Promise<void>(resolve => {
-      window.setTimeout(resolve, ch === '\n' ? 28 : 16);
+      window.setTimeout(resolve, piece.includes('\n') ? 24 : 12);
     });
   }
 };

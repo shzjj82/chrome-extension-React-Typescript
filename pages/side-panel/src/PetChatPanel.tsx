@@ -1,5 +1,6 @@
 import BackIconButton from './BackIconButton';
 import { callChatCompletion, callChatCompletionStream } from './lib/learning';
+import { useStickToBottomScroll } from './lib/useStickToBottomScroll';
 import PhoneStatusBar from './PhoneStatusBar';
 import {
   clipText,
@@ -16,7 +17,7 @@ import { cn } from '@extension/ui';
 import { ArrowUp, MessageSquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PetChatMessage, PetChatThread } from '@extension/knowledge-base';
-import type { MouseEvent as ReactMouseEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, UIEvent } from 'react';
 
 type PetChatPanelProps = {
   isLight: boolean;
@@ -113,13 +114,20 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
-  const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const stickToBottomRef = useRef(true);
   const abortRef = useRef<AbortController | null>(null);
   const skipThreadLoadRef = useRef(false);
   const activeThreadId = activeThread?.id ?? null;
   const activeThreadIdRef = useRef<string | null>(null);
+
+  const {
+    listRef,
+    stickToBottomRef,
+    pinToBottom,
+    onScroll: onStickScroll,
+    onWheel,
+    onTouchMove,
+  } = useStickToBottomScroll([messages, loading, streamingId, error, booting, activeThreadId]);
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -190,7 +198,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
     setBooting(true);
     setError('');
     setMessages([]);
-    stickToBottomRef.current = true;
+    pinToBottom();
 
     void (async () => {
       try {
@@ -207,7 +215,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       } finally {
         if (!cancelled && activeThreadIdRef.current === activeThreadId) {
           setBooting(false);
-          stickToBottomRef.current = true;
+          pinToBottom();
         }
       }
     })();
@@ -217,14 +225,6 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       abortRef.current?.abort();
     };
   }, [activeThreadId, isDraftThread]);
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el || !stickToBottomRef.current || !activeThreadId) {
-      return;
-    }
-    el.scrollTop = el.scrollHeight;
-  }, [messages, loading, streamingId, error, booting, activeThreadId]);
 
   useLayoutEffect(() => {
     const el = inputRef.current;
@@ -280,7 +280,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       createdAt: now,
       updatedAt: now,
     });
-    stickToBottomRef.current = true;
+    pinToBottom();
   };
 
   const removeThread = async (thread: PetChatThread, event: ReactMouseEvent) => {
@@ -379,13 +379,12 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
     }
   };
 
-  const onListScroll = () => {
+  const onListScroll = (event?: UIEvent<HTMLDivElement>) => {
+    onStickScroll(event);
     const el = listRef.current;
     if (!el) {
       return;
     }
-    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stickToBottomRef.current = distanceToBottom < 48;
     if (el.scrollTop < 48) {
       void loadOlder();
     }
@@ -434,7 +433,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
     setInput('');
     setError('');
-    stickToBottomRef.current = true;
+    pinToBottom();
     setMessages(prev => [...prev, userMsg, assistantMsg]);
     setStreamingId(assistantId);
     setLoading(true);
@@ -493,12 +492,14 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   if (!activeThread) {
     return (
       <div className={cn('side-panel sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
-        <PhoneStatusBar
-          className="pet-chat__status"
-          leading={onBack ? <BackIconButton onClick={handleHeaderBack} /> : null}
-        />
+        <PhoneStatusBar className="pet-chat__status" clockLeft />
 
         <div className="pet-chat__topic-bar">
+          {onBack ? (
+            <BackIconButton className="pet-chat__back" iconSize={16} onClick={handleHeaderBack} />
+          ) : (
+            <span className="pet-chat__topic-spacer" />
+          )}
           <h1 className="pet-chat__topic-title">短信</h1>
           <button type="button" className="pet-chat__topic-new" onClick={startNewThread}>
             <MessageSquarePlus size={16} strokeWidth={2.2} />
@@ -553,13 +554,15 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
   return (
     <div className={cn('side-panel sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
-      <PhoneStatusBar className="pet-chat__status" leading={<BackIconButton onClick={handleHeaderBack} />} />
+      <PhoneStatusBar className="pet-chat__status" clockLeft />
 
       <div className="pet-chat__topic-bar pet-chat__topic-bar--chat">
+        <BackIconButton className="pet-chat__back" iconSize={16} onClick={handleHeaderBack} />
         <h1 className="pet-chat__topic-title">{activeThread.title}</h1>
+        <span className="pet-chat__topic-spacer" aria-hidden="true" />
       </div>
 
-      <div className="pet-chat__list" ref={listRef} onScroll={onListScroll}>
+      <div className="pet-chat__list" ref={listRef} onScroll={onListScroll} onWheel={onWheel} onTouchMove={onTouchMove}>
         {loadingMore ? <p className="pet-chat__load-more">加载更早消息…</p> : null}
         {hasMore && !loadingMore ? (
           <p className="pet-chat__load-more pet-chat__load-more--hint">上滑加载更早消息</p>

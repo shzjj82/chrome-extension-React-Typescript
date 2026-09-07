@@ -7,16 +7,19 @@ import type {
   PetChatPage,
   PetChatThread,
   PetChatThreadInput,
+  SelectionFavorite,
+  SelectionFavoriteInput,
   StudySession,
   StudySessionInput,
 } from './types.js';
 
 const DB_NAME = 'study-mind';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const SESSION_STORE = 'sessions';
 const BROWSE_STORE = 'browse-pages';
 const PET_CHAT_STORE = 'pet-chat-messages';
 const PET_CHAT_THREAD_STORE = 'pet-chat-threads';
+const SELECTION_FAVORITE_STORE = 'selection-favorites';
 
 const clipText = (text: string, max: number) => {
   const t = text.replace(/\s+/g, ' ').trim();
@@ -90,6 +93,13 @@ const applySchemaUpgrade = (db: IDBDatabase, tx: IDBTransaction | null, oldVersi
         msgStore.put({ ...msg, threadId });
       }
     };
+  }
+
+  if (oldVersion < 5) {
+    if (!db.objectStoreNames.contains(SELECTION_FAVORITE_STORE)) {
+      const store = db.createObjectStore(SELECTION_FAVORITE_STORE, { keyPath: 'id' });
+      store.createIndex('createdAt', 'createdAt', { unique: false });
+    }
   }
 };
 
@@ -516,6 +526,112 @@ const listPetChatMessagesPage = async (options: {
   });
 };
 
+const saveSelectionFavorite = async (input: SelectionFavoriteInput): Promise<SelectionFavorite> => {
+  const text = input.text.trim();
+  if (!text) {
+    throw new Error('没有可收藏的内容');
+  }
+
+  const db = await openDb();
+  const now = Date.now();
+  const favorite: SelectionFavorite = {
+    id: input.id ?? createId(),
+    text,
+    sourceUrl: input.sourceUrl || '',
+    pageTitle: input.pageTitle || '',
+    createdAt: input.createdAt ?? now,
+    updatedAt: input.updatedAt ?? now,
+    messages: Array.isArray(input.messages) ? input.messages : [],
+    links: Array.isArray(input.links) ? input.links : [],
+  };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SELECTION_FAVORITE_STORE, 'readwrite');
+    const store = tx.objectStore(SELECTION_FAVORITE_STORE);
+    const getAllReq = store.getAll();
+
+    getAllReq.onsuccess = () => {
+      const existing = (getAllReq.result as SelectionFavorite[]).filter(
+        item => item.id !== favorite.id && item.text === favorite.text && item.sourceUrl === favorite.sourceUrl,
+      );
+      for (const item of existing) {
+        store.delete(item.id);
+      }
+      store.put(favorite);
+    };
+
+    tx.oncomplete = () => resolve(favorite);
+    tx.onerror = () => reject(tx.error ?? new Error('Failed to save selection favorite'));
+  });
+};
+
+const listSelectionFavorites = async (): Promise<SelectionFavorite[]> => {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SELECTION_FAVORITE_STORE, 'readonly');
+    const store = tx.objectStore(SELECTION_FAVORITE_STORE);
+    const request = store.indexNames.contains('createdAt') ? store.index('createdAt').getAll() : store.getAll();
+
+    request.onsuccess = () => {
+      const items = (request.result as SelectionFavorite[]).map(item => ({
+        ...item,
+        messages: Array.isArray(item.messages) ? item.messages : [],
+        links: Array.isArray(item.links) ? item.links : [],
+        updatedAt: item.updatedAt ?? item.createdAt,
+      }));
+      items.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+      resolve(items.slice(0, 200));
+    };
+    request.onerror = () => reject(request.error ?? new Error('Failed to list selection favorites'));
+  });
+};
+
+const deleteSelectionFavorite = async (id: string): Promise<void> => {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SELECTION_FAVORITE_STORE, 'readwrite');
+    tx.objectStore(SELECTION_FAVORITE_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Failed to delete selection favorite'));
+  });
+};
+
+const findSelectionFavorite = async (text: string, sourceUrl = ''): Promise<SelectionFavorite | null> => {
+  const needle = text.trim();
+  if (!needle) {
+    return null;
+  }
+  const items = await listSelectionFavorites();
+  return items.find(item => item.text === needle && item.sourceUrl === (sourceUrl || '')) ?? null;
+};
+
+const getSelectionFavorite = async (id: string): Promise<SelectionFavorite | null> => {
+  if (!id) {
+    return null;
+  }
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SELECTION_FAVORITE_STORE, 'readonly');
+    const request = tx.objectStore(SELECTION_FAVORITE_STORE).get(id);
+    request.onsuccess = () => {
+      const item = request.result as SelectionFavorite | undefined;
+      if (!item) {
+        resolve(null);
+        return;
+      }
+      resolve({
+        ...item,
+        messages: Array.isArray(item.messages) ? item.messages : [],
+        links: Array.isArray(item.links) ? item.links : [],
+        updatedAt: item.updatedAt ?? item.createdAt,
+      });
+    };
+    request.onerror = () => reject(request.error ?? new Error('Failed to get selection favorite'));
+  });
+};
+
 export {
   createEmptySession,
   listSessions,
@@ -539,4 +655,9 @@ export {
   savePetChatMessage,
   listPetChatMessagesPage,
   clipText,
+  saveSelectionFavorite,
+  listSelectionFavorites,
+  deleteSelectionFavorite,
+  findSelectionFavorite,
+  getSelectionFavorite,
 };

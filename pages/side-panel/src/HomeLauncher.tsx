@@ -70,7 +70,7 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
     <div className={cn('side-panel phone-home', !isLight && 'phone-home--dark')}>
       <div className="phone-home__wallpaper" aria-hidden="true" />
 
-      <PhoneStatusBar className="phone-home__status-bar" />
+      <PhoneStatusBar className="phone-home__status-bar" clockLeft />
 
       <section className="phone-home__widgets" aria-label="桌面组件">
         <article className="phone-widget phone-widget--time">

@@ -8,7 +8,6 @@ import {
   pomodoroSettingsStorage,
   pomodoroStateStorage,
   selectionAskDraftStorage,
-  selectionFavoritesStorage,
 } from '@extension/storage';
 import type {
   ExtensionRequest,
@@ -46,18 +45,12 @@ const panelPath = (view?: SidePanelView) => {
 };
 
 const MENU_ASK = 'study-mind-ask-selection';
-const MENU_SAVE = 'study-mind-save-selection';
 
 const ensureContextMenus = async () => {
   await chrome.contextMenus.removeAll().catch(() => undefined);
   await chrome.contextMenus.create({
     id: MENU_ASK,
     title: 'Study Mind：提问',
-    contexts: ['selection'],
-  });
-  await chrome.contextMenus.create({
-    id: MENU_SAVE,
-    title: 'Study Mind：收藏',
     contexts: ['selection'],
   });
 };
@@ -639,40 +632,26 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     return;
   }
 
-  const pageTitle = tab.title || '';
-  const sourceUrl = tab.url || '';
-
-  if (info.menuItemId === MENU_SAVE) {
-    void (async () => {
-      try {
-        await selectionFavoritesStorage.addFavorite({
-          text: selection,
-          sourceUrl,
-          pageTitle,
-        });
-        await notify('已收藏', selection.length > 40 ? `${selection.slice(0, 40)}…` : selection);
-      } catch (error: unknown) {
-        await notify('收藏失败', error instanceof Error ? error.message : '请稍后重试');
-      }
-    })();
+  if (info.menuItemId !== MENU_ASK) {
     return;
   }
 
-  if (info.menuItemId === MENU_ASK) {
-    // 先同步发起侧栏打开，保留用户手势
-    const sidePanelOpen = startNativeSidePanelOpen(tabId, 'ask');
-    void (async () => {
-      try {
-        await selectionAskDraftStorage.set({
-          text: selection,
-          sourceUrl,
-          pageTitle,
-          createdAt: Date.now(),
-        });
-        await openLearningUiForTab(tabId, sidePanelOpen, 'ask');
-      } catch (error: unknown) {
-        await notify('打开提问失败', error instanceof Error ? error.message : '请稍后重试');
-      }
-    })();
-  }
+  const pageTitle = tab.title || '';
+  const sourceUrl = tab.url || '';
+
+  // 先同步发起侧栏打开，保留用户手势
+  const sidePanelOpen = startNativeSidePanelOpen(tabId, 'ask');
+  void (async () => {
+    try {
+      await selectionAskDraftStorage.set({
+        text: selection,
+        sourceUrl,
+        pageTitle,
+        createdAt: Date.now(),
+      });
+      await openLearningUiForTab(tabId, sidePanelOpen, 'ask');
+    } catch (error: unknown) {
+      await notify('打开提问失败', error instanceof Error ? error.message : '请稍后重试');
+    }
+  })();
 });

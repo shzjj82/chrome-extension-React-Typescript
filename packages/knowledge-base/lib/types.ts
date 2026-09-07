@@ -108,6 +108,40 @@ type PetChatPage = {
   hasMore: boolean;
 };
 
+/** 滑词提问收藏（IndexedDB） */
+type SelectionFavoriteMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  hidden?: boolean;
+};
+
+type SelectionFavoriteLink = {
+  title: string;
+  url: string;
+};
+
+type SelectionFavorite = {
+  id: string;
+  text: string;
+  sourceUrl: string;
+  pageTitle: string;
+  createdAt: number;
+  /** 收藏时的对话快照（含追问） */
+  messages: SelectionFavoriteMessage[];
+  /** 相关查询链接 */
+  links: SelectionFavoriteLink[];
+  updatedAt: number;
+};
+
+type SelectionFavoriteInput = Omit<SelectionFavorite, 'id' | 'createdAt' | 'updatedAt' | 'messages' | 'links'> & {
+  id?: string;
+  createdAt?: number;
+  updatedAt?: number;
+  messages?: SelectionFavoriteMessage[];
+  links?: SelectionFavoriteLink[];
+};
+
 export type {
   LearningMode,
   MaterialSource,
@@ -127,4 +161,8 @@ export type {
   PetChatMessage,
   PetChatMessageInput,
   PetChatPage,
+  SelectionFavorite,
+  SelectionFavoriteInput,
+  SelectionFavoriteMessage,
+  SelectionFavoriteLink,
 };
