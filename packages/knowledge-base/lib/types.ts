@@ -64,11 +64,34 @@ type BrowseDayGroup = {
   records: BrowsePageRecord[];
 };
 
-/** 短信 / 宠物聊天消息（IndexedDB） */
+/** 短信 / 宠物聊天 */
 type PetChatRole = 'user' | 'assistant';
+
+/** pending：尚未总结标题；ready：已有标题 */
+type PetChatTitleStatus = 'pending' | 'ready';
+
+type PetChatThread = {
+  id: string;
+  title: string;
+  titleStatus: PetChatTitleStatus;
+  /** 列表预览：最近一条消息摘要 */
+  preview: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+type PetChatThreadInput = {
+  id?: string;
+  title?: string;
+  titleStatus?: PetChatTitleStatus;
+  preview?: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
 
 type PetChatMessage = {
   id: string;
+  threadId: string;
   role: PetChatRole;
   content: string;
   createdAt: number;
@@ -98,6 +121,9 @@ export type {
   BrowsePageInput,
   BrowseDayGroup,
   PetChatRole,
+  PetChatTitleStatus,
+  PetChatThread,
+  PetChatThreadInput,
   PetChatMessage,
   PetChatMessageInput,
   PetChatPage,

@@ -5,11 +5,15 @@ import { t } from '@extension/i18n';
 import { useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import {
   exampleThemeStorage,
+  getProviderModelOptions,
   isAdoptionUserInfoFilled,
+  LLM_CUSTOM_MODEL_VALUE,
+  LLM_PROVIDER_OPTIONS,
   LLM_PROVIDER_PRESETS,
   llmSettingsStorage,
   normalizeUserProfile,
   pomodoroSettingsStorage,
+  resolveModelSelectValue,
   uiSettingsStorage,
   userProfileStorage,
 } from '@extension/storage';
@@ -288,18 +292,15 @@ const Options = () => {
               <SmSelect
                 aria-label={t('llmProvider')}
                 value={llm.provider}
-                options={[
-                  { value: 'deepseek', label: 'DeepSeek' },
-                  { value: 'qwen', label: '通义千问' },
-                  { value: 'openai-compatible', label: 'OpenAI Compatible' },
-                ]}
+                options={LLM_PROVIDER_OPTIONS}
                 onChange={next => {
                   const provider = next as LlmProviderId;
+                  const preset = LLM_PROVIDER_PRESETS[provider];
                   void llmSettingsStorage.set(prev => ({
                     ...prev,
                     provider,
-                    baseUrl: LLM_PROVIDER_PRESETS[provider].baseUrl,
-                    model: LLM_PROVIDER_PRESETS[provider].model,
+                    baseUrl: preset.baseUrl,
+                    model: preset.model || prev.model,
                   }));
                 }}
               />
@@ -313,11 +314,32 @@ const Options = () => {
             </label>
             <label>
               {t('llmModel')}
-              <input
-                value={llm.model}
-                onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, model: event.target.value }))}
+              <SmSelect
+                aria-label={t('llmModel')}
+                value={resolveModelSelectValue(llm.provider, llm.model)}
+                options={getProviderModelOptions(llm.provider)}
+                onChange={next => {
+                  if (next === LLM_CUSTOM_MODEL_VALUE) {
+                    void llmSettingsStorage.set(prev => {
+                      const known = LLM_PROVIDER_PRESETS[prev.provider].models.some(item => item.value === prev.model);
+                      return { ...prev, model: known ? '' : prev.model };
+                    });
+                    return;
+                  }
+                  void llmSettingsStorage.set(prev => ({ ...prev, model: next }));
+                }}
               />
             </label>
+            {resolveModelSelectValue(llm.provider, llm.model) === LLM_CUSTOM_MODEL_VALUE ? (
+              <label>
+                自定义模型 ID
+                <input
+                  value={llm.model}
+                  onChange={event => void llmSettingsStorage.set(prev => ({ ...prev, model: event.target.value }))}
+                  placeholder={llm.provider === 'doubao' ? '填写方舟推理接入点 ID，如 ep-xxxxxxxx' : '填写模型 ID'}
+                />
+              </label>
+            ) : null}
             <label>
               {t('llmApiKey')}
               <input

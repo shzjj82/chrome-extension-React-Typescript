@@ -9,6 +9,8 @@ import BrowserFrame from './BrowserFrame';
 import HomeLauncher from './HomeLauncher';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
 import PetChatPanel from './PetChatPanel';
+import ProgressCalendarPanel from './ProgressCalendarPanel';
+import SelectionAskPanel from './SelectionAskPanel';
 import SheetFrame from './SheetFrame';
 import { t } from '@extension/i18n';
 import {
@@ -42,12 +44,12 @@ import type { MouseEvent, ReactNode } from 'react';
 type TabKey = 'study' | 'library';
 type GatePhase = 'adopt' | 'app';
 /** 全页路由（浏览器 / 电话 / 商店走浮层，不占 AppView） */
-type AppView = 'home' | 'files' | 'messages' | 'study';
+type AppView = 'home' | 'files' | 'messages' | 'study' | 'calendar' | 'ask';
 
 type FloatingOverlay =
   | {
       kind: 'browser';
-      appId: 'browser' | 'store';
+      appId: 'browser';
       title: string;
       url: string;
       x: number;
@@ -55,7 +57,7 @@ type FloatingOverlay =
     }
   | {
       kind: 'sheet';
-      appId: 'phone';
+      appId: 'phone' | 'store';
       title: string;
       x: number;
       y: number;
@@ -74,6 +76,12 @@ const resolveAppView = (): AppView => {
     }
     if (view === 'study') {
       return 'study';
+    }
+    if (view === 'ask') {
+      return 'ask';
+    }
+    if (view === 'calendar') {
+      return 'calendar';
     }
     return 'home';
   } catch {
@@ -195,10 +203,10 @@ const SidePanel = () => {
       return;
     }
 
-    if (app.openMode === 'browser' && (id === 'browser' || id === 'store')) {
+    if (app.openMode === 'browser' && id === 'browser') {
       setFloating({
         kind: 'browser',
-        appId: id,
+        appId: 'browser',
         title: app.label,
         url: app.url || '',
         x,
@@ -207,10 +215,10 @@ const SidePanel = () => {
       return;
     }
 
-    if (app.openMode === 'sheet' && id === 'phone') {
+    if (app.openMode === 'sheet' && (id === 'phone' || id === 'store')) {
       setFloating({
         kind: 'sheet',
-        appId: 'phone',
+        appId: id,
         title: app.label,
         x,
         y,
@@ -219,7 +227,7 @@ const SidePanel = () => {
     }
 
     // page：色圆放大入场
-    if (id === 'files' || id === 'messages' || id === 'study') {
+    if (id === 'files' || id === 'messages' || id === 'study' || id === 'calendar') {
       setFloating(null);
       setReveal({
         x,
@@ -436,7 +444,7 @@ const SidePanel = () => {
         originY={floating.y}
         isLight={isLight}
         onClose={closeFloating}>
-        <BrowserAppPage appId="phone" />
+        <BrowserAppPage appId={floating.appId} />
       </SheetFrame>
     ) : null;
 
@@ -448,6 +456,10 @@ const SidePanel = () => {
     appContent = <BrowseRecordsPanel isLight={isLight} onBack={goHome} />;
   } else if (appView === 'messages') {
     appContent = <PetChatPanel isLight={isLight} onBack={goHome} />;
+  } else if (appView === 'calendar') {
+    appContent = <ProgressCalendarPanel isLight={isLight} onBack={goHome} />;
+  } else if (appView === 'ask') {
+    appContent = <SelectionAskPanel isLight={isLight} onBack={goHome} />;
   } else {
     appContent = (
       <div className={cn('side-panel sm-shell', !isLight && 'sm-shell--dark')}>

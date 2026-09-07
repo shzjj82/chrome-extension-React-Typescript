@@ -7,6 +7,8 @@ import {
   learningDraftStorage,
   pomodoroSettingsStorage,
   pomodoroStateStorage,
+  selectionAskDraftStorage,
+  selectionFavoritesStorage,
 } from '@extension/storage';
 import type {
   ExtensionRequest,
@@ -31,7 +33,40 @@ const panelPath = (view?: SidePanelView) => {
   if (view === 'chat') {
     return 'side-panel/index.html?view=chat';
   }
+  if (view === 'ask') {
+    return 'side-panel/index.html?view=ask';
+  }
+  if (view === 'study') {
+    return 'side-panel/index.html?view=study';
+  }
+  if (view === 'calendar') {
+    return 'side-panel/index.html?view=calendar';
+  }
   return 'side-panel/index.html';
+};
+
+const MENU_ASK = 'study-mind-ask-selection';
+const MENU_SAVE = 'study-mind-save-selection';
+
+const ensureContextMenus = async () => {
+  await chrome.contextMenus.removeAll().catch(() => undefined);
+  await chrome.contextMenus.create({
+    id: MENU_ASK,
+    title: 'Study Mind：提问',
+    contexts: ['selection'],
+  });
+  await chrome.contextMenus.create({
+    id: MENU_SAVE,
+    title: 'Study Mind：收藏',
+    contexts: ['selection'],
+  });
+};
+
+const resolveSidePanelView = (value: unknown): SidePanelView | undefined => {
+  if (value === 'browse' || value === 'study' || value === 'chat' || value === 'ask' || value === 'calendar') {
+    return value;
+  }
+  return undefined;
 };
 const enableSidePanelForTab = async (tabId: number, view?: SidePanelView) => {
   await chrome.sidePanel.setOptions({
@@ -364,7 +399,7 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
       return false;
     }
 
-    const view = payload.view === 'browse' ? 'browse' : payload.view === 'study' ? 'study' : undefined;
+    const view = resolveSidePanelView(payload.view);
 
     // sidePanel.open must start in this turn — before any await — to keep user gesture.
     const sidePanelOpen = startNativeSidePanelOpen(
@@ -592,3 +627,58 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
 
 void pomodoroStateStorage.get();
 void focusLogStorage.get();
+
+chrome.runtime.onInstalled.addListener(() => {
+  void ensureContextMenus();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void ensureContextMenus();
+});
+
+void ensureContextMenus();
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  const tabId = tab?.id;
+  const selection = (info.selectionText || '').trim();
+  if (!selection || tabId == null) {
+    return;
+  }
+
+  const pageTitle = tab.title || '';
+  const sourceUrl = tab.url || '';
+
+  if (info.menuItemId === MENU_SAVE) {
+    void (async () => {
+      try {
+        await selectionFavoritesStorage.addFavorite({
+          text: selection,
+          sourceUrl,
+          pageTitle,
+        });
+        await notify('已收藏', selection.length > 40 ? `${selection.slice(0, 40)}…` : selection);
+      } catch (error: unknown) {
+        await notify('收藏失败', error instanceof Error ? error.message : '请稍后重试');
+      }
+    })();
+    return;
+  }
+
+  if (info.menuItemId === MENU_ASK) {
+    // 先同步发起侧栏打开，保留用户手势
+    const sidePanelOpen = startNativeSidePanelOpen(tabId, 'ask');
+    void (async () => {
+      try {
+        await selectionAskDraftStorage.set({
+          text: selection,
+          sourceUrl,
+          pageTitle,
+          createdAt: Date.now(),
+        });
+        await openLearningUiForTab(tabId, sidePanelOpen, 'ask');
+      } catch (error: unknown) {
+        await notify('打开提问失败', error instanceof Error ? error.message : '请稍后重试');
+      }
+    })();
+  }
+});

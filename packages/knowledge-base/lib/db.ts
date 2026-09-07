@@ -5,48 +5,122 @@ import type {
   PetChatMessage,
   PetChatMessageInput,
   PetChatPage,
+  PetChatThread,
+  PetChatThreadInput,
   StudySession,
   StudySessionInput,
 } from './types.js';
 
 const DB_NAME = 'study-mind';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const SESSION_STORE = 'sessions';
 const BROWSE_STORE = 'browse-pages';
 const PET_CHAT_STORE = 'pet-chat-messages';
+const PET_CHAT_THREAD_STORE = 'pet-chat-threads';
 
-const openDb = (): Promise<IDBDatabase> =>
-  new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-
-      if (!db.objectStoreNames.contains(SESSION_STORE)) {
-        const store = db.createObjectStore(SESSION_STORE, { keyPath: 'id' });
-        store.createIndex('updatedAt', 'updatedAt', { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(BROWSE_STORE)) {
-        const store = db.createObjectStore(BROWSE_STORE, { keyPath: 'id' });
-        store.createIndex('dateKey', 'dateKey', { unique: false });
-        store.createIndex('recordedAt', 'recordedAt', { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(PET_CHAT_STORE)) {
-        const store = db.createObjectStore(PET_CHAT_STORE, { keyPath: 'id' });
-        store.createIndex('createdAt', 'createdAt', { unique: false });
-      }
-    };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('Failed to open IndexedDB'));
-  });
+const clipText = (text: string, max: number) => {
+  const t = text.replace(/\s+/g, ' ').trim();
+  if (!t) {
+    return '';
+  }
+  return t.length <= max ? t : `${t.slice(0, max)}…`;
+};
 
 const createId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const applySchemaUpgrade = (db: IDBDatabase, tx: IDBTransaction | null, oldVersion: number) => {
+  if (!db.objectStoreNames.contains(SESSION_STORE)) {
+    const store = db.createObjectStore(SESSION_STORE, { keyPath: 'id' });
+    store.createIndex('updatedAt', 'updatedAt', { unique: false });
+  }
+
+  if (!db.objectStoreNames.contains(BROWSE_STORE)) {
+    const store = db.createObjectStore(BROWSE_STORE, { keyPath: 'id' });
+    store.createIndex('dateKey', 'dateKey', { unique: false });
+    store.createIndex('recordedAt', 'recordedAt', { unique: false });
+  }
+
+  if (!db.objectStoreNames.contains(PET_CHAT_STORE)) {
+    const store = db.createObjectStore(PET_CHAT_STORE, { keyPath: 'id' });
+    store.createIndex('createdAt', 'createdAt', { unique: false });
+  }
+
+  if (oldVersion < 4 && tx) {
+    if (!db.objectStoreNames.contains(PET_CHAT_THREAD_STORE)) {
+      const store = db.createObjectStore(PET_CHAT_THREAD_STORE, { keyPath: 'id' });
+      store.createIndex('updatedAt', 'updatedAt', { unique: false });
+    }
+
+    const msgStore = tx.objectStore(PET_CHAT_STORE);
+    if (!msgStore.indexNames.contains('threadId')) {
+      msgStore.createIndex('threadId', 'threadId', { unique: false });
+    }
+    if (!msgStore.indexNames.contains('byThreadCreatedAt')) {
+      msgStore.createIndex('byThreadCreatedAt', ['threadId', 'createdAt'], { unique: false });
+    }
+
+    const getAllReq = msgStore.getAll();
+    getAllReq.onsuccess = () => {
+      const all = getAllReq.result as Array<PetChatMessage & { threadId?: string }>;
+      const orphans = all.filter(item => !item.threadId);
+      if (orphans.length === 0) {
+        return;
+      }
+
+      const threadId = createId();
+      const createdAt = Math.min(...orphans.map(item => item.createdAt));
+      const updatedAt = Math.max(...orphans.map(item => item.createdAt));
+      const firstUser = orphans.find(item => item.role === 'user');
+      const last = orphans.reduce((a, b) => (a.createdAt >= b.createdAt ? a : b));
+      const title = clipText(firstUser?.content ?? '以前的对话', 12) || '以前的对话';
+
+      tx.objectStore(PET_CHAT_THREAD_STORE).put({
+        id: threadId,
+        title,
+        titleStatus: 'ready',
+        preview: clipText(last.content, 40),
+        createdAt,
+        updatedAt,
+      } satisfies PetChatThread);
+
+      for (const msg of orphans) {
+        msgStore.put({ ...msg, threadId });
+      }
+    };
+  }
+};
+
+/**
+ * 先探测现有版本：若库已更新到更高版本，禁止再用低版本 open（会触发 VersionError）。
+ * 仅当现有版本 < DB_VERSION 时才请求升级。
+ */
+const openDb = (): Promise<IDBDatabase> =>
+  new Promise((resolve, reject) => {
+    const attachUpgrade = (request: IDBOpenDBRequest) => {
+      request.onupgradeneeded = event => {
+        applySchemaUpgrade(request.result, request.transaction, event.oldVersion);
+      };
+    };
+
+    const probe = indexedDB.open(DB_NAME);
+    probe.onerror = () => reject(probe.error ?? new Error('Failed to open IndexedDB'));
+    probe.onsuccess = () => {
+      const existing = probe.result;
+      if (existing.version >= DB_VERSION) {
+        resolve(existing);
+        return;
+      }
+
+      existing.close();
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      attachUpgrade(request);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error('Failed to open IndexedDB'));
+    };
+  });
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -275,57 +349,168 @@ const getBrowsePage = async (id: string): Promise<BrowsePageRecord | null> => {
   });
 };
 
+const savePetChatThread = async (input: PetChatThreadInput): Promise<PetChatThread> => {
+  const db = await openDb();
+  const existing = input.id ? await getPetChatThread(input.id) : null;
+  const now = Date.now();
+  const thread: PetChatThread = {
+    id: input.id ?? createId(),
+    title: (input.title ?? existing?.title ?? '新对话').trim() || '新对话',
+    titleStatus: input.titleStatus ?? existing?.titleStatus ?? 'pending',
+    preview: input.preview ?? existing?.preview ?? '',
+    createdAt: input.createdAt ?? existing?.createdAt ?? now,
+    updatedAt: input.updatedAt ?? now,
+  };
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PET_CHAT_THREAD_STORE, 'readwrite');
+    const request = tx.objectStore(PET_CHAT_THREAD_STORE).put(thread);
+    request.onsuccess = () => resolve(thread);
+    request.onerror = () => reject(request.error ?? new Error('Failed to save pet chat thread'));
+  });
+};
+
+const createPetChatThread = async (title = '新对话'): Promise<PetChatThread> =>
+  savePetChatThread({
+    title,
+    titleStatus: 'pending',
+    preview: '',
+  });
+
+const getPetChatThread = async (id: string): Promise<PetChatThread | null> => {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PET_CHAT_THREAD_STORE, 'readonly');
+    const request = tx.objectStore(PET_CHAT_THREAD_STORE).get(id);
+    request.onsuccess = () => resolve((request.result as PetChatThread | undefined) ?? null);
+    request.onerror = () => reject(request.error ?? new Error('Failed to get pet chat thread'));
+  });
+};
+
+const listPetChatThreads = async (): Promise<PetChatThread[]> => {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PET_CHAT_THREAD_STORE, 'readonly');
+    const request = tx.objectStore(PET_CHAT_THREAD_STORE).getAll();
+    request.onsuccess = () => {
+      const threads = (request.result as PetChatThread[]).sort((a, b) => b.updatedAt - a.updatedAt);
+      resolve(threads);
+    };
+    request.onerror = () => reject(request.error ?? new Error('Failed to list pet chat threads'));
+  });
+};
+
+const deletePetChatThread = async (id: string): Promise<void> => {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([PET_CHAT_THREAD_STORE, PET_CHAT_STORE], 'readwrite');
+    const msgStore = tx.objectStore(PET_CHAT_STORE);
+    const index = msgStore.index('threadId');
+    const range = IDBKeyRange.only(id);
+    const cursorReq = index.openCursor(range);
+
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (!cursor) {
+        return;
+      }
+      cursor.delete();
+      cursor.continue();
+    };
+
+    tx.objectStore(PET_CHAT_THREAD_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Failed to delete pet chat thread'));
+  });
+};
+
 const savePetChatMessage = async (input: PetChatMessageInput): Promise<PetChatMessage> => {
+  if (!input.threadId) {
+    throw new Error('threadId is required');
+  }
+
   const db = await openDb();
   const message: PetChatMessage = {
     id: input.id ?? createId(),
+    threadId: input.threadId,
     role: input.role,
     content: input.content,
     createdAt: input.createdAt ?? Date.now(),
   };
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(PET_CHAT_STORE, 'readwrite');
-    const request = tx.objectStore(PET_CHAT_STORE).put(message);
+    const tx = db.transaction([PET_CHAT_STORE, PET_CHAT_THREAD_STORE], 'readwrite');
+    tx.objectStore(PET_CHAT_STORE).put(message);
 
-    request.onsuccess = () => resolve(message);
-    request.onerror = () => reject(request.error ?? new Error('Failed to save pet chat message'));
+    const threadStore = tx.objectStore(PET_CHAT_THREAD_STORE);
+    const getReq = threadStore.get(input.threadId);
+    getReq.onsuccess = () => {
+      const thread = getReq.result as PetChatThread | undefined;
+      if (!thread) {
+        return;
+      }
+      threadStore.put({
+        ...thread,
+        preview: clipText(message.content, 40),
+        updatedAt: Math.max(thread.updatedAt, message.createdAt),
+      } satisfies PetChatThread);
+    };
+
+    tx.oncomplete = () => resolve(message);
+    tx.onerror = () => reject(tx.error ?? new Error('Failed to save pet chat message'));
   });
 };
 
 /**
- * 分页拉取聊天记录（时间正序返回，便于直接渲染）。
+ * 分页拉取某话题聊天记录（时间正序返回，便于直接渲染）。
  * - 首次：取最新 limit 条
  * - 向上翻页：传 beforeCreatedAt，取更早的 limit 条
  */
-const listPetChatMessagesPage = async (options?: {
+const listPetChatMessagesPage = async (options: {
+  threadId: string;
   beforeCreatedAt?: number;
   limit?: number;
 }): Promise<PetChatPage> => {
-  const limit = Math.max(1, options?.limit ?? 20);
-  const beforeCreatedAt = options?.beforeCreatedAt;
+  const threadId = options.threadId?.trim();
+  if (!threadId) {
+    return { messages: [], hasMore: false };
+  }
+
+  const limit = Math.max(1, options.limit ?? 20);
+  const beforeCreatedAt =
+    typeof options.beforeCreatedAt === 'number' && Number.isFinite(options.beforeCreatedAt)
+      ? options.beforeCreatedAt
+      : undefined;
   const db = await openDb();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction(PET_CHAT_STORE, 'readonly');
-    const index = tx.objectStore(PET_CHAT_STORE).index('createdAt');
-    const range = typeof beforeCreatedAt === 'number' ? IDBKeyRange.upperBound(beforeCreatedAt, true) : undefined;
-    const request = index.openCursor(range, 'prev');
-    const collected: PetChatMessage[] = [];
+    const store = tx.objectStore(PET_CHAT_STORE);
+
+    // 用单字段 threadId 索引，避免复合 key 的 IDBKeyRange.bound 在部分环境下报 invalid key
+    const readAllForThread = () => {
+      if (store.indexNames.contains('threadId')) {
+        return store.index('threadId').getAll(IDBKeyRange.only(threadId));
+      }
+      return store.getAll();
+    };
+
+    const request = readAllForThread();
 
     request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor || collected.length >= limit + 1) {
-        const hasMore = collected.length > limit;
-        const page = hasMore ? collected.slice(0, limit) : collected;
-        resolve({
-          messages: page.reverse(),
-          hasMore,
-        });
-        return;
+      let all = (request.result as PetChatMessage[]).filter(item => item.threadId === threadId);
+      all.sort((a, b) => a.createdAt - b.createdAt);
+
+      if (typeof beforeCreatedAt === 'number') {
+        all = all.filter(item => item.createdAt < beforeCreatedAt);
       }
-      collected.push(cursor.value as PetChatMessage);
-      cursor.continue();
+
+      const hasMore = all.length > limit;
+      const page = hasMore ? all.slice(all.length - limit) : all;
+      resolve({ messages: page, hasMore });
     };
     request.onerror = () => reject(request.error ?? new Error('Failed to list pet chat messages'));
   });
@@ -346,6 +531,12 @@ export {
   deleteBrowsePage,
   clearBrowsePages,
   getBrowsePage,
+  createPetChatThread,
+  getPetChatThread,
+  listPetChatThreads,
+  savePetChatThread,
+  deletePetChatThread,
   savePetChatMessage,
   listPetChatMessagesPage,
+  clipText,
 };
