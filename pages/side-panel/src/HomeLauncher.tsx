@@ -1,24 +1,8 @@
+import { DOCK_APPS, PAGE_APPS } from './appCatalog';
 import { cn } from '@extension/ui';
-import { BookOpen, FolderOpen, MessageCircle, Settings2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import type { HomeApp, HomeAppId } from './appCatalog';
 import type { MouseEvent } from 'react';
-
-type HomeAppId = 'files' | 'messages' | 'study' | 'settings';
-
-type HomeApp = {
-  id: HomeAppId;
-  label: string;
-  tone: 'rose' | 'amber' | 'ink' | 'sage';
-  Icon: LucideIcon;
-};
-
-const APPS: HomeApp[] = [
-  { id: 'files', label: '文件', tone: 'rose', Icon: FolderOpen },
-  { id: 'messages', label: '短信', tone: 'amber', Icon: MessageCircle },
-  { id: 'study', label: '学习', tone: 'ink', Icon: BookOpen },
-  { id: 'settings', label: '设置', tone: 'sage', Icon: Settings2 },
-];
 
 type HomeLauncherProps = {
   isLight: boolean;
@@ -27,6 +11,30 @@ type HomeLauncherProps = {
 
 const formatClock = (date: Date) =>
   date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+
+const AppButton = ({
+  app,
+  dock = false,
+  onOpenApp,
+}: {
+  app: HomeApp;
+  dock?: boolean;
+  onOpenApp: HomeLauncherProps['onOpenApp'];
+}) => {
+  const { id, label, tone, Icon } = app;
+  return (
+    <button
+      type="button"
+      className={cn('phone-app', `phone-app--${tone}`, dock && 'phone-app--dock')}
+      aria-label={label}
+      onClick={event => onOpenApp(id, event)}>
+      <span className="phone-app__icon">
+        <Icon size={dock ? 24 : 26} strokeWidth={2.1} />
+      </span>
+      {dock ? null : <span className="phone-app__label">{label}</span>}
+    </button>
+  );
+};
 
 const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
   const [now, setNow] = useState(() => new Date());
@@ -75,33 +83,15 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
 
       <main className="phone-home__page" aria-label="应用">
         <div className="phone-home__grid">
-          {APPS.map(({ id, label, tone, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              className={cn('phone-app', `phone-app--${tone}`)}
-              onClick={event => onOpenApp(id, event)}>
-              <span className="phone-app__icon">
-                <Icon size={26} strokeWidth={2.1} />
-              </span>
-              <span className="phone-app__label">{label}</span>
-            </button>
+          {PAGE_APPS.map(app => (
+            <AppButton key={app.id} app={app} onOpenApp={onOpenApp} />
           ))}
         </div>
       </main>
 
       <footer className="phone-home__dock" aria-label="程序坞">
-        {APPS.map(({ id, label, tone, Icon }) => (
-          <button
-            key={`dock-${id}`}
-            type="button"
-            className={cn('phone-app phone-app--dock', `phone-app--${tone}`)}
-            aria-label={label}
-            onClick={event => onOpenApp(id, event)}>
-            <span className="phone-app__icon">
-              <Icon size={24} strokeWidth={2.1} />
-            </span>
-          </button>
+        {DOCK_APPS.map(app => (
+          <AppButton key={`dock-${app.id}`} app={app} dock onOpenApp={onOpenApp} />
         ))}
       </footer>
 
@@ -110,5 +100,4 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
   );
 };
 
-export type { HomeAppId };
 export default HomeLauncher;

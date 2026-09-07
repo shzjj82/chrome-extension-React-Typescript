@@ -1,11 +1,15 @@
 import '@src/SidePanel.css';
 import AdoptionPanel from './AdoptionPanel';
+import { getHomeApp } from './appCatalog';
 import AppRevealOverlay from './AppRevealOverlay';
 import BackIconButton from './BackIconButton';
+import BrowserAppPage from './BrowserAppPage';
 import BrowseRecordsPanel from './BrowseRecordsPanel';
+import BrowserFrame from './BrowserFrame';
 import HomeLauncher from './HomeLauncher';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
 import PetChatPanel from './PetChatPanel';
+import SheetFrame from './SheetFrame';
 import { t } from '@extension/i18n';
 import {
   createEmptySession,
@@ -31,14 +35,31 @@ import {
 } from '@extension/storage';
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { AppRevealPhase } from './AppRevealOverlay';
-import type { HomeAppId } from './HomeLauncher';
+import type { HomeAppId, HomeAppTone } from './appCatalog';
 import type { LearningMode, MaterialSource, PracticeItem, QuizItem, StudySession } from '@extension/knowledge-base';
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 type TabKey = 'study' | 'library';
 type GatePhase = 'adopt' | 'app';
+/** 全页路由（浏览器 / 电话 / 商店走浮层，不占 AppView） */
 type AppView = 'home' | 'files' | 'messages' | 'study';
+
+type FloatingOverlay =
+  | {
+      kind: 'browser';
+      appId: 'browser' | 'store';
+      title: string;
+      url: string;
+      x: number;
+      y: number;
+    }
+  | {
+      kind: 'sheet';
+      appId: 'phone';
+      title: string;
+      x: number;
+      y: number;
+    };
 
 const resolveGatePhase = (petAdopted: boolean): GatePhase => (petAdopted ? 'app' : 'adopt');
 
@@ -82,11 +103,12 @@ const SidePanel = () => {
   const pomodoro = useStorage(pomodoroStateStorage);
   const panelView = resolveAppView();
   const [appView, setAppView] = useState<AppView>(panelView);
+  const [floating, setFloating] = useState<FloatingOverlay | null>(null);
   const [reveal, setReveal] = useState<{
-    phase: AppRevealPhase;
     x: number;
     y: number;
-    pendingView?: AppView;
+    tone: HomeAppTone;
+    pendingView: AppView;
   } | null>(null);
 
   const [tab, setTab] = useState<TabKey>('study');
@@ -136,36 +158,76 @@ const SidePanel = () => {
 
   const goHome = useCallback(() => {
     clearViewQuery();
-    setReveal({
-      phase: 'close',
-      x: window.innerWidth / 2,
-      y: Math.max(window.innerHeight - 72, window.innerHeight * 0.82),
-      pendingView: 'home',
+    setReveal(null);
+    setFloating(null);
+    setAppView('home');
+  }, []);
+
+  const closeFloating = useCallback(() => {
+    setFloating(null);
+  }, []);
+
+  const onRevealCovered = useCallback(() => {
+    setReveal(current => {
+      if (current?.pendingView) {
+        setAppView(current.pendingView);
+      }
+      return current;
     });
   }, []);
 
   const onRevealDone = useCallback(() => {
-    setReveal(current => {
-      if (current?.phase === 'close' && current.pendingView) {
-        setAppView(current.pendingView);
-      }
-      return null;
-    });
+    setReveal(null);
   }, []);
 
   const openApp = (id: HomeAppId, event?: MouseEvent<HTMLButtonElement>) => {
-    if (id === 'settings') {
-      void chrome.runtime.openOptionsPage();
+    const app = getHomeApp(id);
+    if (!app) {
       return;
     }
 
     const rect = event?.currentTarget.getBoundingClientRect();
     const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
     const y = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
-    const next: AppView = id === 'files' ? 'files' : id === 'messages' ? 'messages' : 'study';
 
-    setReveal({ phase: 'open', x, y });
-    setAppView(next);
+    if (app.openMode === 'external') {
+      void chrome.runtime.openOptionsPage();
+      return;
+    }
+
+    if (app.openMode === 'browser' && (id === 'browser' || id === 'store')) {
+      setFloating({
+        kind: 'browser',
+        appId: id,
+        title: app.label,
+        url: app.url || '',
+        x,
+        y,
+      });
+      return;
+    }
+
+    if (app.openMode === 'sheet' && id === 'phone') {
+      setFloating({
+        kind: 'sheet',
+        appId: 'phone',
+        title: app.label,
+        x,
+        y,
+      });
+      return;
+    }
+
+    // page：色圆放大入场
+    if (id === 'files' || id === 'messages' || id === 'study') {
+      setFloating(null);
+      setReveal({
+        x,
+        y,
+        tone: app.tone,
+        pendingView: id,
+      });
+    }
   };
 
   const pomodoroMinutes = useMemo(
@@ -323,51 +385,71 @@ const SidePanel = () => {
 
   if (gatePhase === 'adopt') {
     return (
-      <div className="side-panel">
-        <AdoptionPanel profile={profile} isLight={isLight} onAdopted={() => setGatePhase('app')} />
-      </div>
+      <>
+        <HomeLauncher
+          isLight={isLight}
+          onOpenApp={() => {
+            /* 认养完成前停留在浏览器弹窗 */
+          }}
+        />
+        <BrowserFrame
+          open
+          title="认养伙伴"
+          url="https://study.mind/adopt"
+          dismissible={false}
+          isLight={isLight}
+          className="browser-frame--adopt">
+          <AdoptionPanel profile={profile} isLight={isLight} embedded onAdopted={() => setGatePhase('app')} />
+        </BrowserFrame>
+      </>
     );
   }
 
   const revealLayer = (
     <AppRevealOverlay
       active={Boolean(reveal)}
-      phase={reveal?.phase ?? 'open'}
       originX={reveal?.x ?? 0}
       originY={reveal?.y ?? 0}
+      tone={reveal?.tone ?? 'rose'}
+      onCovered={onRevealCovered}
       onDone={onRevealDone}
     />
   );
 
+  const floatingLayer =
+    floating?.kind === 'browser' ? (
+      <BrowserFrame
+        open
+        title={floating.title}
+        url={floating.url}
+        originX={floating.x}
+        originY={floating.y}
+        isLight={isLight}
+        onClose={closeFloating}>
+        <BrowserAppPage appId={floating.appId} url={floating.url} />
+      </BrowserFrame>
+    ) : floating?.kind === 'sheet' ? (
+      <SheetFrame
+        open
+        title={floating.title}
+        originX={floating.x}
+        originY={floating.y}
+        isLight={isLight}
+        onClose={closeFloating}>
+        <BrowserAppPage appId="phone" />
+      </SheetFrame>
+    ) : null;
+
+  let appContent: ReactNode = null;
+
   if (appView === 'home') {
-    return (
-      <>
-        <HomeLauncher isLight={isLight} onOpenApp={openApp} />
-        {revealLayer}
-      </>
-    );
-  }
-
-  if (appView === 'files') {
-    return (
-      <>
-        <BrowseRecordsPanel isLight={isLight} onBack={goHome} />
-        {revealLayer}
-      </>
-    );
-  }
-
-  if (appView === 'messages') {
-    return (
-      <>
-        <PetChatPanel isLight={isLight} onBack={goHome} />
-        {revealLayer}
-      </>
-    );
-  }
-
-  return (
-    <>
+    appContent = <HomeLauncher isLight={isLight} onOpenApp={openApp} />;
+  } else if (appView === 'files') {
+    appContent = <BrowseRecordsPanel isLight={isLight} onBack={goHome} />;
+  } else if (appView === 'messages') {
+    appContent = <PetChatPanel isLight={isLight} onBack={goHome} />;
+  } else {
+    appContent = (
       <div className={cn('side-panel sm-shell', !isLight && 'sm-shell--dark')}>
         <header className="sm-shell__header">
           <div className="flex items-center justify-between gap-2">
@@ -593,6 +675,13 @@ const SidePanel = () => {
           </main>
         )}
       </div>
+    );
+  }
+
+  return (
+    <>
+      {appContent}
+      {floatingLayer}
       {revealLayer}
     </>
   );

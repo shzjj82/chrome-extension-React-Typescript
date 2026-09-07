@@ -3,7 +3,7 @@ import BrowseDayCalendar, { toLocalDateKey } from './BrowseDayCalendar';
 import { clearBrowsePages, deleteBrowsePage, listBrowsePagesGroupedByDay } from '@extension/knowledge-base';
 import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { Button, cn } from '@extension/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { BrowseDayGroup, BrowsePageRecord } from '@extension/knowledge-base';
 
 type SiteBucket = {
@@ -330,16 +330,63 @@ const BrowseRecordsPanel = ({ isLight, onBack }: BrowseRecordsPanelProps) => {
   const startFocus = async () => {
     try {
       await sendExtensionMessage(ExtensionMessageType.POMODORO_START, {});
-      setStatus('已开始专注');
     } catch (err) {
       setError(err instanceof Error ? err.message : '无法开始专注');
     }
   };
 
   const activeRecord = activeSite?.site.records.find(item => item.id === activeRecordId) ?? null;
+  const shellRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLFooterElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const shell = shellRef.current;
+    const dock = dockRef.current;
+    if (!shell || !dock) {
+      return;
+    }
+
+    const syncDockSpace = () => {
+      const styles = getComputedStyle(shell);
+      const gapRaw = styles.getPropertyValue('--browse-dock-gap').trim();
+      const gap = Number.parseFloat(gapRaw) || 10;
+      // 实测底栏高度 + bottom 间距；底栏变高会由 ResizeObserver 自动重算
+      const space = Math.ceil(dock.getBoundingClientRect().height + gap);
+      shell.style.setProperty('--browse-dock-space', `${space}px`);
+    };
+
+    syncDockSpace();
+    const observer = new ResizeObserver(() => syncDockSpace());
+    observer.observe(dock);
+    window.addEventListener('resize', syncDockSpace);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', syncDockSpace);
+    };
+  }, []);
+
+  // 鼠标在底栏空白处滚轮时，继续驱动列表滚动
+  useEffect(() => {
+    const dock = dockRef.current;
+    const scroll = scrollRef.current;
+    if (!dock || !scroll) {
+      return;
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      scroll.scrollTop += event.deltaY;
+    };
+
+    dock.addEventListener('wheel', onWheel, { passive: true });
+    return () => dock.removeEventListener('wheel', onWheel);
+  }, []);
 
   return (
-    <div className={cn('side-panel sm-shell browse-shell', !isLight && 'sm-shell--dark')}>
+    <div ref={shellRef} className={cn('side-panel sm-shell browse-shell', !isLight && 'sm-shell--dark')}>
       <main className="sm-shell__main browse-shell__main">
         {!activeSite ? (
           <div className="browse-toolbar">
@@ -373,7 +420,7 @@ const BrowseRecordsPanel = ({ isLight, onBack }: BrowseRecordsPanelProps) => {
           </div>
         )}
 
-        <div className="browse-shell__scroll">
+        <div className="browse-shell__scroll" ref={scrollRef}>
           {status ? <p className="browse-shell__toast">{status}</p> : null}
           {error ? <p className="text-xs text-red-700">{error}</p> : null}
 
@@ -492,10 +539,11 @@ const BrowseRecordsPanel = ({ isLight, onBack }: BrowseRecordsPanelProps) => {
               ) : null}
             </section>
           )}
+          <div className="browse-shell__scroll-spacer" aria-hidden="true" />
         </div>
       </main>
 
-      <footer className="browse-dock" aria-label="浏览记录操作">
+      <footer ref={dockRef} className="browse-dock" aria-label="浏览记录操作">
         <div className="browse-dock__left">
           <label
             className={cn(

@@ -8,6 +8,8 @@ type AdoptionPanelProps = {
   profile: UserProfileType;
   isLight: boolean;
   onAdopted: () => void;
+  /** 嵌在浏览器弹窗内时压缩全屏样式 */
+  embedded?: boolean;
 };
 
 const GENDER_OPTIONS: { value: UserGender; labelKey: 'profileGenderMale' | 'profileGenderFemale' }[] = [
@@ -15,7 +17,7 @@ const GENDER_OPTIONS: { value: UserGender; labelKey: 'profileGenderMale' | 'prof
   { value: 'female', labelKey: 'profileGenderFemale' },
 ];
 
-const AdoptionPanel = ({ profile, isLight, onAdopted }: AdoptionPanelProps) => {
+const AdoptionPanel = ({ profile, isLight, onAdopted, embedded = false }: AdoptionPanelProps) => {
   // 本地草稿：避免每键写入 storage 触发重渲染，打断中文输入法
   const [nickname, setNickname] = useState(profile.nickname);
   const [gender, setGender] = useState<UserGender>(profile.gender || 'male');
@@ -25,12 +27,13 @@ const AdoptionPanel = ({ profile, isLight, onAdopted }: AdoptionPanelProps) => {
   const canAdopt = isAdoptionUserInfoFilled(draft);
 
   return (
-    <div className={cn('adopt-panel', isLight ? 'adopt-panel--light' : 'adopt-panel--dark')}>
+    <div
+      className={cn(
+        'adopt-panel',
+        isLight ? 'adopt-panel--light' : 'adopt-panel--dark',
+        embedded && 'adopt-panel--embedded',
+      )}>
       <div className="adopt-panel__glow" aria-hidden="true" />
-
-      <header className="adopt-panel__hero">
-        <div className="adopt-panel__pet" aria-hidden="true" />
-      </header>
 
       <section className="adopt-panel__card">
         <div className="adopt-panel__heading">

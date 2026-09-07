@@ -44,6 +44,7 @@ for (const { cssInput, cssOutput } of builds) {
     ['--input']: cssInput,
     ['--output']: cssOutput,
     ['--config']: resolve(rootDir, 'tailwind.config.ts'),
+    ['--watch']: IS_DEV,
   });
 }
 
