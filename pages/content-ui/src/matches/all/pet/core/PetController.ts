@@ -624,7 +624,8 @@ class PetController {
     return Boolean(this.renderer?.isPlaying());
   };
 
-  private requestTick = () => {
+  /** @param force 休眠醒来等场景必须跑一帧决策，即使当前没有持续动画 */
+  private requestTick = (force = false) => {
     if (this.disposed || !this.mounted || !this.pageVisible) {
       return;
     }
@@ -633,7 +634,7 @@ class PetController {
       return;
     }
     this.clearWakeTimer();
-    if (!this.needsContinuousTick()) {
+    if (!force && !this.needsContinuousTick()) {
       this.armWakeIfNeeded();
       return;
     }
@@ -666,7 +667,8 @@ class PetController {
     this.clearWakeTimer();
     this.wakeTimer = window.setTimeout(() => {
       this.wakeTimer = null;
-      this.requestTick();
+      // 必须 force：rest 静止时 needsContinuousTick=false，否则会空转 setTimeout 永不走路
+      this.requestTick(true);
     }, delay);
   };
 
