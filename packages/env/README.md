@@ -29,3 +29,16 @@ To use the code in the package, you need to follow those steps:
     import { IS_DEV } from '@extension/env';
     ```
    For more look [ENV CONST](lib/const.ts)
+
+### Pet needs (`CEB_PET_*`)
+
+| Variable | Meaning | Default |
+|----------|---------|---------|
+| `CEB_PET_HUNGER_LOSS_PER_MIN` | 饥饿每分钟折损 | `0.048611`（≈70/天） |
+| `CEB_PET_MOOD_LOSS_PER_MIN` | 心情每分钟折损 | `0.025`（≈36/天） |
+| `CEB_PET_GROWTH_DAILY_CARRY_RATIO` | 成长跨日继承比例 | `0.3` |
+| `CEB_PET_MEAL_RESTORE` | 正餐回复饥饿 | `40` |
+| `CEB_PET_SNACK_RESTORE` | 零食回复（预留） | `12` |
+| `CEB_PET_THIRD_MEAL_MOOD_BONUS` | 三餐齐全心情加成 | `4` |
+
+Edit root `.env`, then restart / rebuild so Vite reinjects `process.env`.

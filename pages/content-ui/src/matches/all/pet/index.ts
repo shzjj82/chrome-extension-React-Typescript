@@ -4,6 +4,7 @@ export { PetTopicBus } from './core/PetTopicBus';
 export { BubbleController } from './bubble/BubbleController';
 export { animTopic } from './core/topics';
 export { getPetKind, PET_KINDS, registerPetKind } from './core/petKinds';
+export { registerDefaultStudyMindStatusLines } from './status/registerDefaultStudyMindStatusLines';
 export { PetEventHost, createDefaultPetEvents, createStudyMindUiEvents, parseAnimTopic } from './events';
 export {
   createStudyMindAdoptAction,

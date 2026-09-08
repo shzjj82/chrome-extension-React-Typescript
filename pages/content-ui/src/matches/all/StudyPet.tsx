@@ -8,7 +8,8 @@ import {
   VIEW_SIZE,
 } from './pet';
 import { useStudyFocusCompanion } from './pet/focus/useStudyFocusCompanion';
-import { useStorage } from '@extension/shared';
+import { registerDefaultStudyMindStatusLines } from './pet/status/registerDefaultStudyMindStatusLines';
+import { requestPetNeedsSettle, useStorage } from '@extension/shared';
 import {
   focusLogStorage,
   getLocalDateKey,
@@ -19,7 +20,7 @@ import {
   summarizeDay,
   userProfileStorage,
 } from '@extension/storage';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { FloatingPetProps, PetBounds, StageAccessoryContext } from './pet';
 
 type StudyPetProps = Omit<
@@ -33,6 +34,17 @@ const StudyPet = (props: StudyPetProps) => {
   const focusLog = useStorage(focusLogStorage);
   const llm = useStorage(llmSettingsStorage);
   const { clock, onRuntimeReady } = useStudyFocusCompanion(props.enabled !== false);
+
+  useEffect(() => {
+    registerDefaultStudyMindStatusLines();
+  }, []);
+
+  useEffect(() => {
+    if (props.enabled === false) {
+      return;
+    }
+    void requestPetNeedsSettle();
+  }, [props.enabled]);
 
   const todaySummary = useMemo(() => {
     const dateKey = getLocalDateKey();

@@ -13,7 +13,15 @@ const ExtensionMessageType = {
   /** content-ui 宠物专注门禁 → content 采集开关 */
   FOCUS_GATE: 'study-mind/focus-gate',
   GET_ACTIVE_TAB_INFO: 'study-mind/get-active-tab-info',
+  /** 宠物饥饿：background 单写者结算 / 喂食（数值走 storage liveUpdate） */
+  PET_NEEDS_SETTLE: 'study-mind/pet-needs-settle',
+  PET_FEED_MEAL: 'study-mind/pet-feed-meal',
+  PET_FEED_ACTIVE: 'study-mind/pet-feed-active',
 } as const;
+
+type PetMealSlot = 'breakfast' | 'lunch' | 'dinner';
+
+type PetFeedFailureReason = 'outside_window' | 'already_fed' | 'no_active_slot' | 'invalid_slot';
 
 type ExtensionMessageTypeValue = (typeof ExtensionMessageType)[keyof typeof ExtensionMessageType];
 
@@ -60,6 +68,9 @@ type ExtensionRequestMap = {
   [ExtensionMessageType.FOCUS_BROWSE_RECORD]: FocusBrowseRecordPayload;
   [ExtensionMessageType.FOCUS_GATE]: FocusGatePayload;
   [ExtensionMessageType.GET_ACTIVE_TAB_INFO]: undefined;
+  [ExtensionMessageType.PET_NEEDS_SETTLE]: undefined;
+  [ExtensionMessageType.PET_FEED_MEAL]: { slot: PetMealSlot };
+  [ExtensionMessageType.PET_FEED_ACTIVE]: undefined;
 };
 
 type ExtensionResponseMap = {
@@ -80,6 +91,13 @@ type ExtensionResponseMap = {
   [ExtensionMessageType.FOCUS_BROWSE_RECORD]: { ok: true; id: string } | { ok: false; error: string };
   [ExtensionMessageType.FOCUS_GATE]: { ok: true };
   [ExtensionMessageType.GET_ACTIVE_TAB_INFO]: { ok: true; data: ActiveTabInfoPayload } | { ok: false; error: string };
+  [ExtensionMessageType.PET_NEEDS_SETTLE]: { ok: true } | { ok: false; error: string };
+  [ExtensionMessageType.PET_FEED_MEAL]:
+    | { ok: true; slot: PetMealSlot; restored: number }
+    | { ok: false; reason: PetFeedFailureReason; error?: string };
+  [ExtensionMessageType.PET_FEED_ACTIVE]:
+    | { ok: true; slot: PetMealSlot; restored: number }
+    | { ok: false; reason: PetFeedFailureReason; error?: string };
 };
 
 type ExtensionRequest<T extends ExtensionMessageTypeValue> = {
@@ -93,6 +111,13 @@ const sendExtensionMessage = async <T extends ExtensionMessageTypeValue>(
 ): Promise<ExtensionResponseMap[T]> =>
   chrome.runtime.sendMessage({ type, payload }) as Promise<ExtensionResponseMap[T]>;
 
+/** UI 触发饥饿结算；结果经 pet-stats liveUpdate 同步 */
+const requestPetNeedsSettle = () => sendExtensionMessage(ExtensionMessageType.PET_NEEDS_SETTLE);
+
+const requestFeedPetMeal = (slot: PetMealSlot) => sendExtensionMessage(ExtensionMessageType.PET_FEED_MEAL, { slot });
+
+const requestFeedPetActiveMeal = () => sendExtensionMessage(ExtensionMessageType.PET_FEED_ACTIVE);
+
 export type {
   ExtensionMessageTypeValue,
   ExtractedMaterialPayload,
@@ -100,8 +125,16 @@ export type {
   FocusBrowseRecordPayload,
   FocusGatePayload,
   SidePanelView,
+  PetMealSlot,
+  PetFeedFailureReason,
   ExtensionRequestMap,
   ExtensionResponseMap,
   ExtensionRequest,
 };
-export { ExtensionMessageType, sendExtensionMessage };
+export {
+  ExtensionMessageType,
+  sendExtensionMessage,
+  requestPetNeedsSettle,
+  requestFeedPetMeal,
+  requestFeedPetActiveMeal,
+};

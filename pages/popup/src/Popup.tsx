@@ -6,8 +6,9 @@ import {
   useStorage,
   withErrorBoundary,
   withSuspense,
+  requestPetNeedsSettle,
 } from '@extension/shared';
-import { exampleThemeStorage, normalizePetStats, petStatsStorage, settleAndPersistPetStats } from '@extension/storage';
+import { exampleThemeStorage, normalizePetStats, petStatsStorage } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useEffect, useState } from 'react';
 import type { PetStatsType, BaseStorageType } from '@extension/storage';
@@ -57,7 +58,7 @@ const Popup = () => {
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
 
   useEffect(() => {
-    void settleAndPersistPetStats();
+    void requestPetNeedsSettle();
   }, []);
 
   useEffect(() => {

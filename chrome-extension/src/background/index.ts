@@ -9,17 +9,24 @@ import {
   pomodoroStateStorage,
   selectionAskDraftStorage,
   sidePanelIntentStorage,
+  settleAndPersistPetStats,
+  feedPetMeal,
+  feedPetActiveMeal,
 } from '@extension/storage';
 import type {
   ExtensionRequest,
   ExtensionMessageTypeValue,
   ExtensionResponseMap,
   SidePanelView,
+  PetMealSlot,
 } from '@extension/shared';
 import type { PomodoroPhase } from '@extension/storage';
 
 const FOCUS_ALARM = 'study-mind-focus';
 const BREAK_ALARM = 'study-mind-break';
+const PET_NEEDS_ALARM = 'study-mind-pet-needs';
+/** 饥饿后台结算周期（分钟） */
+const PET_NEEDS_ALARM_PERIOD_MINUTES = 30;
 
 const getActiveTab = async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -298,7 +305,25 @@ const handleAlarm = async (alarm: chrome.alarms.Alarm) => {
   if (alarm.name === BREAK_ALARM) {
     await setPomodoroPhase('idle', 0);
     await notify('缓过来了吗', '准备好的话，可以再开始专注。');
+    return;
   }
+
+  if (alarm.name === PET_NEEDS_ALARM) {
+    await settleAndPersistPetStats();
+  }
+};
+
+const isPetMealSlot = (value: unknown): value is PetMealSlot =>
+  value === 'breakfast' || value === 'lunch' || value === 'dinner';
+
+const ensurePetNeedsAlarm = async () => {
+  const existing = await chrome.alarms.get(PET_NEEDS_ALARM);
+  if (existing) {
+    return;
+  }
+  await chrome.alarms.create(PET_NEEDS_ALARM, {
+    periodInMinutes: PET_NEEDS_ALARM_PERIOD_MINUTES,
+  });
 };
 
 const extractFromActiveTab = async (type: ExtensionMessageTypeValue, tabId?: number) => {
@@ -606,6 +631,31 @@ chrome.runtime.onMessage.addListener((message: ExtensionRequest<ExtensionMessage
         };
       }
 
+      case ExtensionMessageType.PET_NEEDS_SETTLE: {
+        await settleAndPersistPetStats();
+        return { ok: true };
+      }
+
+      case ExtensionMessageType.PET_FEED_MEAL: {
+        const slot = (payload as { slot?: unknown } | undefined)?.slot;
+        if (!isPetMealSlot(slot)) {
+          return { ok: false, reason: 'invalid_slot', error: '无效餐次' };
+        }
+        const result = await feedPetMeal(slot);
+        if (!result.ok) {
+          return { ok: false, reason: result.reason };
+        }
+        return { ok: true, slot: result.slot, restored: result.restored };
+      }
+
+      case ExtensionMessageType.PET_FEED_ACTIVE: {
+        const result = await feedPetActiveMeal();
+        if (!result.ok) {
+          return { ok: false, reason: result.reason };
+        }
+        return { ok: true, slot: result.slot, restored: result.restored };
+      }
+
       default:
         return { ok: false, error: '未知消息类型' };
     }
@@ -628,13 +678,19 @@ void focusLogStorage.get();
 
 chrome.runtime.onInstalled.addListener(() => {
   void ensureContextMenus();
+  void ensurePetNeedsAlarm();
+  void settleAndPersistPetStats();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void ensureContextMenus();
+  void ensurePetNeedsAlarm();
+  void settleAndPersistPetStats();
 });
 
 void ensureContextMenus();
+void ensurePetNeedsAlarm();
+void settleAndPersistPetStats();
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   const tabId = tab?.id;

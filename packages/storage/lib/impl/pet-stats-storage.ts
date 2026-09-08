@@ -14,6 +14,8 @@ type PetStatsType = {
   hunger: number;
   mood: number;
   growth: number;
+  /** 成长值所属本地日；跨日时按规则继承后再累积 */
+  growthDateKey: string;
   /** 上次成功正餐喂食 */
   lastFedAt: number;
   /** 上次按时间衰减结算 */
@@ -36,6 +38,7 @@ const defaultPetStats: PetStatsType = {
   hunger: 72,
   mood: 86,
   growth: 34,
+  growthDateKey: '',
   lastFedAt: 0,
   lastSettledAt: 0,
   mealsToday: emptyMealsToday(),
@@ -58,6 +61,7 @@ const normalizePetStats = (stats: Partial<PetStatsType> | null | undefined): Pet
     hunger: clampStat(safe.hunger ?? defaultPetStats.hunger),
     mood: clampStat(safe.mood ?? defaultPetStats.mood),
     growth: clampStat(safe.growth ?? defaultPetStats.growth),
+    growthDateKey: typeof safe.growthDateKey === 'string' ? safe.growthDateKey : '',
     lastFedAt: Math.max(0, Math.floor(Number(safe.lastFedAt) || 0)),
     // 旧数据无时间戳时，从「现在」起算，避免一次补扣整天
     lastSettledAt: Math.max(0, Math.floor(Number(safe.lastSettledAt) || 0)) || now,
