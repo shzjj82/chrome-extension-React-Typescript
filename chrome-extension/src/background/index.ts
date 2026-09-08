@@ -8,6 +8,7 @@ import {
   pomodoroSettingsStorage,
   pomodoroStateStorage,
   selectionAskDraftStorage,
+  sidePanelIntentStorage,
 } from '@extension/storage';
 import type {
   ExtensionRequest,
@@ -106,14 +107,24 @@ const openLearningUiForTab = async (tabId: number, sidePanelOpen?: Promise<void>
   }
 
   await enableSidePanelForTab(tabId, view).catch(() => undefined);
+  publishSidePanelIntent(view);
 
   if (!openedNatively) {
     await openLearningWindow(tabId, view);
   }
 };
 
+/** 通知已打开的侧栏切到对应页（保活时 URL 不一定会重载） */
+const publishSidePanelIntent = (view?: SidePanelView) => {
+  if (!view) {
+    return;
+  }
+  void sidePanelIntentStorage.set({ view, at: Date.now() });
+};
+
 /** Kick off path + native side panel open synchronously to preserve user gesture. */
 const startNativeSidePanelOpen = (tabId: number, view?: SidePanelView) => {
+  publishSidePanelIntent(view);
   try {
     void chrome.sidePanel.setOptions({
       tabId,

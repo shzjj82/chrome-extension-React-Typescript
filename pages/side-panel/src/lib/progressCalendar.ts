@@ -1,4 +1,14 @@
 import { getCnDayMark } from './cnCalendar';
+import {
+  dateKeyOf,
+  daysInMonth,
+  isFutureDateKey,
+  isTodayDateKey,
+  monthStartWeekday,
+  parseDateKey,
+  shiftMonth,
+  toLocalDateKey,
+} from './dayjs';
 import { summarizeDay } from '@extension/storage';
 import type { CnDayMark } from './cnCalendar';
 import type { FocusLogStateType } from '@extension/storage';
@@ -6,21 +16,6 @@ import type { FocusLogStateType } from '@extension/storage';
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
-
-const toLocalDateKey = (date: Date) => `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-
-const parseDateKey = (dateKey: string) => {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) {
-    return null;
-  }
-  return new Date(y, m - 1, d);
-};
-
-const shiftMonth = (year: number, month: number, delta: number) => {
-  const next = new Date(year, month + delta, 1);
-  return { year: next.getFullYear(), month: next.getMonth() };
-};
 
 type DayProgress = {
   dateKey: string;
@@ -74,26 +69,25 @@ const buildMonthCells = (
   year: number,
   month: number,
   dayMap: Record<string, DayProgress>,
-  todayKey = toLocalDateKey(new Date()),
+  todayKey = toLocalDateKey(),
 ): CalendarCell[] => {
-  const first = new Date(year, month, 1);
-  const startPad = first.getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const startPad = monthStartWeekday(year, month);
+  const totalDays = daysInMonth(year, month);
   const items: CalendarCell[] = [];
 
   for (let i = 0; i < startPad; i += 1) {
     items.push(null);
   }
 
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const key = toLocalDateKey(new Date(year, month, day));
+  for (let day = 1; day <= totalDays; day += 1) {
+    const key = dateKeyOf(year, month, day);
     const info = dayMap[key];
     items.push({
       key,
       day,
       inMonth: true,
-      isFuture: key > todayKey,
-      isToday: key === todayKey,
+      isFuture: isFutureDateKey(key, todayKey),
+      isToday: isTodayDateKey(key, todayKey),
       progress: info?.progress ?? 0,
       countedCount: info?.countedCount ?? 0,
       cn: getCnDayMark(year, month, day),
@@ -110,18 +104,18 @@ const buildMonthStats = (
   year: number,
   month: number,
   dayMap: Record<string, DayProgress>,
-  todayKey = toLocalDateKey(new Date()),
+  todayKey = toLocalDateKey(),
 ): MonthProgressStats => {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalDays = daysInMonth(year, month);
   let elapsedDays = 0;
   let completedDays = 0;
   let activeDays = 0;
   let countedCount = 0;
   let countedMs = 0;
 
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const key = toLocalDateKey(new Date(year, month, day));
-    if (key > todayKey) {
+  for (let day = 1; day <= totalDays; day += 1) {
+    const key = dateKeyOf(year, month, day);
+    if (isFutureDateKey(key, todayKey)) {
       continue;
     }
     elapsedDays += 1;
@@ -157,15 +151,15 @@ const buildMonthDayMap = (
   month: number,
   goalMinutes: number,
 ): Record<string, DayProgress> => {
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalDays = daysInMonth(year, month);
+  const todayKey = toLocalDateKey();
   const map: Record<string, DayProgress> = {};
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const key = toLocalDateKey(new Date(year, month, day));
-    if (focusLog.days[key] || key === toLocalDateKey(new Date())) {
+  for (let day = 1; day <= totalDays; day += 1) {
+    const key = dateKeyOf(year, month, day);
+    if (focusLog.days[key] || key === todayKey) {
       map[key] = buildDayProgress(focusLog, key, goalMinutes);
     }
   }
-  // 也收录本月已有日志的日期（上面循环已覆盖）；补全 focusLog 里本月键
   for (const key of Object.keys(focusLog.days)) {
     if (!key.startsWith(`${year}-${pad2(month + 1)}`)) {
       continue;

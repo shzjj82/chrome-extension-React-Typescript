@@ -23,11 +23,11 @@ type ProgressCalendarPanelProps = {
 const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) => {
   const focusLog = useStorage(focusLogStorage);
   const pomodoroSettings = useStorage(pomodoroSettingsStorage);
-  const todayKey = toLocalDateKey(new Date());
-  const today = parseDateKey(todayKey) ?? new Date();
+  const todayKey = toLocalDateKey();
+  const today = parseDateKey(todayKey);
 
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [viewYear, setViewYear] = useState(() => today?.year() ?? new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => today?.month() ?? new Date().getMonth());
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
 
   const goalMinutes = Math.max(1, pomodoroSettings.focusMinutes || 40);
@@ -55,7 +55,7 @@ const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) 
     if (selectedDateKey === todayKey) {
       return '今天';
     }
-    return `${date.getMonth() + 1}月${date.getDate()}日`;
+    return `${date.month() + 1}月${date.date()}日`;
   }, [selectedDateKey, todayKey]);
 
   return (

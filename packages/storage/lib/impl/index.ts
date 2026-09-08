@@ -7,3 +7,4 @@ export * from './learning-draft-storage.js';
 export * from './pet-stats-storage.js';
 export * from './focus-log-storage.js';
 export * from './selection-storage.js';
+export * from './side-panel-intent-storage.js';

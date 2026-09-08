@@ -1,27 +1,18 @@
+import {
+  canGoNextMonth,
+  dateKeyOf,
+  daysInMonth,
+  isFutureDateKey,
+  monthStartWeekday,
+  parseDateKey,
+  shiftMonth,
+  toLocalDateKey,
+  dayjs,
+} from './lib/dayjs';
 import { cn } from '@extension/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
-
-const toLocalDateKey = (date: Date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
-const parseDateKey = (dateKey: string) => {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) {
-    return null;
-  }
-  return new Date(y, m - 1, d);
-};
-
-const shiftMonth = (year: number, month: number, delta: number) => {
-  const next = new Date(year, month + delta, 1);
-  return { year: next.getFullYear(), month: next.getMonth() };
-};
 
 type BrowseDayCalendarProps = {
   selectedDateKey: string;
@@ -43,12 +34,12 @@ const BrowseDayCalendar = ({
   onSelect,
   onRefresh,
 }: BrowseDayCalendarProps) => {
-  const selected = parseDateKey(selectedDateKey) ?? new Date();
+  const selected = parseDateKey(selectedDateKey) ?? dayjs();
   const [open, setOpen] = useState(false);
-  const [viewYear, setViewYear] = useState(selected.getFullYear());
-  const [viewMonth, setViewMonth] = useState(selected.getMonth());
+  const [viewYear, setViewYear] = useState(() => selected.year());
+  const [viewMonth, setViewMonth] = useState(() => selected.month());
   const rootRef = useRef<HTMLDivElement>(null);
-  const todayKey = toLocalDateKey(new Date());
+  const todayKey = toLocalDateKey();
 
   useEffect(() => {
     if (hideCalendar) {
@@ -75,36 +66,41 @@ const BrowseDayCalendar = ({
     if (!open) {
       return;
     }
-    const date = parseDateKey(selectedDateKey) ?? new Date();
-    setViewYear(date.getFullYear());
-    setViewMonth(date.getMonth());
+    const date = parseDateKey(selectedDateKey) ?? dayjs();
+    setViewYear(date.year());
+    setViewMonth(date.month());
   }, [open, selectedDateKey]);
 
   const cells = useMemo(() => {
-    const first = new Date(viewYear, viewMonth, 1);
-    const startPad = first.getDay();
-    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const items: Array<{ key: string; day: number; inMonth: boolean; hasRecords: boolean } | null> = [];
+    const startPad = monthStartWeekday(viewYear, viewMonth);
+    const totalDays = daysInMonth(viewYear, viewMonth);
+    const items: Array<{
+      key: string;
+      day: number;
+      hasRecords: boolean;
+      isFuture: boolean;
+    } | null> = [];
 
     for (let i = 0; i < startPad; i += 1) {
       items.push(null);
     }
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      const key = toLocalDateKey(new Date(viewYear, viewMonth, day));
+    for (let day = 1; day <= totalDays; day += 1) {
+      const key = dateKeyOf(viewYear, viewMonth, day);
       items.push({
         key,
         day,
-        inMonth: true,
         hasRecords: recordDateKeys.has(key),
+        isFuture: isFutureDateKey(key, todayKey),
       });
     }
     while (items.length % 7 !== 0) {
       items.push(null);
     }
     return items;
-  }, [viewYear, viewMonth, recordDateKeys]);
+  }, [viewYear, viewMonth, recordDateKeys, todayKey]);
 
   const monthTitle = `${viewYear}年${viewMonth + 1}月`;
+  const allowNextMonth = canGoNextMonth(viewYear, viewMonth);
 
   return (
     <div className={cn('browse-cal', open && 'browse-cal--open')} ref={rootRef}>
@@ -183,7 +179,11 @@ const BrowseDayCalendar = ({
                 type="button"
                 className="browse-cal__month-nav"
                 aria-label="下个月"
+                disabled={!allowNextMonth}
                 onClick={() => {
+                  if (!allowNextMonth) {
+                    return;
+                  }
                   const next = shiftMonth(viewYear, viewMonth, 1);
                   setViewYear(next.year);
                   setViewMonth(next.month);
@@ -204,18 +204,24 @@ const BrowseDayCalendar = ({
                   <button
                     key={cell.key}
                     type="button"
+                    disabled={cell.isFuture}
+                    aria-disabled={cell.isFuture}
                     className={cn(
                       'browse-cal__day',
-                      cell.key === selectedDateKey && 'browse-cal__day--selected',
+                      cell.key === selectedDateKey && !cell.isFuture && 'browse-cal__day--selected',
                       cell.key === todayKey && 'browse-cal__day--today',
-                      cell.hasRecords && 'browse-cal__day--has',
+                      cell.hasRecords && !cell.isFuture && 'browse-cal__day--has',
+                      cell.isFuture && 'browse-cal__day--future',
                     )}
                     onClick={() => {
+                      if (cell.isFuture) {
+                        return;
+                      }
                       onSelect(cell.key);
                       setOpen(false);
                     }}>
                     {cell.day}
-                    {cell.hasRecords ? <i className="browse-cal__dot" aria-hidden="true" /> : null}
+                    {cell.hasRecords && !cell.isFuture ? <i className="browse-cal__dot" aria-hidden="true" /> : null}
                   </button>
                 ) : (
                   <span key={`pad-${index}`} className="browse-cal__day browse-cal__day--empty" />

@@ -31,10 +31,11 @@ import {
   llmSettingsStorage,
   pomodoroStateStorage,
   normalizeUserProfile,
+  sidePanelIntentStorage,
   userProfileStorage,
 } from '@extension/storage';
 import { Button, cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HomeAppId, HomeAppTone } from './appCatalog';
 import type { FilesHubTab } from './FilesHubPanel';
 import type { LearningMode, MaterialSource, PracticeItem, QuizItem, StudySession } from '@extension/knowledge-base';
@@ -117,11 +118,13 @@ const SidePanel = () => {
   const draft = useStorage(learningDraftStorage);
   const llm = useStorage(llmSettingsStorage);
   const pomodoro = useStorage(pomodoroStateStorage);
+  const panelIntent = useStorage(sidePanelIntentStorage);
   const panelView = resolveAppView();
   const [appView, setAppView] = useState<AppView>(panelView);
   const [filesHubTab, setFilesHubTab] = useState<FilesHubTab>(() => resolveFilesHubTab());
   /** 文件页首次进入后保活，返回桌面只隐藏，避免提问会话反复重建 */
   const [filesHubAlive, setFilesHubAlive] = useState(() => panelView === 'files');
+  const lastPanelIntentAtRef = useRef(0);
   const [floating, setFloating] = useState<FloatingOverlay | null>(null);
   const [reveal, setReveal] = useState<{
     x: number;
@@ -174,6 +177,49 @@ const SidePanel = () => {
     }
     void refreshSessions();
   }, [appView]);
+
+  /** 文件页内容只挂在 keepalive 上；若 alive 未置位会整页空白 */
+  useEffect(() => {
+    if (appView === 'files') {
+      setFilesHubAlive(true);
+    }
+  }, [appView]);
+
+  /** 外部入口（整理 / 提问等）：保活时也要切到对应 Tab */
+  useEffect(() => {
+    if (!panelIntent?.at || panelIntent.at <= lastPanelIntentAtRef.current) {
+      return;
+    }
+    if (Date.now() - panelIntent.at > 60_000) {
+      void sidePanelIntentStorage.set(null);
+      return;
+    }
+    lastPanelIntentAtRef.current = panelIntent.at;
+
+    if (panelIntent.view === 'ask') {
+      setFilesHubTab('ask');
+      setFilesHubAlive(true);
+      setReveal(null);
+      setFloating(null);
+      setAppView('files');
+    } else if (panelIntent.view === 'browse' || panelIntent.view === 'calendar') {
+      setFilesHubTab('focus');
+      setFilesHubAlive(true);
+      setReveal(null);
+      setFloating(null);
+      setAppView('files');
+    } else if (panelIntent.view === 'chat') {
+      setReveal(null);
+      setFloating(null);
+      setAppView('messages');
+    } else if (panelIntent.view === 'study') {
+      setReveal(null);
+      setFloating(null);
+      setAppView('study');
+    }
+
+    void sidePanelIntentStorage.set(null);
+  }, [panelIntent]);
 
   const goHome = useCallback(() => {
     clearViewQuery();
@@ -716,7 +762,7 @@ const SidePanel = () => {
   return (
     <>
       {appContent}
-      {filesHubAlive ? (
+      {filesHubAlive || appView === 'files' ? (
         <div
           className={cn('files-hub-keepalive', appView !== 'files' && 'files-hub-keepalive--hidden')}
           aria-hidden={appView !== 'files'}>

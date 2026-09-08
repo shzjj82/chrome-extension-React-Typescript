@@ -1,10 +1,9 @@
 import BackIconButton from './BackIconButton';
 import BrowseDayCalendar, { toLocalDateKey } from './BrowseDayCalendar';
 import BrowseRecordsPanel from './BrowseRecordsPanel';
+import { parseDateKey } from './lib/dayjs';
 import PhoneStatusBar from './PhoneStatusBar';
 import SelectionAskPanel from './SelectionAskPanel';
-import { useStorage } from '@extension/shared';
-import { selectionAskDraftStorage } from '@extension/storage';
 import { cn, SegmentedSwitch } from '@extension/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -23,15 +22,11 @@ const TAB_TITLE: Record<FilesHubTab, string> = {
 };
 
 const formatDayLabel = (dateKey: string) => {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) {
-    return dateKey;
-  }
-  return `${y}/${m}/${d}`;
+  const date = parseDateKey(dateKey);
+  return date ? date.format('YYYY/M/D') : dateKey;
 };
 
 const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelProps) => {
-  const draft = useStorage(selectionAskDraftStorage);
   const [tab, setTab] = useState<FilesHubTab>(initialTab);
   const [selectedDateKey, setSelectedDateKey] = useState(() => toLocalDateKey(new Date()));
   const [browseDateKeys, setBrowseDateKeys] = useState<Set<string>>(() => new Set());
@@ -48,12 +43,6 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelP
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
-
-  useEffect(() => {
-    if (draft?.text) {
-      setTab('ask');
-    }
-  }, [draft?.text]);
 
   const onBrowseDateKeysChange = useCallback((keys: Set<string>) => {
     setBrowseDateKeys(new Set(keys));

@@ -477,7 +477,9 @@ body,
   overflow: visible;
   height: 100%;
   max-height: 100%;
-  min-height: 0;
+  /* 避免父级高度未算准时整页被压成一条空白 */
+  min-height: 100%;
+  min-height: 100dvh;
   padding: 0;
   gap: 0;
   box-sizing: border-box;
@@ -578,7 +580,8 @@ body,
 
 .files-hub-keepalive > .files-hub {
   flex: 1 1 auto;
-  min-height: 0;
+  width: 100%;
+  min-height: 100%;
 }
 
 .files-hub__cal .browse-cal {
@@ -1261,6 +1264,10 @@ body,
 
 .phone-reveal--expanded {
   clip-path: circle(160vmax at var(--reveal-x) var(--reveal-y));
+}
+
+.phone-reveal--fading {
+  opacity: 0;
 }
 
 .adopt-panel--embedded {
@@ -2187,6 +2194,11 @@ body,
   cursor: pointer;
 }
 
+.browse-cal__month-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .sm-shell--dark .browse-cal__month-nav {
   background: rgba(0, 0, 0, 0.22);
 }
@@ -2332,7 +2344,15 @@ body,
   background: #fffef8;
 }
 
-.browse-cal__day:hover:not(.browse-cal__day--selected):not(.browse-cal__day--empty) {
+.browse-cal__day--future,
+.browse-cal__day:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.browse-cal__day:hover:not(.browse-cal__day--selected):not(.browse-cal__day--empty):not(:disabled):not(
+    .browse-cal__day--future
+  ) {
   border-color: var(--sm-line);
 }
 
