@@ -16,7 +16,7 @@ import {
 } from '@extension/storage';
 import { SegmentedSwitch, cn } from '@extension/ui';
 import { ArrowUp, Bookmark, BookmarkCheck, ChevronDown, ExternalLink, Trash2 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { SelectionFavorite } from '@extension/knowledge-base';
@@ -36,6 +36,8 @@ type SelectionAskPanelProps = {
   onFavoritesRefreshReady?: (refresh: () => Promise<void>) => void;
   onFavoriteDateKeysChange?: (keys: Set<string>) => void;
   onFilteredFavoritesCountChange?: (count: number) => void;
+  /** 收藏列表变更后通知 Hub（专注夹内同步） */
+  onFavoritesUpdated?: () => void;
 };
 
 type AskLink = {
@@ -299,6 +301,7 @@ const SelectionAskPanel = ({
   onFavoritesRefreshReady,
   onFavoriteDateKeysChange,
   onFilteredFavoritesCountChange,
+  onFavoritesUpdated,
 }: SelectionAskPanelProps) => {
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
@@ -317,6 +320,12 @@ const SelectionAskPanel = ({
   };
   const [sourceExpanded, setSourceExpanded] = useState(true);
   const [favorites, setFavorites] = useState<SelectionFavorite[]>([]);
+  const syncFavorites = useCallback(async () => {
+    const items = await listSelectionFavorites();
+    setFavorites(items);
+    onFavoritesUpdated?.();
+    return items;
+  }, [onFavoritesUpdated]);
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
   const [sheetFavorite, setSheetFavorite] = useState<SelectionFavorite | null>(null);
   const [loading, setLoading] = useState(false);
@@ -480,9 +489,8 @@ const SelectionAskPanel = ({
           await chrome.storage.local.remove('selection-favorites');
         }
 
-        const items = await listSelectionFavorites();
         if (!cancelled) {
-          setFavorites(items);
+          await syncFavorites();
         }
       } catch {
         if (!cancelled) {
@@ -495,7 +503,7 @@ const SelectionAskPanel = ({
     return () => {
       cancelled = true;
     };
-  }, [tab, onFavoritesRefreshReady]);
+  }, [tab, onFavoritesRefreshReady, onFavoritesUpdated, syncFavorites]);
 
   /** 已收藏的提问：后续解答/追问/链接持续同步到同一条收藏 */
   useEffect(() => {
@@ -529,7 +537,7 @@ const SelectionAskPanel = ({
           });
           if (!cancelled) {
             favoriteCreatedAtRef.current = saved.createdAt;
-            setFavorites(await listSelectionFavorites());
+            await syncFavorites();
           }
         } catch {
           // 同步失败不打断提问
@@ -551,6 +559,7 @@ const SelectionAskPanel = ({
     loading,
     pendingFirstToken,
     streamingId,
+    syncFavorites,
   ]);
 
   useEffect(
@@ -712,7 +721,7 @@ const SelectionAskPanel = ({
         await deleteSelectionFavorite(favoriteId);
         setFavoriteId(null);
         favoriteCreatedAtRef.current = null;
-        setFavorites(await listSelectionFavorites());
+        await syncFavorites();
         return;
       }
       const saved = await saveSelectionFavorite({
@@ -731,7 +740,7 @@ const SelectionAskPanel = ({
       });
       favoriteCreatedAtRef.current = saved.createdAt;
       setFavoriteId(saved.id);
-      setFavorites(await listSelectionFavorites());
+      await syncFavorites();
     } catch (err) {
       setError(err instanceof Error ? err.message : '收藏失败');
     }
@@ -1017,13 +1026,27 @@ const SelectionAskPanel = ({
       ) : (
         <div className="selection-ask__scroll">
           {favorites.length === 0 ? (
-            <section className="selection-ask__empty">
-              <p>还没有收藏。点提问页书签后，之后的解答、追问和相关链接都会持续同步到这里。</p>
-            </section>
+            <div className="browse-empty">
+              <p className="browse-empty__title">还没有收藏</p>
+              <p className="browse-empty__hint">
+                去
+                <button type="button" className="browse-empty__link" onClick={() => setTab('ask')}>
+                  提问
+                </button>
+                页点书签，解答与追问会同步到这里
+              </p>
+            </div>
           ) : visibleFavorites.length === 0 ? (
-            <section className="selection-ask__empty">
-              <p>这一天还没有收藏。换个日期看看，或先去提问页收藏。</p>
-            </section>
+            <div className="browse-empty">
+              <p className="browse-empty__title">这一天还没有收藏</p>
+              <p className="browse-empty__hint">
+                换个日期看看，或先去
+                <button type="button" className="browse-empty__link" onClick={() => setTab('ask')}>
+                  提问
+                </button>
+                页收藏
+              </p>
+            </div>
           ) : (
             <div className="selection-ask__fav-list">
               {visibleFavorites.map(item => (
@@ -1041,7 +1064,7 @@ const SelectionAskPanel = ({
                       onClick={() => {
                         void (async () => {
                           await deleteSelectionFavorite(item.id);
-                          setFavorites(await listSelectionFavorites());
+                          await syncFavorites();
                           if (favoriteId === item.id) {
                             setFavoriteId(null);
                             favoriteCreatedAtRef.current = null;

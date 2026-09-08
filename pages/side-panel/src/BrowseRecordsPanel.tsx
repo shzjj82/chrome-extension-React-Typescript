@@ -1,25 +1,34 @@
 import BackIconButton from './BackIconButton';
 import BrowseDayCalendar, { toLocalDateKey } from './BrowseDayCalendar';
-import { clearBrowsePages, deleteBrowsePage, listBrowsePagesGroupedByDay } from '@extension/knowledge-base';
+import {
+  attachFavoritesToBrowseFolders,
+  folderCountLabel,
+  folderLabel,
+  folderSheetCount,
+  parseSite,
+} from './lib/siteFolder';
+import SheetFrame from './SheetFrame';
+import {
+  clearBrowsePages,
+  deleteBrowsePage,
+  deleteSelectionFavorite,
+  listBrowsePagesGroupedByDay,
+  listSelectionFavorites,
+} from '@extension/knowledge-base';
 import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { Button, cn } from '@extension/ui';
+import { Bookmark, ExternalLink, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { BrowseDayGroup, BrowsePageRecord } from '@extension/knowledge-base';
-
-type SiteBucket = {
-  key: string;
-  label: string;
-  /** 含协议，如 http://localhost:3000 */
-  origin: string;
-  records: BrowsePageRecord[];
-  accent: 'rose' | 'amber';
-};
+import type { SiteFolder } from './lib/siteFolder';
+import type { BrowseDayGroup, BrowsePageRecord, SelectionFavorite } from '@extension/knowledge-base';
 
 type DaySiteGroup = {
   dateKey: string;
   dayLabel: string;
-  sites: SiteBucket[];
+  sites: SiteFolder[];
   total: number;
+  browseTotal: number;
+  favoriteTotal: number;
 };
 
 const MAX_SHEETS = 3;
@@ -60,32 +69,6 @@ const formatDayLabel = (dateKey: string) => {
   return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const parseSite = (url: string) => {
-  try {
-    const parsed = new URL(url);
-    return {
-      key: parsed.origin,
-      origin: parsed.origin,
-      host: parsed.host,
-      path: `${parsed.pathname}${parsed.search}${parsed.hash}` || '/',
-    };
-  } catch {
-    return { key: url || 'unknown', origin: url || '未知来源', host: url || '未知来源', path: '' };
-  }
-};
-
-const siteLabel = (origin: string, host: string, records: BrowsePageRecord[]) => {
-  const titles = records.map(r => (r.title || '').trim()).filter(Boolean);
-  if (titles.length === 0) {
-    return host || origin;
-  }
-  const first = titles[0];
-  if (titles.every(t => t === first)) {
-    return first;
-  }
-  return host || origin;
-};
-
 const pageLabel = (record: BrowsePageRecord) => {
   const { path } = parseSite(record.url);
   const segments = path.split('/').filter(Boolean);
@@ -100,7 +83,7 @@ const pageLabel = (record: BrowsePageRecord) => {
   return record.title || path || record.url;
 };
 
-const groupByDayThenSite = (dayGroups: BrowseDayGroup[]): DaySiteGroup[] =>
+const groupByDayThenSite = (dayGroups: BrowseDayGroup[], favorites: SelectionFavorite[]): DaySiteGroup[] =>
   dayGroups.map(day => {
     const map = new Map<string, BrowsePageRecord[]>();
     for (const record of day.records) {
@@ -110,24 +93,33 @@ const groupByDayThenSite = (dayGroups: BrowseDayGroup[]): DaySiteGroup[] =>
       map.set(key, bucket);
     }
 
-    const sites: SiteBucket[] = [...map.entries()]
+    const base = [...map.entries()]
       .map(([key, records], index) => {
         const parsed = parseSite(records[0]?.url ?? key);
         return {
           key,
           origin: parsed.origin,
-          label: siteLabel(parsed.origin, parsed.host, records),
-          records: records.sort((a, b) => b.recordedAt - a.recordedAt),
-          accent: index % 2 === 0 ? 'rose' : 'amber',
+          label: folderLabel(
+            parsed.origin,
+            parsed.host,
+            records.map(r => r.title || ''),
+          ),
+          browseRecords: records.sort((a, b) => b.recordedAt - a.recordedAt),
+          accent: (index % 2 === 0 ? 'rose' : 'amber') as 'rose' | 'amber',
         };
       })
-      .sort((a, b) => (b.records[0]?.recordedAt ?? 0) - (a.records[0]?.recordedAt ?? 0));
+      .sort((a, b) => (b.browseRecords[0]?.recordedAt ?? 0) - (a.browseRecords[0]?.recordedAt ?? 0));
+
+    const sites = attachFavoritesToBrowseFolders(base, favorites, day.dateKey);
+    const favoriteTotal = sites.reduce((sum, site) => sum + site.favorites.length, 0);
 
     return {
       dateKey: day.dateKey,
       dayLabel: formatDayLabel(day.dateKey),
       sites,
-      total: day.records.length,
+      browseTotal: day.records.length,
+      favoriteTotal,
+      total: day.records.length + favoriteTotal,
     };
   });
 
@@ -149,8 +141,7 @@ const FileGlyph = () => (
   </svg>
 );
 
-/** 按子文件数量叠图纸；命中层固定不移动，避免 transform 导致 hover 闪动 */
-const FolderSheets = ({ count }: { count: number }) => {
+const FolderSheets = ({ count, favoriteMark = false }: { count: number; favoriteMark?: boolean }) => {
   const sheets = Math.max(1, Math.min(MAX_SHEETS, count));
   return (
     <div className="folder-card__stage">
@@ -159,6 +150,11 @@ const FolderSheets = ({ count }: { count: number }) => {
         return (
           <span key={index} className={`folder-card__hit folder-card__hit--${fromBack}`}>
             <span className={`folder-card__sheet folder-card__sheet--${fromBack}`}>
+              {favoriteMark && fromBack === 0 ? (
+                <span className="folder-card__fav-mark" aria-hidden="true">
+                  <Bookmark size={12} strokeWidth={2.6} absoluteStrokeWidth />
+                </span>
+              ) : null}
               <span className="folder-card__skeleton">
                 <span className="folder-card__skeleton-line folder-card__skeleton-line--title" />
                 <span className="folder-card__skeleton-line folder-card__skeleton-line--lg" />
@@ -176,13 +172,13 @@ const FolderSheets = ({ count }: { count: number }) => {
 type BrowseRecordsPanelProps = {
   isLight: boolean;
   onBack?: () => void;
-  /** 嵌入文件 Hub：列表顶栏不重复返回/日历 */
   embedded?: boolean;
   selectedDateKey?: string;
   onSelectedDateKeyChange?: (dateKey: string) => void;
   onRecordDateKeysChange?: (keys: Set<string>) => void;
   onRefreshReady?: (refresh: () => Promise<void>) => void;
   onDayTotalChange?: (total: number) => void;
+  favoritesNonce?: number;
 };
 
 const BrowseRecordsPanel = ({
@@ -194,14 +190,17 @@ const BrowseRecordsPanel = ({
   onRecordDateKeysChange,
   onRefreshReady,
   onDayTotalChange,
+  favoritesNonce = 0,
 }: BrowseRecordsPanelProps) => {
   const [groups, setGroups] = useState<BrowseDayGroup[]>([]);
+  const [favorites, setFavorites] = useState<SelectionFavorite[]>([]);
   const [selectedDateKeyState, setSelectedDateKeyState] = useState(() => toLocalDateKey(new Date()));
   const selectedDateKey = selectedDateKeyProp ?? selectedDateKeyState;
   const setSelectedDateKey = onSelectedDateKeyChange ?? setSelectedDateKeyState;
   const [selectedSiteKeys, setSelectedSiteKeys] = useState<string[]>([]);
-  const [activeSite, setActiveSite] = useState<{ dayKey: string; site: SiteBucket } | null>(null);
+  const [activeSite, setActiveSite] = useState<{ dayKey: string; site: SiteFolder } | null>(null);
   const [activeRecordId, setActiveRecordId] = useState<string | null>(null);
+  const [sheetFavorite, setSheetFavorite] = useState<SelectionFavorite | null>(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
 
@@ -219,8 +218,9 @@ const BrowseRecordsPanel = ({
 
   const refresh = useCallback(async () => {
     try {
-      const next = await listBrowsePagesGroupedByDay();
-      setGroups(next);
+      const [nextGroups, nextFavorites] = await Promise.all([listBrowsePagesGroupedByDay(), listSelectionFavorites()]);
+      setGroups(nextGroups);
+      setFavorites(nextFavorites);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载浏览记录失败');
@@ -229,14 +229,13 @@ const BrowseRecordsPanel = ({
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, favoritesNonce]);
 
   useEffect(() => {
     onRefreshReady?.(refresh);
   }, [onRefreshReady, refresh]);
 
-  const daySiteGroups = useMemo(() => groupByDayThenSite(groups), [groups]);
-
+  const daySiteGroups = useMemo(() => groupByDayThenSite(groups, favorites), [groups, favorites]);
   const recordDateKeys = useMemo(() => new Set(daySiteGroups.map(day => day.dateKey)), [daySiteGroups]);
 
   useEffect(() => {
@@ -245,7 +244,6 @@ const BrowseRecordsPanel = ({
 
   const didInitDateRef = useRef(false);
 
-  // 首次有数据时：若当天无记录，落到最近有数据的一天（不打断用户之后选空日期）
   useEffect(() => {
     if (daySiteGroups.length === 0) {
       didInitDateRef.current = false;
@@ -269,13 +267,12 @@ const BrowseRecordsPanel = ({
     onDayTotalChange?.(selectedDay?.total ?? 0);
   }, [onDayTotalChange, selectedDay?.total]);
 
-  // 换日时退出站点详情
   useEffect(() => {
     setActiveSite(null);
     setActiveRecordId(null);
+    setSheetFavorite(null);
   }, [selectedDateKey]);
 
-  // 换日后清空勾选；勾选仅保留仍存在的站点
   useEffect(() => {
     setSelectedSiteKeys(prev => {
       if (!selectedDay) {
@@ -290,7 +287,7 @@ const BrowseRecordsPanel = ({
   const allSiteKeys = selectedDay?.sites.map(site => site.key) ?? [];
   const allSelected = allSiteKeys.length > 0 && allSiteKeys.every(key => selectedSiteKeys.includes(key));
   const someSelected = selectedSiteKeys.length > 0 && !allSelected;
-  // 列表刷新后：若当前打开的站点还在，同步其文件列表；否则退回卡片列表
+
   useEffect(() => {
     if (!activeSite) {
       return;
@@ -302,10 +299,13 @@ const BrowseRecordsPanel = ({
       setActiveRecordId(null);
       return;
     }
-    const sameLength = site.records.length === activeSite.site.records.length;
-    const sameIds =
-      sameLength && site.records.every((record, index) => record.id === activeSite.site.records[index]?.id);
-    if (!sameIds) {
+    const sameBrowse =
+      site.browseRecords.length === activeSite.site.browseRecords.length &&
+      site.browseRecords.every((record, index) => record.id === activeSite.site.browseRecords[index]?.id);
+    const sameFav =
+      site.favorites.length === activeSite.site.favorites.length &&
+      site.favorites.every((item, index) => item.id === activeSite.site.favorites[index]?.id);
+    if (!sameBrowse || !sameFav) {
       setActiveSite({ dayKey: activeSite.dayKey, site });
     }
   }, [daySiteGroups, activeSite]);
@@ -316,6 +316,15 @@ const BrowseRecordsPanel = ({
       setActiveRecordId(null);
     }
     setStatus('已删除');
+    await refresh();
+  };
+
+  const onDeleteFavorite = async (id: string) => {
+    await deleteSelectionFavorite(id);
+    if (sheetFavorite?.id === id) {
+      setSheetFavorite(null);
+    }
+    setStatus('已删除收藏');
     await refresh();
   };
 
@@ -332,17 +341,17 @@ const BrowseRecordsPanel = ({
     }
     if (selectedSiteKeys.length > 0 && selectedDay) {
       const picked = selectedDay.sites.filter(site => selectedSiteKeys.includes(site.key));
-      const count = picked.reduce((sum, site) => sum + site.records.length, 0);
-      if (!window.confirm(`删除已选 ${picked.length} 个文件夹（共 ${count} 条）？`)) {
+      const count = picked.reduce((sum, site) => sum + site.browseRecords.length, 0);
+      if (!window.confirm(`删除已选 ${picked.length} 个文件夹中的浏览记录（共 ${count} 条）？收藏不会删除。`)) {
         return;
       }
-      await Promise.all(picked.flatMap(site => site.records.map(record => deleteBrowsePage(record.id))));
+      await Promise.all(picked.flatMap(site => site.browseRecords.map(record => deleteBrowsePage(record.id))));
       setSelectedSiteKeys([]);
-      setStatus('已删除所选');
+      setStatus('已删除所选浏览');
       await refresh();
       return;
     }
-    if (!window.confirm('清空全部浏览记录？')) {
+    if (!window.confirm('清空全部浏览记录？收藏不会删除。')) {
       return;
     }
     await clearBrowsePages();
@@ -372,7 +381,7 @@ const BrowseRecordsPanel = ({
     }
   };
 
-  const activeRecord = activeSite?.site.records.find(item => item.id === activeRecordId) ?? null;
+  const activeRecord = activeSite?.site.browseRecords.find(item => item.id === activeRecordId) ?? null;
   const shellRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLFooterElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -388,7 +397,6 @@ const BrowseRecordsPanel = ({
       const styles = getComputedStyle(shell);
       const gapRaw = styles.getPropertyValue('--browse-dock-gap').trim();
       const gap = Number.parseFloat(gapRaw) || 10;
-      // 实测底栏高度 + bottom 间距；底栏变高会由 ResizeObserver 自动重算
       const space = Math.ceil(dock.getBoundingClientRect().height + gap);
       shell.style.setProperty('--browse-dock-space', `${space}px`);
     };
@@ -403,7 +411,6 @@ const BrowseRecordsPanel = ({
     };
   }, []);
 
-  // 鼠标在底栏空白处滚轮时，继续驱动列表滚动
   useEffect(() => {
     const dock = dockRef.current;
     const scroll = scrollRef.current;
@@ -473,53 +480,83 @@ const BrowseRecordsPanel = ({
             <section className="sm-shell__card">
               <h2 className="sm-shell__card-title">{activeSite.site.label}</h2>
               <p className="sm-shell__muted">
-                {activeSite.site.origin} · {activeSite.site.records.length} 份文件
+                {activeSite.site.origin} ·{' '}
+                {folderCountLabel(activeSite.site.browseRecords.length, activeSite.site.favorites.length)}
               </p>
-              <div className="folder-file-list">
-                {activeSite.site.records.map(record => {
-                  const open = activeRecordId === record.id;
-                  return (
-                    <article key={record.id} className="folder-file">
-                      <button
-                        type="button"
-                        className="folder-file__row"
-                        onClick={() => setActiveRecordId(open ? null : record.id)}>
-                        <span className="folder-file__icon">
-                          <FileGlyph />
-                        </span>
-                        <span className="folder-file__body">
-                          <span className="folder-file__title">{pageLabel(record)}</span>
-                          <span className="folder-file__meta">{formatTime(record.recordedAt)}</span>
-                        </span>
-                      </button>
-                      {open && activeRecord ? (
-                        <div className="folder-file__detail">
-                          <p className="sm-shell__muted break-all">{activeRecord.url}</p>
-                          <textarea
-                            className="min-h-28 text-xs"
-                            readOnly
-                            value={activeRecord.material || '（无正文快照）'}
-                          />
-                          <div className="sm-shell__actions">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => {
-                                void navigator.clipboard.writeText(activeRecord.material || activeRecord.url);
-                                setStatus('已复制');
-                              }}>
-                              复制正文
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => void onDelete(activeRecord.id)}>
-                              删除
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
+
+              {activeSite.site.browseRecords.length > 0 ? (
+                <div className="folder-section">
+                  <p className="folder-section__title">浏览</p>
+                  <div className="folder-file-list">
+                    {activeSite.site.browseRecords.map(record => {
+                      const open = activeRecordId === record.id;
+                      return (
+                        <article key={record.id} className="folder-file">
+                          <button
+                            type="button"
+                            className="folder-file__row"
+                            onClick={() => setActiveRecordId(open ? null : record.id)}>
+                            <span className="folder-file__icon">
+                              <FileGlyph />
+                            </span>
+                            <span className="folder-file__body">
+                              <span className="folder-file__title">{pageLabel(record)}</span>
+                              <span className="folder-file__meta">{formatTime(record.recordedAt)}</span>
+                            </span>
+                          </button>
+                          {open && activeRecord ? (
+                            <div className="folder-file__detail">
+                              <p className="sm-shell__muted break-all">{activeRecord.url}</p>
+                              <textarea
+                                className="min-h-28 text-xs"
+                                readOnly
+                                value={activeRecord.material || '（无正文快照）'}
+                              />
+                              <div className="sm-shell__actions">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => {
+                                    void navigator.clipboard.writeText(activeRecord.material || activeRecord.url);
+                                    setStatus('已复制');
+                                  }}>
+                                  复制正文
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => void onDelete(activeRecord.id)}>
+                                  删除
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {activeSite.site.favorites.length > 0 ? (
+                <div className="folder-section">
+                  <p className="folder-section__title">收藏</p>
+                  <div className="folder-file-list">
+                    {activeSite.site.favorites.map(item => (
+                      <article key={item.id} className="folder-file folder-file--favorite">
+                        <button type="button" className="folder-file__row" onClick={() => setSheetFavorite(item)}>
+                          <span className="folder-file__icon folder-file__icon--favorite">
+                            <Bookmark size={14} strokeWidth={2.2} />
+                          </span>
+                          <span className="folder-file__body">
+                            <span className="folder-file__title">{item.text}</span>
+                            <span className="folder-file__meta">
+                              提问收藏 · {formatTime(item.updatedAt || item.createdAt)}
+                            </span>
+                          </span>
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </section>
           ) : (
             <section className="browse-day">
@@ -550,7 +587,7 @@ const BrowseRecordsPanel = ({
                           />
                         </label>
                         <div className="folder-card__preview" />
-                        <FolderSheets count={site.records.length} />
+                        <FolderSheets count={folderSheetCount(site)} favoriteMark={site.favorites.length > 0} />
                         <div className="folder-card__body">
                           <div className="folder-card__head">
                             <span className="folder-card__folder-icon">
@@ -564,7 +601,7 @@ const BrowseRecordsPanel = ({
                           <div className="folder-card__foot">
                             <span className="folder-card__count">
                               <FileGlyph />
-                              {site.records.length} Files
+                              {folderCountLabel(site.browseRecords.length, site.favorites.length)}
                             </span>
                             <button
                               type="button"
@@ -623,6 +660,81 @@ const BrowseRecordsPanel = ({
           </Button>
         </div>
       </footer>
+
+      <SheetFrame
+        open={Boolean(sheetFavorite)}
+        showHeader={false}
+        ariaLabel="收藏内容"
+        isLight={isLight}
+        className="selection-ask__fav-sheet"
+        onClose={() => setSheetFavorite(null)}
+        footer={
+          sheetFavorite ? (
+            <button
+              type="button"
+              className="selection-ask__link-btn"
+              onClick={() => void onDeleteFavorite(sheetFavorite.id)}>
+              <Trash2 size={14} strokeWidth={2} />
+              删除收藏
+            </button>
+          ) : null
+        }>
+        {sheetFavorite ? (
+          <div className="selection-ask__fav-sheet-body">
+            <section className="selection-ask__card selection-ask__card--source">
+              <p className="selection-ask__label">提问收藏</p>
+              <p className="selection-ask__quote">{sheetFavorite.text}</p>
+              {sheetFavorite.pageTitle || sheetFavorite.sourceUrl ? (
+                <div className="selection-ask__meta">
+                  {sheetFavorite.pageTitle ? (
+                    <p className="selection-ask__meta-title">{sheetFavorite.pageTitle}</p>
+                  ) : null}
+                  {sheetFavorite.sourceUrl ? (
+                    <a
+                      className="selection-ask__meta-url"
+                      href={sheetFavorite.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={sheetFavorite.sourceUrl}>
+                      {sheetFavorite.sourceUrl}
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+
+            {(sheetFavorite.messages ?? [])
+              .filter(msg => !msg.hidden && msg.content.trim())
+              .map(msg => (
+                <section
+                  key={msg.id}
+                  className={cn(
+                    'selection-ask__card',
+                    msg.role === 'user' ? 'selection-ask__card--user' : 'selection-ask__card--answer',
+                  )}>
+                  <p className="selection-ask__label">{msg.role === 'user' ? '追问' : '解答'}</p>
+                  <p className="selection-ask__quote">{msg.content}</p>
+                </section>
+              ))}
+
+            {(sheetFavorite.links?.length ?? 0) > 0 ? (
+              <section className="selection-ask__card">
+                <p className="selection-ask__label">相关查询</p>
+                <ul className="selection-ask__links">
+                  {sheetFavorite.links.map(link => (
+                    <li key={`${link.title}-${link.url}`}>
+                      <a className="selection-ask__link" href={link.url} target="_blank" rel="noreferrer">
+                        <span>{link.title}</span>
+                        <ExternalLink size={14} strokeWidth={2} />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
+      </SheetFrame>
     </div>
   );
 };

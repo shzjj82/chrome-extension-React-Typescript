@@ -33,6 +33,7 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelP
   const [favoriteDateKeys, setFavoriteDateKeys] = useState<Set<string>>(() => new Set());
   const [browseDayTotal, setBrowseDayTotal] = useState(0);
   const [favoriteDayTotal, setFavoriteDayTotal] = useState(0);
+  const [favoritesNonce, setFavoritesNonce] = useState(0);
   const focusRefreshRef = useRef<(() => Promise<void>) | null>(null);
   const favoritesRefreshRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -57,7 +58,14 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelP
   }, []);
 
   const onFavoritesRefreshReady = useCallback((refresh: () => Promise<void>) => {
-    favoritesRefreshRef.current = refresh;
+    favoritesRefreshRef.current = async () => {
+      await refresh();
+      setFavoritesNonce(value => value + 1);
+    };
+  }, []);
+
+  const onFavoritesUpdated = useCallback(() => {
+    setFavoritesNonce(value => value + 1);
   }, []);
 
   const onRefresh = () => {
@@ -137,6 +145,7 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelP
             onRecordDateKeysChange={onBrowseDateKeysChange}
             onRefreshReady={onFocusRefreshReady}
             onDayTotalChange={onBrowseDayTotalChange}
+            favoritesNonce={favoritesNonce}
           />
         </div>
         <div
@@ -151,6 +160,7 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelP
             onFavoritesRefreshReady={onFavoritesRefreshReady}
             onFavoriteDateKeysChange={onFavoriteDateKeysChange}
             onFilteredFavoritesCountChange={onFilteredFavoritesCountChange}
+            onFavoritesUpdated={onFavoritesUpdated}
           />
         </div>
       </div>
