@@ -7,7 +7,7 @@ import {
   withErrorBoundary,
   withSuspense,
 } from '@extension/shared';
-import { exampleThemeStorage, normalizePetStats, petStatsStorage } from '@extension/storage';
+import { exampleThemeStorage, normalizePetStats, petStatsStorage, settleAndPersistPetStats } from '@extension/storage';
 import { cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useEffect, useState } from 'react';
 import type { PetStatsType, BaseStorageType } from '@extension/storage';
@@ -55,6 +55,10 @@ const Popup = () => {
   const rawPetStats = useStorage(petStatsStorage as BaseStorageType<PetStatsType>);
   const petStats = normalizePetStats(rawPetStats);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
+
+  useEffect(() => {
+    void settleAndPersistPetStats();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
