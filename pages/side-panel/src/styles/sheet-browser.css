@@ -775,15 +775,15 @@
   isolation: isolate;
   overflow: hidden;
   border-radius: 24px;
-  border: 1.5px solid var(--sm-line, rgba(61, 46, 34, 0.16));
+  /* 无描边：选中态只靠勾选，避免外层加边框抢视觉 */
+  border: 0;
   background: linear-gradient(145deg, var(--folder-accent) 0%, var(--folder-accent-2) 100%);
   box-shadow: 0 10px 22px rgba(61, 46, 34, 0.1);
 }
 
-.folder-card--selected {
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--sm-accent) 70%, transparent),
-    0 10px 22px rgba(61, 46, 34, 0.14);
+.folder-card--selected .folder-card__check {
+  background: color-mix(in srgb, var(--sm-card) 96%, transparent);
+  box-shadow: 0 4px 10px rgba(61, 46, 34, 0.12);
 }
 
 .folder-card__check {
@@ -800,6 +800,9 @@
   background: color-mix(in srgb, var(--sm-card) 92%, transparent);
   box-shadow: 0 4px 10px rgba(61, 46, 34, 0.12);
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .folder-card__check input {
@@ -826,7 +829,6 @@
   --folder-body-muted: rgba(246, 239, 230, 0.62);
   --folder-icon: #f3c27a;
   --folder-sheet: #f6efe6;
-  border-color: rgba(246, 239, 230, 0.14);
 }
 
 .sm-shell--dark .folder-card--rose {

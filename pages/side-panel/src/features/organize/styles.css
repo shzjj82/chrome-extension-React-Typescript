@@ -357,17 +357,17 @@
   overflow: hidden;
 }
 
-/* 嵌入时左右边距由 files-hub 统一提供，避免与卡片双重缩进 */
+/* 嵌入时：内容左右留 gutter，滚动条在 pane 最外缘 */
 .selection-ask--embedded .selection-ask__scroll {
   flex: 1 1 auto;
   min-height: 0;
-  padding-left: 0;
-  padding-right: 0;
+  padding-left: var(--files-hub-gutter, 14px);
+  padding-right: var(--files-hub-gutter, 14px);
 }
 
 .selection-ask--embedded .selection-ask__footer {
-  padding-left: 0;
-  padding-right: 0;
+  padding-left: var(--files-hub-gutter, 14px);
+  padding-right: var(--files-hub-gutter, 14px);
 }
 
 .selection-ask--embedded .selection-ask__source-sticky::before {
@@ -375,14 +375,14 @@
 }
 
 .browse-shell--embedded .browse-shell__scroll {
-  padding-left: 0;
-  padding-right: 0;
+  padding-left: var(--files-hub-gutter, 14px);
+  padding-right: var(--files-hub-gutter, 14px);
 }
 
 .browse-shell--embedded .browse-dock {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: var(--files-hub-gutter, 14px);
+  right: var(--files-hub-gutter, 14px);
 }
 
 .sm-shell__heading {

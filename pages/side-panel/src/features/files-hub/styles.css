@@ -251,7 +251,8 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  padding: 0 var(--files-hub-gutter) 12px;
+  /* 左右 gutter 交给各 pane 滚动容器，滚动条可贴最外缘、不压卡片 */
+  padding: 0 0 12px;
   box-sizing: border-box;
 }
 
