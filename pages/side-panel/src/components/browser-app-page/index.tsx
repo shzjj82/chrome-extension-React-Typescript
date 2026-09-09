@@ -1,14 +1,16 @@
 import { cn } from '@extension/ui';
 import { Globe, Phone, Store } from 'lucide-react';
-import type { HomeAppId } from '../../features/home/app-catalog';
+import type { DesktopAppId } from '../../features/home';
 import type { LucideIcon } from 'lucide-react';
 
 type BrowserPageProps = {
-  appId: Extract<HomeAppId, 'browser' | 'store' | 'phone'>;
+  appId: DesktopAppId;
   url?: string;
 };
 
-const META: Record<BrowserPageProps['appId'], { title: string; hint: string; Icon: LucideIcon; badge?: string }> = {
+type BrowserPageMeta = { title: string; hint: string; Icon: LucideIcon; badge?: string };
+
+const META: Record<string, BrowserPageMeta> = {
   browser: {
     title: 'Study Mind 浏览器',
     hint: '学习相关页面会在这里以窗口形式打开。',
@@ -28,8 +30,14 @@ const META: Record<BrowserPageProps['appId'], { title: string; hint: string; Ico
   },
 };
 
+const FALLBACK_META: BrowserPageMeta = {
+  title: '应用',
+  hint: '该窗口内容尚未配置。',
+  Icon: Globe,
+};
+
 const BrowserAppPage = ({ appId }: BrowserPageProps) => {
-  const meta = META[appId];
+  const meta = META[appId] ?? FALLBACK_META;
   const Icon = meta.Icon;
 
   return (

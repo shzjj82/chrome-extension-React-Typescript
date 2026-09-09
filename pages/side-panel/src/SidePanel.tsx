@@ -2,7 +2,7 @@ import '@src/SidePanel.css';
 import { AppRevealOverlay, BrowserAppPage, BrowserFrame, SheetFrame } from './components';
 import AdoptionPanel from './features/adopt';
 import FilesHubPanel from './features/files-hub';
-import HomeLauncher, { getHomeApp, resolveOpenIntent } from './features/home';
+import HomeLauncher, { desktopRegistry } from './features/home';
 import OrganizePanel from './features/organize';
 import PetChatPanel from './features/pet-chat';
 import ProgressCalendarPanel from './features/progress-calendar';
@@ -20,7 +20,7 @@ import {
 import { cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import type { HomeAppId, HomeAppTone } from './features/home';
+import type { DesktopAppId, HomeAppTone } from './features/home';
 import type { MouseEvent } from 'react';
 
 type GatePhase = 'adopt' | 'app';
@@ -28,7 +28,7 @@ type GatePhase = 'adopt' | 'app';
 type FloatingOverlay =
   | {
       kind: 'browser';
-      appId: 'browser';
+      appId: DesktopAppId;
       title: string;
       url: string;
       x: number;
@@ -36,7 +36,7 @@ type FloatingOverlay =
     }
   | {
       kind: 'sheet';
-      appId: 'phone' | 'store';
+      appId: DesktopAppId;
       title: string;
       x: number;
       y: number;
@@ -146,13 +146,8 @@ const SidePanel = () => {
     setReveal(null);
   }, []);
 
-  const openApp = (id: HomeAppId, event?: MouseEvent<HTMLButtonElement>) => {
-    const app = getHomeApp(id);
-    if (!app) {
-      return;
-    }
-
-    const intent = resolveOpenIntent(app);
+  const openApp = useCallback((id: DesktopAppId, event?: MouseEvent<HTMLButtonElement>) => {
+    const intent = desktopRegistry.openApp(id);
     if (!intent) {
       return;
     }
@@ -168,7 +163,7 @@ const SidePanel = () => {
       case 'browser':
         setFloating({
           kind: 'browser',
-          appId: 'browser',
+          appId: intent.appId,
           title: intent.title,
           url: intent.url,
           x,
@@ -199,7 +194,7 @@ const SidePanel = () => {
       default:
         return;
     }
-  };
+  }, []);
 
   const filesSlot =
     filesHubAlive || onFiles ? (

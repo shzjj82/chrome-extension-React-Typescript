@@ -179,8 +179,14 @@
 .phone-home__widgets {
   position: relative;
   z-index: 1;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   padding: 16px 14px 6px;
+}
+
+.phone-home__widget-slot {
+  width: 100%;
 }
 
 .phone-widget {

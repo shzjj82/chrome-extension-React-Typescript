@@ -1,47 +1,11 @@
-import { PATHS } from '../../lib/routes';
-import type { HomeApp, HomeAppId, HomeAppTone } from './app-catalog';
+import { desktopRegistry, getHomeApp, resolveOpenIntent } from './desktop/registry';
+import type { DesktopAppDefinition, HomeAppId, OpenIntent } from './desktop/types';
 
-/** 桌面点击应用后的打开意图（与 React 状态解耦，便于单测与扩展） */
-type OpenIntent =
-  | { kind: 'external' }
-  | { kind: 'browser'; title: string; url: string }
-  | { kind: 'sheet'; appId: 'phone' | 'store'; title: string }
-  | { kind: 'reveal'; tone: HomeAppTone; path: string; keepFilesAlive?: boolean };
+/** @deprecated 路由已写入各 App 的 path，保留空映射仅兼容旧导入 */
+const PAGE_ROUTE_BY_ID: Partial<Record<HomeAppId, string>> = {};
 
-const PAGE_ROUTE_BY_ID: Partial<Record<HomeAppId, string>> = {
-  files: PATHS.filesTab('focus'),
-  calendar: PATHS.calendar,
-  messages: PATHS.messages,
-  study: PATHS.study,
-};
-
-const resolveOpenIntent = (app: HomeApp): OpenIntent | null => {
-  switch (app.openMode) {
-    case 'external':
-      return { kind: 'external' };
-    case 'browser':
-      return { kind: 'browser', title: app.label, url: app.url ?? '' };
-    case 'sheet':
-      if (app.id !== 'phone' && app.id !== 'store') {
-        return null;
-      }
-      return { kind: 'sheet', appId: app.id, title: app.label };
-    case 'page': {
-      const path = PAGE_ROUTE_BY_ID[app.id];
-      if (!path) {
-        return null;
-      }
-      return {
-        kind: 'reveal',
-        tone: app.tone,
-        path,
-        keepFilesAlive: app.id === 'files',
-      };
-    }
-    default:
-      return null;
-  }
-};
+/** @deprecated 请优先 desktopRegistry.openApp / resolveOpenIntent */
+const resolveOpenIntentLegacy = (app: DesktopAppDefinition): OpenIntent | null => resolveOpenIntent(app);
 
 export type { OpenIntent };
-export { resolveOpenIntent, PAGE_ROUTE_BY_ID };
+export { resolveOpenIntentLegacy as resolveOpenIntent, PAGE_ROUTE_BY_ID, getHomeApp, desktopRegistry };

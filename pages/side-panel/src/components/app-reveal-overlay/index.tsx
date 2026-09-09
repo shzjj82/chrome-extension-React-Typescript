@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { HomeAppTone } from '../../features/home/app-catalog';
+import type { HomeAppTone } from '../../features/home';
 import type { CSSProperties } from 'react';
 
 type AppRevealOverlayProps = {
