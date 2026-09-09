@@ -15,7 +15,7 @@ const calendarApp: DesktopAppDefinition = {
   label: '日历',
   tone: 'amber',
   order: 20,
-  uninstallable: false,
+  uninstallable: true,
   surface: 'live-date',
   Icon: CalendarDays,
   renderIcon: renderCalendarIcon,

@@ -86,6 +86,7 @@ type DesktopLifecycleEvent =
   | { type: 'widget:registered'; widget: DesktopWidgetDefinition }
   | { type: 'widget:unregistered'; id: string }
   | { type: 'dock:updated'; dock: DesktopDockDefinition }
+  | { type: 'layout:updated'; homeOrder: DesktopAppId[]; dockOrder: DesktopAppId[] }
   | { type: 'app:before-open'; id: DesktopAppId }
   | { type: 'app:opened'; id: DesktopAppId; intent: OpenIntent }
   | { type: 'app:open-failed'; id: DesktopAppId; reason: string };

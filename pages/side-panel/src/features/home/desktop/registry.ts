@@ -184,6 +184,66 @@ class DesktopRegistry {
     this.registerDock({ id: dockId, appIds });
   };
 
+  /** 按 id 列表重排主屏（未列出的已注册应用追加到末尾） */
+  reorderHomeApps = (orderedIds: DesktopAppId[]) => {
+    const remaining = [...this.apps.keys()].filter(id => !orderedIds.includes(id));
+    const nextOrder = [...orderedIds.filter(id => this.apps.has(id)), ...remaining];
+    nextOrder.forEach((id, index) => {
+      const app = this.apps.get(id);
+      if (app) {
+        this.apps.set(id, { ...app, order: (index + 1) * 10 });
+      }
+    });
+    const dockOrder = this.dock?.appIds ?? [];
+    this.notify({ type: 'layout:updated', homeOrder: nextOrder, dockOrder });
+  };
+
+  /** 重排程序坞（只保留仍已注册的 id） */
+  reorderDockApps = (orderedIds: DesktopAppId[], dockId = 'default') => {
+    const appIds = orderedIds.filter(id => this.apps.has(id));
+    this.dock = { id: dockId, appIds };
+    const homeOrder = this.snapshot.apps.map(app => app.id);
+    this.notify({ type: 'layout:updated', homeOrder, dockOrder: appIds });
+  };
+
+  /** 应用持久化布局：顺序 + 删除名单 */
+  applyLayout = (layout: { homeOrder?: DesktopAppId[]; dockOrder?: DesktopAppId[]; removedIds?: DesktopAppId[] }) => {
+    this.runBatch(() => {
+      (layout.removedIds ?? []).forEach(id => {
+        const app = this.apps.get(id);
+        if (app && app.uninstallable !== false) {
+          this.apps.delete(id);
+        }
+      });
+      if (layout.homeOrder && layout.homeOrder.length > 0) {
+        const remaining = [...this.apps.keys()].filter(id => !layout.homeOrder!.includes(id));
+        const nextOrder = [...layout.homeOrder.filter(id => this.apps.has(id)), ...remaining];
+        nextOrder.forEach((id, index) => {
+          const app = this.apps.get(id);
+          if (app) {
+            this.apps.set(id, { ...app, order: (index + 1) * 10 });
+          }
+        });
+      }
+      if (layout.dockOrder) {
+        this.dock = {
+          id: this.dock?.id ?? 'default',
+          appIds: layout.dockOrder.filter(id => this.apps.has(id)),
+        };
+      }
+    });
+    this.emit({
+      type: 'layout:updated',
+      homeOrder: this.snapshot.apps.map(app => app.id),
+      dockOrder: this.dock?.appIds ?? [],
+    });
+  };
+
+  getLayoutSnapshot = () => ({
+    homeOrder: this.snapshot.apps.map(app => app.id),
+    dockOrder: this.dock?.appIds ?? [],
+  });
+
   resolveOpenIntent = (app: DesktopAppDefinition): OpenIntent | null => {
     switch (app.openMode) {
       case 'external':
@@ -233,6 +293,13 @@ const unregisterApp = (id: DesktopAppId) => desktopRegistry.unregisterApp(id);
 const registerWidget = (widget: DesktopWidgetDefinition) => desktopRegistry.registerWidget(widget);
 const unregisterWidget = (id: string) => desktopRegistry.unregisterWidget(id);
 const registerDock = (dock: DesktopDockDefinition) => desktopRegistry.registerDock(dock);
+const reorderHomeApps = (orderedIds: DesktopAppId[]) => desktopRegistry.reorderHomeApps(orderedIds);
+const reorderDockApps = (orderedIds: DesktopAppId[]) => desktopRegistry.reorderDockApps(orderedIds);
+const applyDesktopLayout = (layout: {
+  homeOrder?: DesktopAppId[];
+  dockOrder?: DesktopAppId[];
+  removedIds?: DesktopAppId[];
+}) => desktopRegistry.applyLayout(layout);
 const getHomeApp = (id: DesktopAppId) => desktopRegistry.getApp(id);
 const resolveOpenIntent = (app: DesktopAppDefinition) => desktopRegistry.resolveOpenIntent(app);
 const onDesktopLifecycle = (listener: (event: DesktopLifecycleEvent) => void) => desktopRegistry.onLifecycle(listener);
@@ -245,6 +312,9 @@ export {
   registerWidget,
   unregisterWidget,
   registerDock,
+  reorderHomeApps,
+  reorderDockApps,
+  applyDesktopLayout,
   getHomeApp,
   resolveOpenIntent,
   onDesktopLifecycle,

@@ -1,4 +1,5 @@
 import '@src/index.css';
+import 'csshake/dist/csshake-little.css';
 import { bootstrapInitialEntry } from '@src/lib/routes';
 import SidePanel from '@src/SidePanel';
 import { createRoot } from 'react-dom/client';

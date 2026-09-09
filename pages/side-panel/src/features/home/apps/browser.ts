@@ -6,7 +6,7 @@ const browserApp: DesktopAppDefinition = {
   label: '浏览器',
   tone: 'sky',
   order: 60,
-  uninstallable: false,
+  uninstallable: true,
   Icon: Globe,
   openMode: 'browser',
   enterEffect: 'browser-pop',

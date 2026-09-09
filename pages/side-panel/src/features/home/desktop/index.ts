@@ -22,6 +22,9 @@ export {
   registerWidget,
   unregisterWidget,
   registerDock,
+  reorderHomeApps,
+  reorderDockApps,
+  applyDesktopLayout,
   getHomeApp,
   resolveOpenIntent,
   onDesktopLifecycle,
@@ -29,4 +32,4 @@ export {
 
 export { useDesktopRegistry } from './use-desktop-registry';
 export { useDesktopLifecycle } from './use-desktop-lifecycle';
-export { bootstrapDesktopDefaults } from './bootstrap';
+export { bootstrapDesktopDefaults, hydrateDesktopLayout, persistDesktopLayout } from './bootstrap';

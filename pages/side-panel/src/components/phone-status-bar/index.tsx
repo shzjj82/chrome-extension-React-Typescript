@@ -7,6 +7,9 @@ type PhoneStatusBarProps = {
   leading?: ReactNode;
   /** 时间靠左（短信等）；默认时间跟电量在右侧 */
   clockLeft?: boolean;
+  /** 桌面编辑态：右侧显示「完成」 */
+  editMode?: boolean;
+  onDone?: () => void;
 };
 
 type BatteryInfo = {
@@ -24,7 +27,7 @@ type BatteryLike = {
 const formatClock = (date: Date) =>
   date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
 
-const PhoneStatusBar = ({ className, leading, clockLeft = false }: PhoneStatusBarProps) => {
+const PhoneStatusBar = ({ className, leading, clockLeft = false, editMode = false, onDone }: PhoneStatusBarProps) => {
   const [now, setNow] = useState(() => new Date());
   const [battery, setBattery] = useState<BatteryInfo>({ level: 1, charging: false });
 
@@ -87,28 +90,51 @@ const PhoneStatusBar = ({ className, leading, clockLeft = false }: PhoneStatusBa
     </>
   );
 
+  const rightBlock = editMode ? (
+    <button type="button" className="phone-status__done" onClick={onDone}>
+      完成
+    </button>
+  ) : (
+    batteryBlock
+  );
+
   return (
     <header
-      className={['phone-status', clockLeft ? 'phone-status--clock-left' : '', className ?? '']
+      className={[
+        'phone-status',
+        clockLeft ? 'phone-status--clock-left' : '',
+        editMode ? 'phone-status--edit' : '',
+        className ?? '',
+      ]
         .filter(Boolean)
         .join(' ')}>
       {clockLeft ? (
         <>
-          <div className="phone-status__left" aria-hidden="true">
-            <span className="phone-status__time">{formatClock(now)}</span>
+          <div className="phone-status__left" aria-hidden={editMode ? undefined : true}>
+            {editMode ? (
+              <span className="phone-status__edit-placeholder" />
+            ) : (
+              <span className="phone-status__time">{formatClock(now)}</span>
+            )}
           </div>
-          <div className="phone-status__right" aria-hidden="true">
-            {batteryBlock}
-          </div>
+          <div className="phone-status__right">{rightBlock}</div>
         </>
       ) : (
         <>
           <div className="phone-status__left">
             {leading ? <div className="phone-status__leading">{leading}</div> : null}
           </div>
-          <div className="phone-status__right" aria-hidden="true">
-            <span className="phone-status__time">{formatClock(now)}</span>
-            {batteryBlock}
+          <div className="phone-status__right" aria-hidden={editMode ? undefined : true}>
+            {editMode ? (
+              <button type="button" className="phone-status__done" onClick={onDone}>
+                完成
+              </button>
+            ) : (
+              <>
+                <span className="phone-status__time">{formatClock(now)}</span>
+                {batteryBlock}
+              </>
+            )}
           </div>
         </>
       )}

@@ -25,6 +25,7 @@
     "@extension/shared": "workspace:*",
     "@extension/storage": "workspace:*",
     "@extension/ui": "workspace:*",
+    "csshake": "^1.7.0",
     "dayjs": "^1.11.23",
     "lucide-react": "^1.38.0",
     "lunar-javascript": "^1.7.7",
