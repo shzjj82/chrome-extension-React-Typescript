@@ -16,22 +16,39 @@ const formatClock = (date: Date) =>
 const AppButton = ({
   app,
   dock = false,
+  day,
+  weekday,
   onOpenApp,
 }: {
   app: HomeApp;
   dock?: boolean;
+  day?: number;
+  weekday?: string;
   onOpenApp: HomeLauncherProps['onOpenApp'];
 }) => {
   const { id, label, tone, Icon } = app;
+  const isCalendar = id === 'calendar';
 
   return (
     <button
       type="button"
-      className={cn('phone-app', `phone-app--${tone}`, dock && 'phone-app--dock')}
+      className={cn(
+        'phone-app',
+        !isCalendar && `phone-app--${tone}`,
+        isCalendar && 'phone-app--calendar',
+        dock && 'phone-app--dock',
+      )}
       aria-label={label}
       onClick={event => onOpenApp(id, event)}>
       <span className="phone-app__icon">
-        <Icon size={dock ? 24 : 26} strokeWidth={2.1} />
+        {isCalendar && day != null && weekday ? (
+          <span className="phone-cal-icon">
+            <span className="phone-cal-icon__weekday">{weekday}</span>
+            <span className="phone-cal-icon__day">{day}</span>
+          </span>
+        ) : (
+          <Icon size={dock ? 24 : 26} strokeWidth={2.1} />
+        )}
       </span>
       {dock ? null : <span className="phone-app__label">{label}</span>}
     </button>
@@ -67,26 +84,37 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
           <p className="phone-widget__sub">{calendar.weekday}</p>
         </article>
 
-        <article className="phone-widget phone-widget--cal">
+        <button
+          type="button"
+          className="phone-widget phone-widget--cal"
+          aria-label="打开日历"
+          onClick={event => onOpenApp('calendar', event)}>
           <p className="phone-widget__eyebrow">{calendar.month}</p>
           <p className="phone-widget__day">{calendar.day}</p>
           <p className="phone-widget__sub">
             {calendar.year} · {calendar.weekday}
           </p>
-        </article>
+        </button>
       </section>
 
       <main className="phone-home__page" aria-label="应用">
         <div className="phone-home__grid">
           {PAGE_APPS.map(app => (
-            <AppButton key={app.id} app={app} onOpenApp={onOpenApp} />
+            <AppButton key={app.id} app={app} day={calendar.day} weekday={calendar.weekday} onOpenApp={onOpenApp} />
           ))}
         </div>
       </main>
 
       <footer className="phone-home__dock" aria-label="程序坞">
         {DOCK_APPS.map(app => (
-          <AppButton key={`dock-${app.id}`} app={app} dock onOpenApp={onOpenApp} />
+          <AppButton
+            key={`dock-${app.id}`}
+            app={app}
+            dock
+            day={calendar.day}
+            weekday={calendar.weekday}
+            onOpenApp={onOpenApp}
+          />
         ))}
       </footer>
 

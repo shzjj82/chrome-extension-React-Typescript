@@ -1,7 +1,7 @@
-import { BookOpen, FolderOpen, Globe, MessageCircle, Phone, Settings2, Store } from 'lucide-react';
+import { BookOpen, CalendarDays, FolderOpen, Globe, MessageCircle, Phone, Settings2, Store } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-type HomeAppId = 'files' | 'messages' | 'study' | 'settings' | 'browser' | 'phone' | 'store';
+type HomeAppId = 'files' | 'calendar' | 'messages' | 'study' | 'settings' | 'browser' | 'phone' | 'store';
 
 type HomeAppTone = 'rose' | 'amber' | 'ink' | 'sage' | 'sky' | 'violet' | 'coral';
 
@@ -28,6 +28,14 @@ const HOME_APPS: HomeApp[] = [
     label: '文件',
     tone: 'rose',
     Icon: FolderOpen,
+    openMode: 'page',
+    enterEffect: 'circle-expand',
+  },
+  {
+    id: 'calendar',
+    label: '日历',
+    tone: 'amber',
+    Icon: CalendarDays,
     openMode: 'page',
     enterEffect: 'circle-expand',
   },
@@ -82,7 +90,7 @@ const HOME_APPS: HomeApp[] = [
   },
 ];
 
-const DOCK_APP_IDS: HomeAppId[] = ['files', 'messages', 'browser', 'phone'];
+const DOCK_APP_IDS: HomeAppId[] = ['files', 'calendar', 'browser', 'phone'];
 
 const getHomeApp = (id: HomeAppId) => HOME_APPS.find(app => app.id === id);
 

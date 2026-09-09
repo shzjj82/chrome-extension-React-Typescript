@@ -317,10 +317,10 @@
     "message": "先认识一下，让我陪在你身边"
   },
   "petActionOrganize": {
-    "message": "整理"
+    "message": "加入整理"
   },
   "petActionOrganizeTitle": {
-    "message": "打开整理侧栏"
+    "message": "打开侧栏，把浏览加入整理"
   },
   "petActionChat": {
     "message": "聊天"

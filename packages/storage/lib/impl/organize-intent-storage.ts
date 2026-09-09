@@ -1,7 +1,7 @@
 import { createStorage, StorageEnum } from '../base/index.js';
 import type { BaseStorageType } from '../base/index.js';
 
-/** 打开整理页时携带的材料范围（侧栏写入，整理标签页读取） */
+/** 打开整理页时携带的材料范围 */
 type OrganizeIntent = {
   dateKey: string;
   siteKeys: string[];

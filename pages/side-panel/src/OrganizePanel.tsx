@@ -1,10 +1,25 @@
 import BackIconButton from './BackIconButton';
-import { attachFavoritesToBrowseFolders, folderCountLabel, folderLabel, parseSite } from './lib/siteFolder';
+import {
+  encodeOrganizeCard,
+  ORGANIZE_CARD_KIND,
+  organizeCardCountLabel,
+  organizeCardPreview,
+} from './lib/organizeCard';
+import { attachFavoritesToBrowseFolders, folderLabel, parseSite } from './lib/siteFolder';
+import PhoneStatusBar from './PhoneStatusBar';
 import SheetFrame from './SheetFrame';
-import { listBrowsePagesGroupedByDay, listSelectionFavorites } from '@extension/knowledge-base';
+import {
+  createPetChatThread,
+  listBrowsePagesGroupedByDay,
+  listSelectionFavorites,
+  savePetChatMessage,
+  savePetChatThread,
+} from '@extension/knowledge-base';
+import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { cn } from '@extension/ui';
-import { Bookmark, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { OrganizeCardFavoriteItem, OrganizeCardPayload } from './lib/organizeCard';
 import type { SiteFolder } from './lib/siteFolder';
 import type { BrowsePageRecord, SelectionFavorite } from '@extension/knowledge-base';
 
@@ -15,12 +30,34 @@ type OrganizePayload = {
 
 type OrganizePanelProps = {
   isLight: boolean;
-  dateKey: string;
-  siteKeys: string[];
   onBack: () => void;
+  /** 选择模式：从专注页带入 */
+  dateKey?: string;
+  siteKeys?: string[];
   /** 独立浏览器标签全页（类似设置） */
   pageMode?: boolean;
+  /** 发送到短信成功后（侧栏内跳转） */
+  onSentToMessages?: () => void;
+  /** 只读查看：短信卡片打开 */
+  readOnly?: boolean;
+  card?: OrganizeCardPayload | null;
 };
+
+type BrowseItem = {
+  key: string;
+  record: BrowsePageRecord;
+  siteLabel: string;
+  siteOrigin: string;
+};
+
+type FavoriteItem = {
+  key: string;
+  favorite: SelectionFavorite;
+  siteLabel: string;
+};
+
+const browseKey = (id: string) => `browse:${id}`;
+const favoriteKey = (id: string) => `fav:${id}`;
 
 const formatTime = (at: number) =>
   new Date(at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -59,15 +96,6 @@ const excerpt = (text: string, max = 96) => {
   }
   return `${cleaned.slice(0, max)}…`;
 };
-
-const FileGlyph = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path
-      fill="currentColor"
-      d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 7V3.5L19.5 9H15z"
-    />
-  </svg>
-);
 
 const buildSitesForDay = (
   dateKey: string,
@@ -110,14 +138,139 @@ const buildSitesForDay = (
   return ordered;
 };
 
-const OrganizePanel = ({ isLight, dateKey, siteKeys, onBack, pageMode = false }: OrganizePanelProps) => {
+const flattenGroups = (sites: SiteFolder[]) => {
+  const browseItems: BrowseItem[] = [];
+  const favoriteItems: FavoriteItem[] = [];
+  for (const site of sites) {
+    for (const record of site.browseRecords) {
+      browseItems.push({
+        key: browseKey(record.id),
+        record,
+        siteLabel: site.label,
+        siteOrigin: site.origin,
+      });
+    }
+    for (const favorite of site.favorites) {
+      favoriteItems.push({
+        key: favoriteKey(favorite.id),
+        favorite,
+        siteLabel: site.label,
+      });
+    }
+  }
+  return { browseItems, favoriteItems };
+};
+
+const buildOrganizeCard = (
+  dateKey: string,
+  browseItems: BrowseItem[],
+  favoriteItems: FavoriteItem[],
+  selected: Set<string>,
+): OrganizeCardPayload => {
+  const browse = browseItems
+    .filter(item => selected.has(item.key))
+    .map(item => ({
+      id: item.record.id,
+      title: pageLabel(item.record),
+      url: item.record.url,
+      siteLabel: item.siteLabel,
+      recordedAt: item.record.recordedAt,
+      material: item.record.material?.trim() || undefined,
+    }));
+
+  const favorites = favoriteItems
+    .filter(item => selected.has(item.key))
+    .map(item => ({
+      id: item.favorite.id,
+      text: item.favorite.text,
+      siteLabel: item.siteLabel,
+      sourceUrl: item.favorite.sourceUrl || '',
+      pageTitle: item.favorite.pageTitle || '',
+      createdAt: item.favorite.createdAt,
+      updatedAt: item.favorite.updatedAt || item.favorite.createdAt,
+      messages: item.favorite.messages ?? [],
+      links: item.favorite.links ?? [],
+    }));
+
+  return {
+    v: 1,
+    kind: ORGANIZE_CARD_KIND,
+    dateKey,
+    dayLabel: formatDayLabel(dateKey),
+    browse,
+    favorites,
+  };
+};
+
+const favoriteFromCard = (item: OrganizeCardFavoriteItem): SelectionFavorite => ({
+  id: item.id,
+  text: item.text,
+  sourceUrl: item.sourceUrl,
+  pageTitle: item.pageTitle,
+  createdAt: item.createdAt,
+  updatedAt: item.updatedAt,
+  messages: item.messages ?? [],
+  links: item.links ?? [],
+});
+
+const OrganizePanel = ({
+  isLight,
+  dateKey = '',
+  siteKeys = [],
+  onBack,
+  pageMode = false,
+  onSentToMessages,
+  readOnly = false,
+  card = null,
+}: OrganizePanelProps) => {
+  const viewingCard = readOnly && card ? card : null;
   const [sites, setSites] = useState<SiteFolder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!viewingCard);
   const [error, setError] = useState('');
-  const [openRecordId, setOpenRecordId] = useState<string | null>(null);
   const [sheetFavorite, setSheetFavorite] = useState<SelectionFavorite | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [sending, setSending] = useState(false);
+  const [sendHint, setSendHint] = useState('');
+
+  const loaded = useMemo(() => flattenGroups(sites), [sites]);
+
+  const browseItems = useMemo(() => {
+    if (viewingCard) {
+      return viewingCard.browse.map(item => ({
+        key: browseKey(item.id),
+        record: {
+          id: item.id,
+          dateKey: viewingCard.dateKey,
+          url: item.url,
+          title: item.title,
+          recordedAt: item.recordedAt,
+          material: item.material ?? '',
+          fingerprint: item.id,
+          trigger: 'manual' as const,
+          similarity: 1,
+        } satisfies BrowsePageRecord,
+        siteLabel: item.siteLabel,
+        siteOrigin: '',
+      }));
+    }
+    return loaded.browseItems;
+  }, [viewingCard, loaded.browseItems]);
+
+  const favoriteItems = useMemo(() => {
+    if (viewingCard) {
+      return viewingCard.favorites.map(item => ({
+        key: favoriteKey(item.id),
+        favorite: favoriteFromCard(item),
+        siteLabel: item.siteLabel,
+      }));
+    }
+    return loaded.favoriteItems;
+  }, [viewingCard, loaded.favoriteItems]);
 
   const load = useCallback(async () => {
+    if (viewingCard) {
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -125,141 +278,270 @@ const OrganizePanel = ({ isLight, dateKey, siteKeys, onBack, pageMode = false }:
       const day = dayGroups.find(item => item.dateKey === dateKey);
       const next = buildSitesForDay(dateKey, siteKeys, day?.records ?? [], favorites);
       setSites(next);
+      const flat = flattenGroups(next);
+      setSelected(new Set([...flat.browseItems, ...flat.favoriteItems].map(item => item.key)));
+      setSendHint('');
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载整理材料失败');
       setSites([]);
+      setSelected(new Set());
     } finally {
       setLoading(false);
     }
-  }, [dateKey, siteKeys]);
+  }, [dateKey, siteKeys, viewingCard]);
 
   useEffect(() => {
+    if (viewingCard) {
+      setLoading(false);
+      setSites([]);
+      setSelected(new Set());
+      return;
+    }
     if (!dateKey) {
       setLoading(false);
       setSites([]);
+      setSelected(new Set());
       return;
     }
     void load();
-  }, [dateKey, load]);
+  }, [dateKey, load, viewingCard]);
 
   useEffect(() => {
-    document.title = '整理';
-  }, []);
+    document.title = viewingCard ? '资料详情' : '开始整理';
+  }, [viewingCard]);
 
-  const summary = useMemo(() => {
-    const browseTotal = sites.reduce((sum, site) => sum + site.browseRecords.length, 0);
-    const favoriteTotal = sites.reduce((sum, site) => sum + site.favorites.length, 0);
-    return {
-      browseTotal,
-      favoriteTotal,
-      siteCount: sites.length,
-      empty: browseTotal === 0 && favoriteTotal === 0,
-    };
-  }, [sites]);
+  const summary = useMemo(
+    () => ({
+      browseTotal: browseItems.length,
+      favoriteTotal: favoriteItems.length,
+      empty: browseItems.length === 0 && favoriteItems.length === 0,
+    }),
+    [browseItems.length, favoriteItems.length],
+  );
+
+  const selectedCount = selected.size;
+  const allKeys = useMemo(() => [...browseItems, ...favoriteItems].map(item => item.key), [browseItems, favoriteItems]);
+  const allSelected = allKeys.length > 0 && selectedCount === allKeys.length;
+  const someSelected = selectedCount > 0 && !allSelected;
+
+  const toggleKey = (key: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelected(allSelected ? new Set() : new Set(allKeys));
+  };
+
+  const openBrowsePage = (url: string) => {
+    const target = url.trim();
+    if (!target) {
+      return;
+    }
+    if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+      void chrome.tabs.create({ url: target });
+      return;
+    }
+    window.open(target, '_blank', 'noopener,noreferrer');
+  };
+
+  const sendToMessages = async () => {
+    if (viewingCard || sending || selectedCount === 0) {
+      return;
+    }
+    setSending(true);
+    setError('');
+    setSendHint('');
+    try {
+      const cardPayload = buildOrganizeCard(dateKey, browseItems, favoriteItems, selected);
+      if (cardPayload.browse.length + cardPayload.favorites.length === 0) {
+        throw new Error('请先勾选要发送的材料');
+      }
+
+      const title = `整理 · ${cardPayload.dayLabel}`;
+      const preview = organizeCardPreview(cardPayload);
+      const thread = await createPetChatThread(title);
+      await savePetChatMessage({
+        threadId: thread.id,
+        role: 'user',
+        content: encodeOrganizeCard(cardPayload),
+      });
+      await savePetChatThread({
+        ...thread,
+        title,
+        titleStatus: 'ready',
+        preview,
+      });
+
+      setSendHint(`已发送整理卡片（${organizeCardCountLabel(cardPayload)}）`);
+      if (onSentToMessages) {
+        onSentToMessages();
+      } else {
+        await sendExtensionMessage(ExtensionMessageType.OPEN_SIDE_PANEL, { view: 'chat' }).catch(() => undefined);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发送失败');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
-    <div className={cn('organize-panel', pageMode && 'organize-panel--page', !isLight && 'sm-shell--dark')}>
+    <div
+      className={cn(
+        'side-panel sm-shell organize-panel',
+        pageMode && 'organize-panel--page',
+        viewingCard && 'organize-panel--readonly',
+        !isLight && 'sm-shell--dark',
+      )}>
+      <PhoneStatusBar className="organize-panel__status" clockLeft />
+
       <header className="organize-panel__header">
-        <BackIconButton className="organize-panel__back" onClick={onBack} />
-        <div className="organize-panel__titles">
-          <h1 className="organize-panel__title">整理</h1>
-          <p className="organize-panel__subtitle">
-            {formatDayLabel(dateKey)}
-            {summary.siteCount > 0
-              ? ` · ${summary.siteCount} 站 · ${folderCountLabel(summary.browseTotal, summary.favoriteTotal)}`
-              : null}
-          </p>
-        </div>
+        <BackIconButton className="organize-panel__back" iconSize={16} onClick={onBack} />
+        <h1 className="organize-panel__title">{viewingCard ? '资料详情' : '开始整理'}</h1>
         <span className="organize-panel__header-spacer" aria-hidden="true" />
       </header>
 
       <div className="organize-panel__scroll">
         {loading ? <p className="organize-panel__hint">加载中…</p> : null}
         {error ? <p className="text-xs text-red-700">{error}</p> : null}
+        {sendHint ? <p className="organize-panel__hint organize-panel__hint--ok">{sendHint}</p> : null}
 
-        {!loading && !error && (summary.empty || !dateKey) ? (
+        {!loading && !error && (summary.empty || (!viewingCard && !dateKey)) ? (
           <div className="browse-empty">
-            <p className="browse-empty__title">{dateKey ? '这一天没有可整理的内容' : '没有整理材料'}</p>
+            <p className="browse-empty__title">
+              {viewingCard ? '这份资料没有内容' : dateKey ? '这一天没有可整理的内容' : '没有整理材料'}
+            </p>
             <p className="browse-empty__hint">
-              {dateKey ? '换个日期，或先去专注留下浏览快照、去提问页收藏' : '请从文件页的专注分区点击「整理」打开'}
+              {viewingCard
+                ? '返回继续查看'
+                : dateKey
+                  ? '换个日期，或先去专注留下浏览快照、去提问页收藏'
+                  : '请从文件页的专注分区点击「加入整理」打开'}
             </p>
           </div>
         ) : null}
 
-        {!loading
-          ? sites.map(site => (
-              <section key={site.key} className="sm-shell__card organize-panel__site">
-                <h2 className="sm-shell__card-title">{site.label}</h2>
-                <p className="sm-shell__muted">
-                  {site.origin} · {folderCountLabel(site.browseRecords.length, site.favorites.length)}
-                </p>
-
-                {site.browseRecords.length > 0 ? (
-                  <div className="folder-section">
-                    <p className="folder-section__title">浏览快照</p>
-                    <div className="folder-file-list">
-                      {site.browseRecords.map(record => {
-                        const open = openRecordId === record.id;
-                        return (
-                          <article key={record.id} className="folder-file">
-                            <button
-                              type="button"
-                              className="folder-file__row"
-                              onClick={() => setOpenRecordId(open ? null : record.id)}>
-                              <span className="folder-file__icon">
-                                <FileGlyph />
-                              </span>
-                              <span className="folder-file__body">
-                                <span className="folder-file__title">{pageLabel(record)}</span>
-                                <span className="folder-file__meta">
-                                  {formatTime(record.recordedAt)}
-                                  {record.material?.trim() ? ` · ${excerpt(record.material)}` : ' · （无正文快照）'}
-                                </span>
-                              </span>
-                            </button>
-                            {open ? (
-                              <div className="folder-file__detail">
-                                <p className="sm-shell__muted break-all">{record.url}</p>
-                                <textarea
-                                  className="organize-panel__material"
-                                  readOnly
-                                  value={record.material?.trim() || '（无正文快照）'}
-                                />
-                              </div>
-                            ) : null}
-                          </article>
-                        );
-                      })}
+        {!loading && browseItems.length > 0 ? (
+          <section className="organize-panel__group" aria-label="浏览快照">
+            <h2 className="organize-panel__group-title">浏览快照</h2>
+            <div className="folder-file-list organize-panel__list">
+              {browseItems.map(item => {
+                const checked = selected.has(item.key);
+                return (
+                  <article key={item.key} className="folder-file organize-panel__item">
+                    <div className="organize-panel__item-row">
+                      {viewingCard ? null : (
+                        <label className="organize-panel__check organize-panel__check--item">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleKey(item.key)}
+                            onClick={event => event.stopPropagation()}
+                            aria-label={`选择 ${pageLabel(item.record)}`}
+                          />
+                        </label>
+                      )}
+                      <button
+                        type="button"
+                        className="folder-file__row organize-panel__item-main"
+                        onClick={() => openBrowsePage(item.record.url)}>
+                        <span className="folder-file__body">
+                          <span className="folder-file__title">{pageLabel(item.record)}</span>
+                          <span className="folder-file__meta">
+                            {item.siteLabel} · {formatTime(item.record.recordedAt)}
+                            {item.record.material?.trim() ? ` · ${excerpt(item.record.material)}` : ' · （无正文快照）'}
+                          </span>
+                        </span>
+                      </button>
                     </div>
-                  </div>
-                ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
-                {site.favorites.length > 0 ? (
-                  <div className="folder-section">
-                    <p className="folder-section__title">提问收藏</p>
-                    <div className="folder-file-list">
-                      {site.favorites.map(item => (
-                        <article key={item.id} className="folder-file folder-file--favorite">
-                          <button type="button" className="folder-file__row" onClick={() => setSheetFavorite(item)}>
-                            <span className="folder-file__icon folder-file__icon--favorite">
-                              <Bookmark size={14} strokeWidth={2.2} />
-                            </span>
-                            <span className="folder-file__body">
-                              <span className="folder-file__title">{item.text}</span>
-                              <span className="folder-file__meta">
-                                提问收藏 · {formatTime(item.updatedAt || item.createdAt)}
-                              </span>
-                            </span>
-                          </button>
-                        </article>
-                      ))}
+        {!loading && favoriteItems.length > 0 ? (
+          <section className="organize-panel__group" aria-label="提问收藏">
+            <h2 className="organize-panel__group-title">提问收藏</h2>
+            <div className="folder-file-list organize-panel__list">
+              {favoriteItems.map(item => {
+                const checked = selected.has(item.key);
+                return (
+                  <article key={item.key} className="folder-file organize-panel__item">
+                    <div className="organize-panel__item-row">
+                      {viewingCard ? null : (
+                        <label className="organize-panel__check organize-panel__check--item">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleKey(item.key)}
+                            onClick={event => event.stopPropagation()}
+                            aria-label={`选择 ${item.favorite.text}`}
+                          />
+                        </label>
+                      )}
+                      <button
+                        type="button"
+                        className="folder-file__row organize-panel__item-main"
+                        onClick={() => setSheetFavorite(item.favorite)}>
+                        <span className="folder-file__body">
+                          <span className="folder-file__title">{item.favorite.text}</span>
+                          <span className="folder-file__meta">
+                            {item.siteLabel} · {formatTime(item.favorite.updatedAt || item.favorite.createdAt)}
+                          </span>
+                        </span>
+                      </button>
                     </div>
-                  </div>
-                ) : null}
-              </section>
-            ))
-          : null}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {!loading && !summary.empty && !viewingCard ? (
+          <div className="organize-panel__scroll-spacer" aria-hidden="true" />
+        ) : null}
       </div>
+
+      {!loading && !summary.empty && !viewingCard ? (
+        <footer className="browse-dock organize-panel__dock" aria-label="整理操作">
+          <div className="browse-dock__left">
+            <label className="browse-dock__check">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={el => {
+                  if (el) {
+                    el.indeterminate = someSelected;
+                  }
+                }}
+                onChange={toggleAll}
+              />
+              <span>全选</span>
+            </label>
+            {selectedCount > 0 ? <span className="browse-dock__selected">已选中 {selectedCount}</span> : null}
+          </div>
+          <div className="browse-dock__actions">
+            <button
+              type="button"
+              className="browse-dock__btn browse-dock__btn--primary"
+              disabled={sending || selectedCount === 0}
+              onClick={() => void sendToMessages()}>
+              {sending ? '整理中…' : '开始整理'}
+            </button>
+          </div>
+        </footer>
+      ) : null}
 
       <SheetFrame
         open={Boolean(sheetFavorite)}

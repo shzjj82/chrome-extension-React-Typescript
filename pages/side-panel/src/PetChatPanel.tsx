@@ -1,6 +1,8 @@
 import BackIconButton from './BackIconButton';
 import { callChatCompletion, callChatCompletionStream } from './lib/learning';
+import { organizeCardCountLabel, organizeCardLlmText, parseOrganizeCard } from './lib/organizeCard';
 import { useStickToBottomScroll } from './lib/useStickToBottomScroll';
+import OrganizePanel from './OrganizePanel';
 import PhoneStatusBar from './PhoneStatusBar';
 import {
   clipText,
@@ -14,8 +16,9 @@ import {
 import { useStorage } from '@extension/shared';
 import { isLlmConfigured, llmSettingsStorage, normalizeUserProfile, userProfileStorage } from '@extension/storage';
 import { cn } from '@extension/ui';
-import { ArrowUp, MessageSquarePlus, Trash2 } from 'lucide-react';
+import { ArrowUp, ChevronRight, MessageSquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { OrganizeCardPayload } from './lib/organizeCard';
 import type { PetChatMessage, PetChatThread } from '@extension/knowledge-base';
 import type { MouseEvent as ReactMouseEvent, UIEvent } from 'react';
 
@@ -111,6 +114,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
   const [messages, setMessages] = useState<PetChatMessage[]>([]);
+  const [reviewCard, setReviewCard] = useState<OrganizeCardPayload | null>(null);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
@@ -441,7 +445,13 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
     try {
       await savePetChatMessage(userMsg);
 
-      const history = [...messages, userMsg].slice(-12).map(m => ({ role: m.role, content: m.content }));
+      const history = [...messages, userMsg].slice(-12).map(m => {
+        const card = parseOrganizeCard(m.content);
+        return {
+          role: m.role,
+          content: card ? organizeCardLlmText(card) : m.content,
+        };
+      });
 
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -488,6 +498,10 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
   const canSend = Boolean(input.trim()) && !loading && Boolean(activeThread);
   const showWelcome = Boolean(activeThread) && !booting;
+
+  if (reviewCard) {
+    return <OrganizePanel isLight={isLight} readOnly card={reviewCard} onBack={() => setReviewCard(null)} />;
+  }
 
   if (!activeThread) {
     return (
@@ -581,6 +595,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
         {messages.map((msg, index) => {
           const prev = messages[index - 1];
           const showTime = shouldShowTimeLabel(msg.createdAt, prev?.createdAt);
+          const organizeCard = parseOrganizeCard(msg.content);
           return (
             <div key={msg.id} className="pet-chat__block">
               {showTime ? (
@@ -589,17 +604,29 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
                 </p>
               ) : null}
               <div className={cn('pet-chat__row', msg.role === 'user' ? 'pet-chat__row--user' : 'pet-chat__row--pet')}>
-                <div
-                  className={cn(
-                    'pet-chat__bubble',
-                    msg.role === 'user' ? 'pet-chat__bubble--user' : 'pet-chat__bubble--pet',
-                    streamingId === msg.id && 'pet-chat__bubble--streaming',
-                  )}>
-                  <p className="pet-chat__text">
-                    {msg.content}
-                    {streamingId === msg.id ? <span className="pet-chat__caret" aria-hidden="true" /> : null}
-                  </p>
-                </div>
+                {organizeCard ? (
+                  <button type="button" className="pet-chat__organize-card" onClick={() => setReviewCard(organizeCard)}>
+                    <span className="pet-chat__organize-card-eyebrow">资料详情</span>
+                    <span className="pet-chat__organize-card-title">{organizeCard.dayLabel}</span>
+                    <span className="pet-chat__organize-card-meta">{organizeCardCountLabel(organizeCard)}</span>
+                    <span className="pet-chat__organize-card-action">
+                      查看详情
+                      <ChevronRight size={14} strokeWidth={2.2} />
+                    </span>
+                  </button>
+                ) : (
+                  <div
+                    className={cn(
+                      'pet-chat__bubble',
+                      msg.role === 'user' ? 'pet-chat__bubble--user' : 'pet-chat__bubble--pet',
+                      streamingId === msg.id && 'pet-chat__bubble--streaming',
+                    )}>
+                    <p className="pet-chat__text">
+                      {msg.content}
+                      {streamingId === msg.id ? <span className="pet-chat__caret" aria-hidden="true" /> : null}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           );

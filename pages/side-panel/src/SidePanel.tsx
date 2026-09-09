@@ -10,6 +10,7 @@ import HomeLauncher from './HomeLauncher';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
 import OrganizePanel from './OrganizePanel';
 import PetChatPanel from './PetChatPanel';
+import ProgressCalendarPanel from './ProgressCalendarPanel';
 import SheetFrame from './SheetFrame';
 import { t } from '@extension/i18n';
 import {
@@ -45,8 +46,8 @@ import type { MouseEvent, ReactNode } from 'react';
 
 type TabKey = 'study' | 'library';
 type GatePhase = 'adopt' | 'app';
-/** 全页路由（浏览器 / 电话 / 商店走浮层，不占 AppView）；ask/calendar 并入 files Hub；organize 独立标签页 */
-type AppView = 'home' | 'files' | 'messages' | 'study' | 'organize';
+/** 全页路由（浏览器 / 电话 / 商店走浮层，不占 AppView） */
+type AppView = 'home' | 'files' | 'messages' | 'study' | 'organize' | 'calendar';
 
 type FloatingOverlay =
   | {
@@ -88,7 +89,10 @@ const resolveAppView = (): AppView => {
     if (view === 'organize') {
       return 'organize';
     }
-    if (view === 'browse' || view === 'ask' || view === 'calendar') {
+    if (view === 'calendar') {
+      return 'calendar';
+    }
+    if (view === 'browse' || view === 'ask') {
       return 'files';
     }
     if (view === 'chat') {
@@ -208,12 +212,16 @@ const SidePanel = () => {
       setReveal(null);
       setFloating(null);
       setAppView('files');
-    } else if (panelIntent.view === 'browse' || panelIntent.view === 'calendar') {
+    } else if (panelIntent.view === 'browse') {
       setFilesHubTab('focus');
       setFilesHubAlive(true);
       setReveal(null);
       setFloating(null);
       setAppView('files');
+    } else if (panelIntent.view === 'calendar') {
+      setReveal(null);
+      setFloating(null);
+      setAppView('calendar');
     } else if (panelIntent.view === 'chat') {
       setReveal(null);
       setFloating(null);
@@ -232,6 +240,24 @@ const SidePanel = () => {
     setReveal(null);
     setFloating(null);
     setAppView('home');
+  }, []);
+
+  const openOrganize = useCallback((payload: { dateKey: string; siteKeys: string[] }) => {
+    void organizeIntentStorage.set({
+      dateKey: payload.dateKey,
+      siteKeys: payload.siteKeys,
+      at: Date.now(),
+    });
+    setFilesHubAlive(true);
+    setReveal(null);
+    setFloating(null);
+    setAppView('organize');
+  }, []);
+
+  const backFromOrganize = useCallback(() => {
+    void organizeIntentStorage.set(null);
+    clearViewQuery();
+    setAppView('files');
   }, []);
 
   const closeFloating = useCallback(() => {
@@ -292,7 +318,7 @@ const SidePanel = () => {
       return;
     }
 
-    // page：色圆放大入场（原日历页已并入文件 Hub）
+    // page：色圆放大入场
     if (id === 'files') {
       setFloating(null);
       setFilesHubTab('focus');
@@ -306,7 +332,7 @@ const SidePanel = () => {
       return;
     }
 
-    if (id === 'messages' || id === 'study') {
+    if (id === 'calendar' || id === 'messages' || id === 'study') {
       setFloating(null);
       setReveal({
         x,
@@ -470,25 +496,6 @@ const SidePanel = () => {
     }
   };
 
-  if (appView === 'organize') {
-    const dateKey = organizeIntent?.dateKey ?? '';
-    const siteKeys = organizeIntent?.siteKeys ?? [];
-    return (
-      <div className={cn('organize-page-root', !isLight && 'sm-shell--dark')}>
-        <OrganizePanel
-          isLight={isLight}
-          pageMode
-          dateKey={dateKey}
-          siteKeys={siteKeys}
-          onBack={() => {
-            void organizeIntentStorage.set(null);
-            window.close();
-          }}
-        />
-      </div>
-    );
-  }
-
   if (gatePhase === 'adopt') {
     return (
       <>
@@ -552,6 +559,22 @@ const SidePanel = () => {
     appContent = <HomeLauncher isLight={isLight} onOpenApp={openApp} />;
   } else if (appView === 'files') {
     appContent = null;
+  } else if (appView === 'organize') {
+    appContent = (
+      <OrganizePanel
+        isLight={isLight}
+        dateKey={organizeIntent?.dateKey ?? ''}
+        siteKeys={organizeIntent?.siteKeys ?? []}
+        onBack={backFromOrganize}
+        onSentToMessages={() => {
+          void organizeIntentStorage.set(null);
+          clearViewQuery();
+          setAppView('messages');
+        }}
+      />
+    );
+  } else if (appView === 'calendar') {
+    appContent = <ProgressCalendarPanel isLight={isLight} onBack={goHome} />;
   } else if (appView === 'messages') {
     appContent = <PetChatPanel isLight={isLight} onBack={goHome} />;
   } else {
@@ -791,7 +814,7 @@ const SidePanel = () => {
         <div
           className={cn('files-hub-keepalive', appView !== 'files' && 'files-hub-keepalive--hidden')}
           aria-hidden={appView !== 'files'}>
-          <FilesHubPanel isLight={isLight} onBack={goHome} initialTab={filesHubTab} />
+          <FilesHubPanel isLight={isLight} onBack={goHome} initialTab={filesHubTab} onOrganizeRequest={openOrganize} />
         </div>
       ) : null}
       {floatingLayer}
