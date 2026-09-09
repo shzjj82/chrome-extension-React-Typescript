@@ -78,7 +78,7 @@ type OpenIntent =
   | { kind: 'external' }
   | { kind: 'browser'; title: string; url: string; appId: DesktopAppId }
   | { kind: 'sheet'; title: string; appId: DesktopAppId }
-  | { kind: 'reveal'; tone: HomeAppTone; path: string; keepFilesAlive?: boolean };
+  | { kind: 'reveal'; tone: HomeAppTone; path: string; keepFilesAlive?: boolean; fill?: string };
 
 type DesktopLifecycleEvent =
   | { type: 'app:registered'; app: DesktopAppDefinition }

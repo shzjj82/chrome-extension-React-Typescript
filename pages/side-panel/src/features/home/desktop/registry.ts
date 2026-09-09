@@ -259,6 +259,9 @@ class DesktopRegistry {
         return {
           kind: 'reveal',
           tone: app.tone,
+          /** 白底活字图标：展开色圆跟图标一致，不用 tone 渐变 */
+          fill:
+            app.surface === 'live-date' ? 'linear-gradient(160deg, #ffffff 0%, #f7f4ef 55%, #f0ebe3 100%)' : undefined,
           path: app.path,
           keepFilesAlive: Boolean(app.keepAlive),
         };

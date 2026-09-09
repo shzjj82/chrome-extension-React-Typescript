@@ -63,6 +63,7 @@ const SidePanel = () => {
     x: number;
     y: number;
     tone: HomeAppTone;
+    fill?: string;
     pendingPath: string;
   } | null>(null);
   const [gatePhase, setGatePhase] = useState<GatePhase>(() => resolveGatePhase(profile.petAdopted));
@@ -188,6 +189,7 @@ const SidePanel = () => {
           x,
           y,
           tone: intent.tone,
+          fill: intent.fill,
           pendingPath: intent.path,
         });
         return;
@@ -209,6 +211,7 @@ const SidePanel = () => {
       originX={reveal?.x ?? 0}
       originY={reveal?.y ?? 0}
       tone={reveal?.tone ?? 'rose'}
+      fill={reveal?.fill}
       onCovered={onRevealCovered}
       onDone={onRevealDone}
     />

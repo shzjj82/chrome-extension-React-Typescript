@@ -7,6 +7,8 @@ type AppRevealOverlayProps = {
   originX: number;
   originY: number;
   tone: HomeAppTone;
+  /** 覆盖 tone 渐变（如日历白底） */
+  fill?: string;
   /** 色圆已铺满：此时切到目标页（仍被遮罩盖住） */
   onCovered: () => void;
   /** 遮罩淡出结束：卸掉遮罩 */
@@ -27,7 +29,7 @@ const TONE_FILL: Record<HomeAppTone, string> = {
 };
 
 /** 打开：色圆放大铺满 → 切页 → 淡出遮罩，过渡更自然 */
-const AppRevealOverlay = ({ active, originX, originY, tone, onCovered, onDone }: AppRevealOverlayProps) => {
+const AppRevealOverlay = ({ active, originX, originY, tone, fill, onCovered, onDone }: AppRevealOverlayProps) => {
   const [expanded, setExpanded] = useState(false);
   const [fading, setFading] = useState(false);
 
@@ -78,7 +80,7 @@ const AppRevealOverlay = ({ active, originX, originY, tone, onCovered, onDone }:
         {
           '--reveal-x': `${originX}px`,
           '--reveal-y': `${originY}px`,
-          background: TONE_FILL[tone],
+          background: fill ?? TONE_FILL[tone],
         } as CSSProperties
       }
       aria-hidden="true"

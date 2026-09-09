@@ -77,8 +77,7 @@ const AppStoreRow = ({ app, day, weekday, phase, progress, onInstall }: AppStore
       <span
         className={cn(
           'app-store-row__icon',
-          `phone-app--${tone}`,
-          surface === 'live-date' && 'phone-app--calendar',
+          surface === 'live-date' ? 'phone-app--calendar' : `phone-app--${tone}`,
           'app-store-row__icon-shell',
         )}
         aria-hidden="true">
