@@ -1,5 +1,6 @@
 import { DOCK_APPS, PAGE_APPS } from './app-catalog';
 import { cn } from '@extension/ui';
+import { Solar } from 'lunar-javascript';
 import { useEffect, useMemo, useState } from 'react';
 import type { HomeApp, HomeAppId } from './app-catalog';
 import type { MouseEvent } from 'react';
@@ -11,6 +12,31 @@ type HomeLauncherProps = {
 
 const formatClock = (date: Date) =>
   date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+
+const DAY_CN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+
+/** 公历日转中文：1→一 … 9→九，10→十，11→十一，20→二十，21→二十一，30→三十，31→三十一 */
+const dayToChinese = (day: number) => {
+  if (day <= 0 || day > 31) {
+    return String(day);
+  }
+  if (day <= 10) {
+    return DAY_CN[day];
+  }
+  if (day < 20) {
+    return `十${DAY_CN[day - 10]}`;
+  }
+  if (day === 20) {
+    return '二十';
+  }
+  if (day < 30) {
+    return `二十${DAY_CN[day - 20]}`;
+  }
+  if (day === 30) {
+    return '三十';
+  }
+  return '三十一';
+};
 
 const AppButton = ({
   app,
@@ -67,28 +93,26 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
     const weekday = now.toLocaleDateString('zh-CN', { weekday: 'short' });
     const day = now.getDate();
     const year = now.getFullYear();
-    return { month, weekday, day, year };
+    const lunar = Solar.fromYmd(year, now.getMonth() + 1, day).getLunar();
+    const lunarLabel = `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
+    const solarLabel = `${month}${dayToChinese(day)}日 · ${weekday}`;
+    return { month, weekday, day, year, lunarLabel, solarLabel };
   }, [now]);
 
   return (
     <div className={cn('phone-home__content', !isLight && 'phone-home__content--dark')}>
       <section className="phone-home__widgets" aria-label="桌面组件">
-        <article className="phone-widget phone-widget--time">
-          <p className="phone-widget__eyebrow">时间</p>
-          <p className="phone-widget__clock">{formatClock(now)}</p>
-          <p className="phone-widget__sub">{calendar.weekday}</p>
-        </article>
-
         <button
           type="button"
-          className="phone-widget phone-widget--cal"
-          aria-label="打开日历"
+          className="phone-widget phone-widget--moment"
+          aria-label={`打开日历，${calendar.year}年 ${calendar.weekday} ${formatClock(now)}，农历${calendar.lunarLabel}`}
           onClick={event => onOpenApp('calendar', event)}>
-          <p className="phone-widget__eyebrow">{calendar.month}</p>
-          <p className="phone-widget__day">{calendar.day}</p>
-          <p className="phone-widget__sub">
-            {calendar.year} · {calendar.weekday}
-          </p>
+          <div className="phone-widget__meta">
+            <p className="phone-widget__eyebrow">农历{calendar.lunarLabel}</p>
+            <p className="phone-widget__year">{calendar.year}年</p>
+          </div>
+          <p className="phone-widget__clock">{formatClock(now)}</p>
+          <p className="phone-widget__sub">{calendar.solarLabel}</p>
         </button>
       </section>
 

@@ -17,11 +17,19 @@
   --sm-accent: #d64545;
   --sm-accent-deep: #b83232;
   --sm-muted: rgba(61, 46, 34, 0.68);
+  /* 专注 / 整理底栏共用，切换时宽高不抖 */
+  --app-dock-gutter: 14px;
+  --app-dock-bottom: 8px;
+  --app-dock-pad-y: 8px;
+  --app-dock-pad-x: 12px;
+  --app-dock-btn-height: 34px;
+  --app-dock-height: calc(var(--app-dock-pad-y) * 2 + var(--app-dock-btn-height));
   color: var(--sm-ink);
+  /* 底部靠近纸色，避免横线区出现一块偏深的米黄条 */
   background:
-    radial-gradient(circle at 18% 8%, rgba(214, 69, 69, 0.1), transparent 40%),
-    radial-gradient(circle at 90% 0%, rgba(214, 168, 90, 0.16), transparent 36%),
-    linear-gradient(165deg, var(--sm-paper) 0%, var(--sm-paper-deep) 100%);
+    radial-gradient(circle at 18% 8%, rgba(214, 69, 69, 0.08), transparent 40%),
+    radial-gradient(circle at 90% 0%, rgba(214, 168, 90, 0.1), transparent 36%),
+    linear-gradient(180deg, var(--sm-paper) 0%, color-mix(in srgb, var(--sm-paper) 88%, var(--sm-paper-deep)) 100%);
 }
 
 .phone-chrome--dark:not(.phone-home) {
@@ -74,10 +82,10 @@
   overflow: hidden;
 }
 
+/* 只靠 flex 占满，勿写 height:100%，否则会把底部横线挤出 overflow 裁切区 */
 .phone-chrome__body > * {
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
 }
 
 .phone-chrome__outlet {
@@ -85,7 +93,6 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
 }
 
 .phone-chrome__outlet--hidden {
@@ -95,7 +102,6 @@
 .phone-chrome__outlet > * {
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
 }
 
 .phone-chrome__home-bar {
@@ -106,7 +112,8 @@
   height: 4px;
   margin: 0 auto 10px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--phone-ink, var(--sm-ink, #2b2118)) 28%, transparent);
+  /* 轻一点，避免在暖色底上发脏 */
+  background: color-mix(in srgb, var(--phone-ink, var(--sm-ink, #2b2118)) 18%, transparent);
 }
 
 .phone-chrome.phone-home--dark .phone-chrome__home-bar,

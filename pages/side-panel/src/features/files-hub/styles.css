@@ -9,8 +9,11 @@
 }
 
 .browse-shell {
-  --browse-dock-gap: 10px;
+  --browse-dock-gap: var(--app-dock-gutter, 14px);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .browse-shell__main {
@@ -26,14 +29,14 @@
 
 .files-hub.side-panel,
 .files-hub {
-  --files-hub-gutter: 14px;
+  --files-hub-gutter: var(--app-dock-gutter, 14px);
+  --browse-dock-gap: var(--app-dock-gutter, 14px);
   position: relative;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  /* 日历弹出层可超出；高度由 keepalive 撑满 */
+  /* 日历弹出层可超出；高度由 flex 撑满，勿写死 100% 挤掉壳层横线 */
   overflow: visible;
-  height: 100%;
-  max-height: 100%;
   min-height: 0;
   padding: 0;
   gap: 0;
@@ -45,7 +48,6 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
 }
 
 .files-hub__shell--hidden {
@@ -146,8 +148,8 @@
 
 .files-hub-keepalive {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  height: 100%;
   min-height: 0;
   box-sizing: border-box;
 }
@@ -159,7 +161,7 @@
 .files-hub-keepalive > .files-hub {
   flex: 1 1 auto;
   width: 100%;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .files-hub__cal .browse-cal {
@@ -251,8 +253,8 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  /* 左右 gutter 交给各 pane 滚动容器，滚动条可贴最外缘、不压卡片 */
-  padding: 0 0 12px;
+  /* 左右 gutter 交给各 pane 滚动容器；底边交给 phone-chrome 横线，避免操作条悬空 */
+  padding: 0;
   box-sizing: border-box;
 }
 

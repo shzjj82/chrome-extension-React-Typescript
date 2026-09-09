@@ -594,7 +594,7 @@
 
 .selection-ask__input-shell {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
   padding: 8px 8px 8px 14px;
   border: 1.5px solid var(--sm-line, rgb(43 33 24 / 16%));
@@ -604,10 +604,10 @@
 
 .selection-ask__input {
   flex: 1;
-  min-height: 24px;
+  min-height: 34px;
   max-height: 120px;
   margin: 0 !important;
-  padding: 6px 0 !important;
+  padding: 7px 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
   outline: none !important;

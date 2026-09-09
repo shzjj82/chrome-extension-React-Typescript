@@ -321,7 +321,9 @@
   justify-content: space-between;
   gap: 10px;
   margin: 0;
-  padding: 8px 12px;
+  padding: var(--app-dock-pad-y, 8px) var(--app-dock-pad-x, 12px);
+  min-height: var(--app-dock-height, 50px);
+  height: var(--app-dock-height, 50px);
   border: 1.5px solid var(--sm-line);
   border-radius: 18px;
   background: color-mix(in srgb, var(--sm-card) 88%, transparent);
@@ -395,9 +397,11 @@
 
 .browse-dock__btn {
   flex: 0 0 auto;
+  box-sizing: border-box;
   min-width: 64px;
-  height: 34px !important;
-  min-height: 34px !important;
+  height: var(--app-dock-btn-height, 34px) !important;
+  min-height: var(--app-dock-btn-height, 34px) !important;
+  max-height: var(--app-dock-btn-height, 34px) !important;
   padding: 0 12px !important;
   border: 1.5px solid var(--sm-line) !important;
   border-radius: 12px !important;
@@ -405,8 +409,16 @@
   color: var(--sm-ink) !important;
   font-size: 12px !important;
   font-weight: 800 !important;
+  line-height: 1 !important;
   letter-spacing: 0.02em !important;
   box-shadow: none !important;
+}
+
+/* 压住 ui Button 默认尺寸，避免专注/整理切换时底栏高度抖 */
+.browse-dock button.browse-dock__btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .sm-shell--dark .browse-dock__btn {
@@ -417,9 +429,10 @@
   border-color: var(--sm-accent-deep) !important;
   background: linear-gradient(180deg, #e25555 0%, var(--sm-accent-deep) 100%) !important;
   color: #fffef8 !important;
+  /* 中性短阴影，避免红色光晕渗到横线区 */
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.28) inset,
-    0 8px 16px rgba(184, 50, 50, 0.24) !important;
+    0 2px 6px rgba(61, 46, 34, 0.12) !important;
 }
 
 /* 整理 · 浏览记录：文件夹卡片（叠图纸，不展开折叠） */

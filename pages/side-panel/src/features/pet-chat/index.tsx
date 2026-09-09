@@ -201,7 +201,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       return;
     }
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 34), 120)}px`;
   }, [input]);
 
   const openThread = (thread: PetChatThread) => {
