@@ -179,6 +179,8 @@ type BrowseRecordsPanelProps = {
   onRefreshReady?: (refresh: () => Promise<void>) => void;
   onDayTotalChange?: (total: number) => void;
   favoritesNonce?: number;
+  /** 底栏整理：抛出当日与站点夹，由 Hub 打开整理页 */
+  onOrganizeRequest?: (payload: { dateKey: string; siteKeys: string[] }) => void;
 };
 
 const BrowseRecordsPanel = ({
@@ -191,6 +193,7 @@ const BrowseRecordsPanel = ({
   onRefreshReady,
   onDayTotalChange,
   favoritesNonce = 0,
+  onOrganizeRequest,
 }: BrowseRecordsPanelProps) => {
   const [groups, setGroups] = useState<BrowseDayGroup[]>([]);
   const [favorites, setFavorites] = useState<SelectionFavorite[]>([]);
@@ -329,9 +332,14 @@ const BrowseRecordsPanel = ({
   };
 
   const onOrganize = () => {
+    if (!selectedDay || selectedDay.sites.length === 0) {
+      setStatus('暂无可整理内容');
+      return;
+    }
+    const siteKeys = selectedSiteKeys.length > 0 ? [...selectedSiteKeys] : selectedDay.sites.map(site => site.key);
+    onOrganizeRequest?.({ dateKey: selectedDay.dateKey, siteKeys });
     setActiveSite(null);
     setActiveRecordId(null);
-    setSelectedSiteKeys([]);
     setStatus('');
   };
 
@@ -655,7 +663,11 @@ const BrowseRecordsPanel = ({
               清空
             </Button>
           ) : null}
-          <Button size="sm" className="browse-dock__btn browse-dock__btn--primary" onClick={onOrganize}>
+          <Button
+            size="sm"
+            className="browse-dock__btn browse-dock__btn--primary"
+            disabled={!selectedDay || selectedDay.sites.length === 0 || Boolean(activeSite)}
+            onClick={onOrganize}>
             整理
           </Button>
         </div>

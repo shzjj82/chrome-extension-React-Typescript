@@ -8,6 +8,7 @@ import BrowserFrame from './BrowserFrame';
 import FilesHubPanel from './FilesHubPanel';
 import HomeLauncher from './HomeLauncher';
 import { generateLearningContent, parseSubtitleFile } from './lib/learning';
+import OrganizePanel from './OrganizePanel';
 import PetChatPanel from './PetChatPanel';
 import SheetFrame from './SheetFrame';
 import { t } from '@extension/i18n';
@@ -29,6 +30,7 @@ import {
   exampleThemeStorage,
   learningDraftStorage,
   llmSettingsStorage,
+  organizeIntentStorage,
   pomodoroStateStorage,
   normalizeUserProfile,
   sidePanelIntentStorage,
@@ -43,8 +45,8 @@ import type { MouseEvent, ReactNode } from 'react';
 
 type TabKey = 'study' | 'library';
 type GatePhase = 'adopt' | 'app';
-/** 全页路由（浏览器 / 电话 / 商店走浮层，不占 AppView）；ask/calendar 并入 files Hub */
-type AppView = 'home' | 'files' | 'messages' | 'study';
+/** 全页路由（浏览器 / 电话 / 商店走浮层，不占 AppView）；ask/calendar 并入 files Hub；organize 独立标签页 */
+type AppView = 'home' | 'files' | 'messages' | 'study' | 'organize';
 
 type FloatingOverlay =
   | {
@@ -83,6 +85,9 @@ const resolveFilesHubTab = (): FilesHubTab => {
 const resolveAppView = (): AppView => {
   try {
     const view = new URLSearchParams(window.location.search).get('view');
+    if (view === 'organize') {
+      return 'organize';
+    }
     if (view === 'browse' || view === 'ask' || view === 'calendar') {
       return 'files';
     }
@@ -119,6 +124,7 @@ const SidePanel = () => {
   const llm = useStorage(llmSettingsStorage);
   const pomodoro = useStorage(pomodoroStateStorage);
   const panelIntent = useStorage(sidePanelIntentStorage);
+  const organizeIntent = useStorage(organizeIntentStorage);
   const panelView = resolveAppView();
   const [appView, setAppView] = useState<AppView>(panelView);
   const [filesHubTab, setFilesHubTab] = useState<FilesHubTab>(() => resolveFilesHubTab());
@@ -463,6 +469,25 @@ const SidePanel = () => {
       setLoading(false);
     }
   };
+
+  if (appView === 'organize') {
+    const dateKey = organizeIntent?.dateKey ?? '';
+    const siteKeys = organizeIntent?.siteKeys ?? [];
+    return (
+      <div className={cn('organize-page-root', !isLight && 'sm-shell--dark')}>
+        <OrganizePanel
+          isLight={isLight}
+          pageMode
+          dateKey={dateKey}
+          siteKeys={siteKeys}
+          onBack={() => {
+            void organizeIntentStorage.set(null);
+            window.close();
+          }}
+        />
+      </div>
+    );
+  }
 
   if (gatePhase === 'adopt') {
     return (

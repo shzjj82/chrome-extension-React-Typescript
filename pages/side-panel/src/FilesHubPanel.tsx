@@ -4,8 +4,10 @@ import BrowseRecordsPanel from './BrowseRecordsPanel';
 import { parseDateKey } from './lib/dayjs';
 import PhoneStatusBar from './PhoneStatusBar';
 import SelectionAskPanel from './SelectionAskPanel';
+import { organizeIntentStorage } from '@extension/storage';
 import { cn, SegmentedSwitch } from '@extension/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { OrganizePayload } from './OrganizePanel';
 
 type FilesHubTab = 'favorites' | 'ask' | 'focus';
 
@@ -24,6 +26,16 @@ const TAB_TITLE: Record<FilesHubTab, string> = {
 const formatDayLabel = (dateKey: string) => {
   const date = parseDateKey(dateKey);
   return date ? date.format('YYYY/M/D') : dateKey;
+};
+
+const openOrganizePage = async (payload: OrganizePayload) => {
+  await organizeIntentStorage.set({
+    dateKey: payload.dateKey,
+    siteKeys: payload.siteKeys,
+    at: Date.now(),
+  });
+  const url = chrome.runtime.getURL('side-panel/index.html?view=organize');
+  await chrome.tabs.create({ url });
 };
 
 const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelProps) => {
@@ -66,6 +78,10 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelP
 
   const onFavoritesUpdated = useCallback(() => {
     setFavoritesNonce(value => value + 1);
+  }, []);
+
+  const onOrganizeRequest = useCallback((payload: OrganizePayload) => {
+    void openOrganizePage(payload);
   }, []);
 
   const onRefresh = () => {
@@ -146,6 +162,7 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus' }: FilesHubPanelP
             onRefreshReady={onFocusRefreshReady}
             onDayTotalChange={onBrowseDayTotalChange}
             favoritesNonce={favoritesNonce}
+            onOrganizeRequest={onOrganizeRequest}
           />
         </div>
         <div
