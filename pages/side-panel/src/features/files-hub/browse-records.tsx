@@ -1,13 +1,13 @@
-import BackIconButton from './BackIconButton';
-import BrowseDayCalendar, { toLocalDateKey } from './BrowseDayCalendar';
-import { buildOrganizeCardFromSite } from './lib/organizeCard';
+import BrowseDayCalendar, { toLocalDateKey } from './browse-day-calendar';
+import BackIconButton from '../../components/back-icon-button';
 import {
   attachFavoritesToBrowseFolders,
   folderCountLabel,
   folderLabel,
   folderSheetCount,
   parseSite,
-} from './lib/siteFolder';
+} from '../../lib/site-folder';
+import { buildOrganizeCardFromSite } from '../organize';
 import {
   clearBrowsePages,
   deleteBrowsePage,
@@ -18,8 +18,8 @@ import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { Button, cn } from '@extension/ui';
 import { Bookmark } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { OrganizeCardPayload } from './lib/organizeCard';
-import type { SiteFolder } from './lib/siteFolder';
+import type { SiteFolder } from '../../lib/site-folder';
+import type { OrganizeCardPayload } from '../organize';
 import type { BrowseDayGroup, BrowsePageRecord, SelectionFavorite } from '@extension/knowledge-base';
 
 type DaySiteGroup = {

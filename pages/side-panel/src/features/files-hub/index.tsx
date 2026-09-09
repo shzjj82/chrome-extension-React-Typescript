@@ -1,21 +1,19 @@
-import BackIconButton from './BackIconButton';
-import BrowseDayCalendar, { toLocalDateKey } from './BrowseDayCalendar';
-import BrowseRecordsPanel from './BrowseRecordsPanel';
-import { parseDateKey } from './lib/dayjs';
-import OrganizePanel from './OrganizePanel';
-import PhoneStatusBar from './PhoneStatusBar';
-import SelectionAskPanel from './SelectionAskPanel';
+import BrowseDayCalendar, { toLocalDateKey } from './browse-day-calendar';
+import BrowseRecordsPanel from './browse-records';
+import SelectionAskPanel from './selection-ask';
+import { useAppHeader } from '../../layouts';
+import { parseDateKey } from '../../lib/dayjs';
+import { PATHS, filesTabFromPath, isFilesHubTab, isFilesPath } from '../../lib/routes';
+import OrganizePanel from '../organize';
 import { cn, SegmentedSwitch } from '@extension/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { OrganizeCardPayload } from './lib/organizeCard';
-import type { OrganizePayload } from './OrganizePanel';
-
-type FilesHubTab = 'favorites' | 'ask' | 'focus';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { FilesHubTab } from '../../lib/routes';
+import type { OrganizeCardPayload, OrganizePayload } from '../organize';
 
 type FilesHubPanelProps = {
   isLight: boolean;
   onBack?: () => void;
-  initialTab?: FilesHubTab;
   onOrganizeRequest?: (payload: OrganizePayload) => void;
 };
 
@@ -30,8 +28,11 @@ const formatDayLabel = (dateKey: string) => {
   return date ? date.format('YYYY/M/D') : dateKey;
 };
 
-const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus', onOrganizeRequest }: FilesHubPanelProps) => {
-  const [tab, setTab] = useState<FilesHubTab>(initialTab);
+const FilesHubPanel = ({ isLight, onBack, onOrganizeRequest }: FilesHubPanelProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const tab = filesTabFromPath(location.pathname);
+
   const [selectedDateKey, setSelectedDateKey] = useState(() => toLocalDateKey(new Date()));
   const [browseDateKeys, setBrowseDateKeys] = useState<Set<string>>(() => new Set());
   const [favoriteDateKeys, setFavoriteDateKeys] = useState<Set<string>>(() => new Set());
@@ -47,8 +48,22 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus', onOrganizeReques
   }, [materialDetail]);
 
   useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
+    if (location.pathname === PATHS.files || location.pathname === `${PATHS.files}/`) {
+      navigate(PATHS.filesTab('focus'), { replace: true });
+      return;
+    }
+    const segment = location.pathname.match(/^\/files\/([^/]+)/)?.[1];
+    if (segment && !isFilesHubTab(segment)) {
+      navigate(PATHS.filesTab('focus'), { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  const setTab = useCallback(
+    (next: FilesHubTab) => {
+      navigate(PATHS.filesTab(next), { replace: true });
+    },
+    [navigate],
+  );
 
   const onBrowseDateKeysChange = useCallback((keys: Set<string>) => {
     setBrowseDateKeys(new Set(keys));
@@ -100,23 +115,21 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus', onOrganizeReques
     setFavoriteDayTotal(count);
   }, []);
 
+  const closeMaterialDetail = useCallback(() => {
+    setMaterialDetail(null);
+  }, []);
+
+  useAppHeader(materialDetail ? '资料详情' : TAB_TITLE[tab], {
+    onBack: materialDetail ? closeMaterialDetail : onBack,
+    enabled: isFilesPath(location.pathname),
+    syncKey: materialDetail ? 'detail' : tab,
+  });
+
   return (
-    <div className={cn('side-panel sm-shell files-hub', !isLight && 'sm-shell--dark')}>
+    <div className={cn('sm-shell files-hub', !isLight && 'sm-shell--dark')}>
       <div
         className={cn('files-hub__shell', materialDetail && 'files-hub__shell--hidden')}
         aria-hidden={Boolean(materialDetail)}>
-        <PhoneStatusBar className="files-hub__status" clockLeft />
-
-        <header className="files-hub__header">
-          {onBack ? (
-            <BackIconButton className="files-hub__back" iconSize={16} onClick={onBack} />
-          ) : (
-            <span className="files-hub__header-spacer" />
-          )}
-          <h1 className="files-hub__title">{TAB_TITLE[tab]}</h1>
-          <span className="files-hub__header-spacer" aria-hidden="true" />
-        </header>
-
         <div className="files-hub__toolbar">
           <div className={cn('files-hub__cal', calendarHidden && 'files-hub__cal--calendar-hidden')}>
             <BrowseDayCalendar
@@ -179,7 +192,7 @@ const FilesHubPanel = ({ isLight, onBack, initialTab = 'focus', onOrganizeReques
 
       {materialDetail ? (
         <div className="files-hub__detail">
-          <OrganizePanel isLight={isLight} readOnly card={materialDetail} onBack={() => setMaterialDetail(null)} />
+          <OrganizePanel isLight={isLight} readOnly card={materialDetail} onBack={closeMaterialDetail} hideChrome />
         </div>
       ) : null}
     </div>

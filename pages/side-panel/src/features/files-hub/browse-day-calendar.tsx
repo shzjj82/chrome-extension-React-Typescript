@@ -8,7 +8,7 @@ import {
   shiftMonth,
   toLocalDateKey,
   dayjs,
-} from './lib/dayjs';
+} from '../../lib/dayjs';
 import { cn } from '@extension/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 

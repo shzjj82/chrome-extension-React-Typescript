@@ -1,13 +1,9 @@
-import BackIconButton from './BackIconButton';
-import {
-  encodeOrganizeCard,
-  ORGANIZE_CARD_KIND,
-  organizeCardCountLabel,
-  organizeCardPreview,
-} from './lib/organizeCard';
-import { attachFavoritesToBrowseFolders, folderLabel, parseSite } from './lib/siteFolder';
-import PhoneStatusBar from './PhoneStatusBar';
-import SheetFrame from './SheetFrame';
+import { encodeOrganizeCard, ORGANIZE_CARD_KIND, organizeCardCountLabel, organizeCardPreview } from './organize-card';
+import BackIconButton from '../../components/back-icon-button';
+import PhoneStatusBar from '../../components/phone-status-bar';
+import SheetFrame from '../../components/sheet-frame';
+import { useAppHeader } from '../../layouts';
+import { attachFavoritesToBrowseFolders, folderLabel, parseSite } from '../../lib/site-folder';
 import {
   createPetChatThread,
   listBrowsePagesGroupedByDay,
@@ -19,8 +15,8 @@ import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { cn } from '@extension/ui';
 import { ExternalLink } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { OrganizeCardFavoriteItem, OrganizeCardPayload } from './lib/organizeCard';
-import type { SiteFolder } from './lib/siteFolder';
+import type { OrganizeCardFavoriteItem, OrganizeCardPayload } from './organize-card';
+import type { SiteFolder } from '../../lib/site-folder';
 import type { BrowsePageRecord, SelectionFavorite } from '@extension/knowledge-base';
 
 type OrganizePayload = {
@@ -41,6 +37,8 @@ type OrganizePanelProps = {
   /** 只读查看：短信卡片打开 */
   readOnly?: boolean;
   card?: OrganizeCardPayload | null;
+  /** 已由壳层顶栏托管时隐藏本页 status+header */
+  hideChrome?: boolean;
 };
 
 type BrowseItem = {
@@ -222,6 +220,7 @@ const OrganizePanel = ({
   onSentToMessages,
   readOnly = false,
   card = null,
+  hideChrome = false,
 }: OrganizePanelProps) => {
   const viewingCard = readOnly && card ? card : null;
   const [sites, setSites] = useState<SiteFolder[]>([]);
@@ -393,21 +392,32 @@ const OrganizePanel = ({
     }
   };
 
+  const layoutTitle = viewingCard ? '资料详情' : '开始整理';
+  useAppHeader(layoutTitle, {
+    onBack,
+    enabled: !pageMode && !hideChrome,
+    syncKey: layoutTitle,
+  });
+
   return (
     <div
       className={cn(
-        'side-panel sm-shell organize-panel',
-        pageMode && 'organize-panel--page',
+        'sm-shell organize-panel',
+        pageMode && 'side-panel organize-panel--page',
         viewingCard && 'organize-panel--readonly',
+        hideChrome && 'organize-panel--embedded',
         !isLight && 'sm-shell--dark',
       )}>
-      <PhoneStatusBar className="organize-panel__status" clockLeft />
-
-      <header className="organize-panel__header">
-        <BackIconButton className="organize-panel__back" iconSize={16} onClick={onBack} />
-        <h1 className="organize-panel__title">{viewingCard ? '资料详情' : '开始整理'}</h1>
-        <span className="organize-panel__header-spacer" aria-hidden="true" />
-      </header>
+      {pageMode && !hideChrome ? (
+        <>
+          <PhoneStatusBar className="organize-panel__status" clockLeft />
+          <header className="organize-panel__header">
+            <BackIconButton className="organize-panel__back" iconSize={16} onClick={onBack} />
+            <h1 className="organize-panel__title">{viewingCard ? '资料详情' : '开始整理'}</h1>
+            <span className="organize-panel__header-spacer" aria-hidden="true" />
+          </header>
+        </>
+      ) : null}
 
       <div className="organize-panel__scroll">
         {loading ? <p className="organize-panel__hint">加载中…</p> : null}
@@ -612,3 +622,18 @@ const OrganizePanel = ({
 
 export default OrganizePanel;
 export type { OrganizePayload, OrganizePanelProps };
+export type {
+  OrganizeCardBrowseItem,
+  OrganizeCardFavoriteItem,
+  OrganizeCardPayload,
+  OrganizeCardSiteInput,
+} from './organize-card';
+export {
+  ORGANIZE_CARD_KIND,
+  buildOrganizeCardFromSite,
+  encodeOrganizeCard,
+  organizeCardCountLabel,
+  organizeCardLlmText,
+  organizeCardPreview,
+  parseOrganizeCard,
+} from './organize-card';

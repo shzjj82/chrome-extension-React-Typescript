@@ -1,5 +1,5 @@
-import BackIconButton from './BackIconButton';
-import { getCnDayMarkByKey } from './lib/cnCalendar';
+import ProgressCalendar from './calendar';
+import { getCnDayMarkByKey } from './cn-calendar';
 import {
   buildDayProgress,
   buildMonthDayMap,
@@ -7,9 +7,8 @@ import {
   formatPercent,
   parseDateKey,
   toLocalDateKey,
-} from './lib/progressCalendar';
-import PhoneStatusBar from './PhoneStatusBar';
-import ProgressCalendar from './ProgressCalendar';
+} from './model';
+import { useAppHeader } from '../../layouts';
 import { useStorage } from '@extension/shared';
 import { focusLogStorage, pomodoroSettingsStorage } from '@extension/storage';
 import { cn } from '@extension/ui';
@@ -58,17 +57,10 @@ const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) 
     return `${date.month() + 1}月${date.date()}日`;
   }, [selectedDateKey, todayKey]);
 
+  useAppHeader('日历', { onBack });
+
   return (
-    <div className={cn('side-panel sm-shell progress-cal-panel', !isLight && 'sm-shell--dark')}>
-      <PhoneStatusBar
-        className="progress-cal-panel__status"
-        leading={onBack ? <BackIconButton onClick={onBack} /> : null}
-      />
-
-      <div className="progress-cal-panel__header">
-        <h1 className="progress-cal-panel__title">日历</h1>
-      </div>
-
+    <div className={cn('sm-shell progress-cal-panel', !isLight && 'sm-shell--dark')}>
       <div className="progress-cal-panel__scroll">
         <ProgressCalendar
           year={viewYear}

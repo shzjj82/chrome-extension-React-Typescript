@@ -1,9 +1,9 @@
-import BackIconButton from './BackIconButton';
-import { toLocalDateKey } from './BrowseDayCalendar';
-import { callChatCompletionStream } from './lib/learning';
-import { useStickToBottomScroll } from './lib/useStickToBottomScroll';
-import PhoneStatusBar from './PhoneStatusBar';
-import SheetFrame from './SheetFrame';
+import { toLocalDateKey } from './browse-day-calendar';
+import BackIconButton from '../../components/back-icon-button';
+import PhoneStatusBar from '../../components/phone-status-bar';
+import SheetFrame from '../../components/sheet-frame';
+import { useStickToBottomScroll } from '../../lib/use-stick-to-bottom-scroll';
+import { callChatCompletionStream } from '../study/learning';
 import { deleteSelectionFavorite, listSelectionFavorites, saveSelectionFavorite } from '@extension/knowledge-base';
 import { useStorage } from '@extension/shared';
 import {

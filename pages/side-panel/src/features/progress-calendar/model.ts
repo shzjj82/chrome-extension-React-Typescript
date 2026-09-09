@@ -1,4 +1,4 @@
-import { getCnDayMark } from './cnCalendar';
+import { getCnDayMark } from './cn-calendar';
 import {
   dateKeyOf,
   daysInMonth,
@@ -8,9 +8,9 @@ import {
   parseDateKey,
   shiftMonth,
   toLocalDateKey,
-} from './dayjs';
+} from '../../lib/dayjs';
 import { summarizeDay } from '@extension/storage';
-import type { CnDayMark } from './cnCalendar';
+import type { CnDayMark } from './cn-calendar';
 import type { FocusLogStateType } from '@extension/storage';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];

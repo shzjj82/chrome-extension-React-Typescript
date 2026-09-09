@@ -1,6 +1,6 @@
 import { cn } from '@extension/ui';
 import { Globe, Phone, Store } from 'lucide-react';
-import type { HomeAppId } from './appCatalog';
+import type { HomeAppId } from '../../features/home/app-catalog';
 import type { LucideIcon } from 'lucide-react';
 
 type BrowserPageProps = {

@@ -1,8 +1,8 @@
-import { WEEKDAYS, buildMonthCells, shiftMonth } from './lib/progressCalendar';
+import { WEEKDAYS, buildMonthCells, shiftMonth } from './model';
 import { cn } from '@extension/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
-import type { DayProgress } from './lib/progressCalendar';
+import type { DayProgress } from './model';
 
 type ProgressCalendarProps = {
   year: number;

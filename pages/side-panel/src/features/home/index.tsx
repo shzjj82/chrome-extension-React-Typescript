@@ -1,8 +1,7 @@
-import { DOCK_APPS, PAGE_APPS } from './appCatalog';
-import PhoneStatusBar from './PhoneStatusBar';
+import { DOCK_APPS, PAGE_APPS } from './app-catalog';
 import { cn } from '@extension/ui';
 import { useEffect, useMemo, useState } from 'react';
-import type { HomeApp, HomeAppId } from './appCatalog';
+import type { HomeApp, HomeAppId } from './app-catalog';
 import type { MouseEvent } from 'react';
 
 type HomeLauncherProps = {
@@ -72,11 +71,7 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
   }, [now]);
 
   return (
-    <div className={cn('side-panel phone-home', !isLight && 'phone-home--dark')}>
-      <div className="phone-home__wallpaper" aria-hidden="true" />
-
-      <PhoneStatusBar className="phone-home__status-bar" clockLeft />
-
+    <div className={cn('phone-home__content', !isLight && 'phone-home__content--dark')}>
       <section className="phone-home__widgets" aria-label="桌面组件">
         <article className="phone-widget phone-widget--time">
           <p className="phone-widget__eyebrow">时间</p>
@@ -117,10 +112,10 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
           />
         ))}
       </footer>
-
-      <div className="phone-home__home-bar" aria-hidden="true" />
     </div>
   );
 };
 
 export default HomeLauncher;
+export type { HomeApp, HomeAppId, HomeAppTone, AppOpenMode, AppEnterEffect } from './app-catalog';
+export { HOME_APPS, PAGE_APPS, DOCK_APPS, getHomeApp } from './app-catalog';

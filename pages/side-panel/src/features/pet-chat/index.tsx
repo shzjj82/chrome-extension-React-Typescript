@@ -1,9 +1,7 @@
-import BackIconButton from './BackIconButton';
-import { callChatCompletion, callChatCompletionStream } from './lib/learning';
-import { organizeCardCountLabel, organizeCardLlmText, parseOrganizeCard } from './lib/organizeCard';
-import { useStickToBottomScroll } from './lib/useStickToBottomScroll';
-import OrganizePanel from './OrganizePanel';
-import PhoneStatusBar from './PhoneStatusBar';
+import { useAppHeader } from '../../layouts';
+import { useStickToBottomScroll } from '../../lib/use-stick-to-bottom-scroll';
+import OrganizePanel, { organizeCardCountLabel, organizeCardLlmText, parseOrganizeCard } from '../organize';
+import { callChatCompletion, callChatCompletionStream } from '../study/learning';
 import {
   clipText,
   createPetChatThread,
@@ -18,7 +16,7 @@ import { isLlmConfigured, llmSettingsStorage, normalizeUserProfile, userProfileS
 import { cn } from '@extension/ui';
 import { ArrowUp, ChevronRight, MessageSquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { OrganizeCardPayload } from './lib/organizeCard';
+import type { OrganizeCardPayload } from '../organize';
 import type { PetChatMessage, PetChatThread } from '@extension/knowledge-base';
 import type { MouseEvent as ReactMouseEvent, UIEvent } from 'react';
 
@@ -261,6 +259,10 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   };
 
   const handleHeaderBack = () => {
+    if (reviewCard) {
+      setReviewCard(null);
+      return;
+    }
     if (activeThread) {
       void backToList();
       return;
@@ -499,28 +501,27 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   const canSend = Boolean(input.trim()) && !loading && Boolean(activeThread);
   const showWelcome = Boolean(activeThread) && !booting;
 
+  const headerTitle = reviewCard ? '资料详情' : activeThread?.title || '短信';
+  const headerSyncKey = reviewCard ? 'detail' : activeThread ? `chat:${activeThread.id}` : 'list';
+  useAppHeader(headerTitle, {
+    onBack: handleHeaderBack,
+    syncKey: headerSyncKey,
+    trailing:
+      !reviewCard && !activeThread ? (
+        <button type="button" className="pet-chat__topic-new" onClick={startNewThread}>
+          <MessageSquarePlus size={16} strokeWidth={2.2} />
+          新话题
+        </button>
+      ) : undefined,
+  });
+
   if (reviewCard) {
-    return <OrganizePanel isLight={isLight} readOnly card={reviewCard} onBack={() => setReviewCard(null)} />;
+    return <OrganizePanel isLight={isLight} readOnly card={reviewCard} onBack={() => setReviewCard(null)} hideChrome />;
   }
 
   if (!activeThread) {
     return (
-      <div className={cn('side-panel sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
-        <PhoneStatusBar className="pet-chat__status" clockLeft />
-
-        <div className="pet-chat__topic-bar">
-          {onBack ? (
-            <BackIconButton className="pet-chat__back" iconSize={16} onClick={handleHeaderBack} />
-          ) : (
-            <span className="pet-chat__topic-spacer" />
-          )}
-          <h1 className="pet-chat__topic-title">短信</h1>
-          <button type="button" className="pet-chat__topic-new" onClick={startNewThread}>
-            <MessageSquarePlus size={16} strokeWidth={2.2} />
-            新话题
-          </button>
-        </div>
-
+      <div className={cn('sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
         <div className="pet-chat__threads">
           {listBooting ? <p className="pet-chat__load-more">加载中…</p> : null}
           {!listBooting && threads.length === 0 ? (
@@ -567,15 +568,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   }
 
   return (
-    <div className={cn('side-panel sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
-      <PhoneStatusBar className="pet-chat__status" clockLeft />
-
-      <div className="pet-chat__topic-bar pet-chat__topic-bar--chat">
-        <BackIconButton className="pet-chat__back" iconSize={16} onClick={handleHeaderBack} />
-        <h1 className="pet-chat__topic-title">{activeThread.title}</h1>
-        <span className="pet-chat__topic-spacer" aria-hidden="true" />
-      </div>
-
+    <div className={cn('sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
       <div className="pet-chat__list" ref={listRef} onScroll={onListScroll} onWheel={onWheel} onTouchMove={onTouchMove}>
         {loadingMore ? <p className="pet-chat__load-more">加载更早消息…</p> : null}
         {hasMore && !loadingMore ? (
