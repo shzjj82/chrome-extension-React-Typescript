@@ -1,0 +1,25 @@
+html,
+body,
+#app-container {
+  margin: 0;
+  height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 100%;
+  min-height: 100dvh;
+  height: 100%;
+  overflow: auto;
+}
+
+.side-panel input,
+.side-panel textarea,
+.side-panel select {
+  background: transparent;
+}
+

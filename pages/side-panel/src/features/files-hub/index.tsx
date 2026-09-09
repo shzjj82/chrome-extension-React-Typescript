@@ -1,15 +1,15 @@
 import BrowseDayCalendar, { toLocalDateKey } from './browse-day-calendar';
 import BrowseRecordsPanel from './browse-records';
 import SelectionAskPanel from './selection-ask';
-import { useAppHeader } from '../../layouts';
-import { parseDateKey } from '../../lib/dayjs';
-import { PATHS, filesTabFromPath, isFilesHubTab, isFilesPath } from '../../lib/routes';
-import OrganizePanel from '../organize';
 import { cn, SegmentedSwitch } from '@extension/ui';
+import OrganizePanel from '@src/features/organize';
+import { useAppHeader } from '@src/layouts';
+import { parseDateKey } from '@src/lib/dayjs';
+import { PATHS, filesTabFromPath, isFilesHubTab, isFilesPath } from '@src/lib/routes';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { FilesHubTab } from '../../lib/routes';
-import type { OrganizeCardPayload, OrganizePayload } from '../organize';
+import type { OrganizeCardPayload, OrganizePayload } from '@src/features/organize';
+import type { FilesHubTab } from '@src/lib/routes';
 
 type FilesHubPanelProps = {
   isLight: boolean;

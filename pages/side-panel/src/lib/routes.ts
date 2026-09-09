@@ -27,25 +27,17 @@ const filesTabFromPath = (pathname: string): FilesHubTab => {
   return 'focus';
 };
 
-/** 旧 ?view= 与 sidePanelIntent.view → 路由 path */
-const pathFromLegacyView = (view: string | null | undefined): string => {
-  switch (view) {
-    case 'organize':
-      return PATHS.organize;
-    case 'calendar':
-      return PATHS.calendar;
-    case 'browse':
-      return PATHS.filesTab('focus');
-    case 'ask':
-      return PATHS.filesTab('ask');
-    case 'chat':
-      return PATHS.messages;
-    case 'study':
-      return PATHS.study;
-    default:
-      return PATHS.home;
-  }
+/** 旧 ?view= / sidePanelIntent.view → 路由 path */
+const LEGACY_VIEW_PATH: Record<string, string> = {
+  organize: PATHS.organize,
+  calendar: PATHS.calendar,
+  browse: PATHS.filesTab('focus'),
+  ask: PATHS.filesTab('ask'),
+  chat: PATHS.messages,
+  study: PATHS.study,
 };
+
+const pathFromLegacyView = (view: string | null | undefined): string => (view && LEGACY_VIEW_PATH[view]) || PATHS.home;
 
 const bootstrapInitialEntry = (): string => {
   try {

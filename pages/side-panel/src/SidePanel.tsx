@@ -2,7 +2,7 @@ import '@src/SidePanel.css';
 import { AppRevealOverlay, BrowserAppPage, BrowserFrame, SheetFrame } from './components';
 import AdoptionPanel from './features/adopt';
 import FilesHubPanel from './features/files-hub';
-import HomeLauncher, { getHomeApp } from './features/home';
+import HomeLauncher, { getHomeApp, resolveOpenIntent } from './features/home';
 import OrganizePanel from './features/organize';
 import PetChatPanel from './features/pet-chat';
 import ProgressCalendarPanel from './features/progress-calendar';
@@ -152,59 +152,52 @@ const SidePanel = () => {
       return;
     }
 
+    const intent = resolveOpenIntent(app);
+    if (!intent) {
+      return;
+    }
+
     const rect = event?.currentTarget.getBoundingClientRect();
     const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
     const y = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
 
-    if (app.openMode === 'external') {
-      void chrome.runtime.openOptionsPage();
-      return;
-    }
-
-    if (app.openMode === 'browser' && id === 'browser') {
-      setFloating({
-        kind: 'browser',
-        appId: 'browser',
-        title: app.label,
-        url: app.url || '',
-        x,
-        y,
-      });
-      return;
-    }
-
-    if (app.openMode === 'sheet' && (id === 'phone' || id === 'store')) {
-      setFloating({
-        kind: 'sheet',
-        appId: id,
-        title: app.label,
-        x,
-        y,
-      });
-      return;
-    }
-
-    if (id === 'files') {
-      setFloating(null);
-      setFilesHubAlive(true);
-      setReveal({
-        x,
-        y,
-        tone: app.tone,
-        pendingPath: PATHS.filesTab('focus'),
-      });
-      return;
-    }
-
-    if (id === 'calendar' || id === 'messages' || id === 'study') {
-      const pendingPath = id === 'calendar' ? PATHS.calendar : id === 'messages' ? PATHS.messages : PATHS.study;
-      setFloating(null);
-      setReveal({
-        x,
-        y,
-        tone: app.tone,
-        pendingPath,
-      });
+    switch (intent.kind) {
+      case 'external':
+        void chrome.runtime.openOptionsPage();
+        return;
+      case 'browser':
+        setFloating({
+          kind: 'browser',
+          appId: 'browser',
+          title: intent.title,
+          url: intent.url,
+          x,
+          y,
+        });
+        return;
+      case 'sheet':
+        setFloating({
+          kind: 'sheet',
+          appId: intent.appId,
+          title: intent.title,
+          x,
+          y,
+        });
+        return;
+      case 'reveal':
+        setFloating(null);
+        if (intent.keepFilesAlive) {
+          setFilesHubAlive(true);
+        }
+        setReveal({
+          x,
+          y,
+          tone: intent.tone,
+          pendingPath: intent.path,
+        });
+        return;
+      default:
+        return;
     }
   };
 

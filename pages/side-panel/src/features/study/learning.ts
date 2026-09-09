@@ -12,6 +12,12 @@ type GeneratedContent = {
   practices: PracticeItem[];
 };
 
+type LearningModeStrategy = {
+  buildPrompt: (profileText: string) => string;
+  parse: (content: string) => GeneratedContent;
+  fallback: (content: string) => GeneratedContent;
+};
+
 const stripCodeFence = (text: string) => {
   const trimmed = text.trim();
   if (trimmed.startsWith('```')) {
@@ -42,9 +48,74 @@ const parseSubtitleFile = (filename: string, content: string): string => {
     .join('\n');
 };
 
-const buildSystemPrompt = (profile: UserProfileType, mode: LearningMode) => {
+const emptyGenerated = (): GeneratedContent => ({ noteContent: '', quizzes: [], practices: [] });
+
+const LEARNING_MODE_STRATEGIES: Record<LearningMode, LearningModeStrategy> = {
+  note: {
+    buildPrompt: profileText =>
+      `你是本地学习助手。根据用户档案个性化输出结构化笔记（总结、核心概念、关键要点），不要出题。用户档案：${profileText}。只用中文回答。`,
+    parse: content => ({ noteContent: content, quizzes: [], practices: [] }),
+    fallback: content => ({ noteContent: content, quizzes: [], practices: [] }),
+  },
+  quiz: {
+    buildPrompt: profileText =>
+      `你是本地学习助手。根据素材生成测验题，包含基础题（检验是否读懂）和拓展题（举一反三）。不要自动判题。用户档案：${profileText}。严格输出 JSON：{"quizzes":[{"kind":"basic"|"extend","question":"...","answer":"..."}]}`,
+    parse: content => {
+      const parsed = JSON.parse(stripCodeFence(content)) as {
+        quizzes?: Array<{ kind?: string; question?: string; answer?: string }>;
+      };
+      const quizzes: QuizItem[] = (parsed.quizzes ?? []).map((item, index) => ({
+        id: `quiz-${Date.now()}-${index}`,
+        kind: item.kind === 'extend' ? 'extend' : 'basic',
+        question: item.question ?? '',
+        answer: item.answer ?? '',
+        userAnswer: '',
+      }));
+      return { ...emptyGenerated(), quizzes };
+    },
+    fallback: content => ({
+      ...emptyGenerated(),
+      quizzes: [
+        {
+          id: `quiz-${Date.now()}`,
+          kind: 'basic',
+          question: content,
+          answer: '',
+          userAnswer: '',
+        },
+      ],
+    }),
+  },
+  practice: {
+    buildPrompt: profileText =>
+      `你是本地学习助手。根据素材生成 2-4 条可落地实践任务。技术类偏 demo/改参数/对比写法；通用类偏场景应用。用户档案：${profileText}。严格输出 JSON：{"practices":[{"task":"..."}]}`,
+    parse: content => {
+      const parsed = JSON.parse(stripCodeFence(content)) as {
+        practices?: Array<{ task?: string }>;
+      };
+      const practices: PracticeItem[] = (parsed.practices ?? []).map((item, index) => ({
+        id: `practice-${Date.now()}-${index}`,
+        task: item.task ?? '',
+        userResult: '',
+      }));
+      return { ...emptyGenerated(), practices };
+    },
+    fallback: content => ({
+      ...emptyGenerated(),
+      practices: [
+        {
+          id: `practice-${Date.now()}`,
+          task: content,
+          userResult: '',
+        },
+      ],
+    }),
+  },
+};
+
+const buildProfileText = (profile: UserProfileType) => {
   const genderLabel = profile.gender === 'male' ? '男' : profile.gender === 'female' ? '女' : '未填写';
-  const profileText = [
+  return [
     `称呼: ${profile.nickname || '未填写'}`,
     `性别: ${genderLabel}`,
     `职业: ${profile.occupation || '未填写'}`,
@@ -52,16 +123,6 @@ const buildSystemPrompt = (profile: UserProfileType, mode: LearningMode) => {
     `目标: ${profile.goal}`,
     `深度: ${profile.depth}`,
   ].join('；');
-
-  if (mode === 'note') {
-    return `你是本地学习助手。根据用户档案个性化输出结构化笔记（总结、核心概念、关键要点），不要出题。用户档案：${profileText}。只用中文回答。`;
-  }
-
-  if (mode === 'quiz') {
-    return `你是本地学习助手。根据素材生成测验题，包含基础题（检验是否读懂）和拓展题（举一反三）。不要自动判题。用户档案：${profileText}。严格输出 JSON：{"quizzes":[{"kind":"basic"|"extend","question":"...","answer":"..."}]}`;
-  }
-
-  return `你是本地学习助手。根据素材生成 2-4 条可落地实践任务。技术类偏 demo/改参数/对比写法；通用类偏场景应用。用户档案：${profileText}。严格输出 JSON：{"practices":[{"task":"..."}]}`;
 };
 
 const callChatCompletion = async (settings: LlmSettingsType, messages: ChatMessage[]): Promise<string> => {
@@ -133,7 +194,6 @@ const callChatCompletionStream = async (
   });
 
   if (!response.ok) {
-    // 部分兼容接口不支持 stream，回退普通请求再本地逐字
     const fallback = await callChatCompletion(settings, messages);
     await typewriterEmit(fallback, onDelta, signal);
     return fallback;
@@ -153,13 +213,11 @@ const callChatCompletionStream = async (
     if (full.trim()) {
       return full;
     }
-    // body 已读完仍无有效增量：另发非流式请求再本地逐字
     const fallback = await callChatCompletion(settings, messages);
     await typewriterEmit(fallback, onDelta, signal);
     return fallback;
   }
 
-  // 明确 JSON 响应：整段后再本地逐字
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
@@ -247,66 +305,16 @@ const generateLearningContent = async ({
   mode: LearningMode;
   material: string;
 }): Promise<GeneratedContent> => {
+  const strategy = LEARNING_MODE_STRATEGIES[mode];
   const content = await callChatCompletion(settings, [
-    { role: 'system', content: buildSystemPrompt(profile, mode) },
+    { role: 'system', content: strategy.buildPrompt(buildProfileText(profile)) },
     { role: 'user', content: `学习素材如下：\n\n${material.slice(0, 24000)}` },
   ]);
 
-  if (mode === 'note') {
-    return { noteContent: content, quizzes: [], practices: [] };
-  }
-
   try {
-    const parsed = JSON.parse(stripCodeFence(content)) as {
-      quizzes?: Array<{ kind?: string; question?: string; answer?: string }>;
-      practices?: Array<{ task?: string }>;
-    };
-
-    if (mode === 'quiz') {
-      const quizzes: QuizItem[] = (parsed.quizzes ?? []).map((item, index) => ({
-        id: `quiz-${Date.now()}-${index}`,
-        kind: item.kind === 'extend' ? 'extend' : 'basic',
-        question: item.question ?? '',
-        answer: item.answer ?? '',
-        userAnswer: '',
-      }));
-      return { noteContent: '', quizzes, practices: [] };
-    }
-
-    const practices: PracticeItem[] = (parsed.practices ?? []).map((item, index) => ({
-      id: `practice-${Date.now()}-${index}`,
-      task: item.task ?? '',
-      userResult: '',
-    }));
-    return { noteContent: '', quizzes: [], practices };
+    return strategy.parse(content);
   } catch {
-    if (mode === 'quiz') {
-      return {
-        noteContent: '',
-        quizzes: [
-          {
-            id: `quiz-${Date.now()}`,
-            kind: 'basic',
-            question: content,
-            answer: '',
-            userAnswer: '',
-          },
-        ],
-        practices: [],
-      };
-    }
-
-    return {
-      noteContent: '',
-      quizzes: [],
-      practices: [
-        {
-          id: `practice-${Date.now()}`,
-          task: content,
-          userResult: '',
-        },
-      ],
-    };
+    return strategy.fallback(content);
   }
 };
 

@@ -1,0 +1,128 @@
+/* —— 手机壳 layout：状态栏 + 内容 + 底部安全横线 —— */
+.phone-chrome {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
+}
+
+/* 内页：陪伴主题铺满整壳，状态栏/导航才能透出同一背景 */
+.phone-chrome:not(.phone-home) {
+  --sm-ink: #3d2e22;
+  --sm-paper: #fff8ef;
+  --sm-paper-deep: #f3e6d4;
+  --sm-card: #fffef8;
+  --sm-line: rgba(61, 46, 34, 0.16);
+  --sm-accent: #d64545;
+  --sm-accent-deep: #b83232;
+  --sm-muted: rgba(61, 46, 34, 0.68);
+  color: var(--sm-ink);
+  background:
+    radial-gradient(circle at 18% 8%, rgba(214, 69, 69, 0.1), transparent 40%),
+    radial-gradient(circle at 90% 0%, rgba(214, 168, 90, 0.16), transparent 36%),
+    linear-gradient(165deg, var(--sm-paper) 0%, var(--sm-paper-deep) 100%);
+}
+
+.phone-chrome--dark:not(.phone-home) {
+  --sm-ink: #f6efe6;
+  --sm-paper: #1c1612;
+  --sm-paper-deep: #2a211a;
+  --sm-card: #2f261f;
+  --sm-line: rgba(246, 239, 230, 0.14);
+  --sm-muted: rgba(246, 239, 230, 0.68);
+  color: var(--sm-ink);
+}
+
+.phone-chrome:not(.phone-home) .sm-shell {
+  background: transparent;
+}
+
+.phone-chrome__status,
+.phone-chrome .phone-status {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  padding: 8px 14px 0;
+  color: var(--sm-ink, #2b2118);
+  background: transparent;
+}
+
+.phone-chrome.phone-home .phone-chrome__status,
+.phone-chrome .phone-home__status-bar {
+  color: var(--phone-ink, #2b2118);
+  padding: 10px 18px 0;
+  background: transparent;
+}
+
+.phone-chrome.phone-home--dark .phone-chrome__status,
+.phone-chrome.phone-home--dark .phone-home__status-bar {
+  color: #f6efe6;
+}
+
+.phone-chrome--dark {
+  color: var(--sm-ink, #f6efe6);
+}
+
+.phone-chrome__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.phone-chrome__body > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.phone-chrome__outlet {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.phone-chrome__outlet--hidden {
+  display: none;
+}
+
+.phone-chrome__outlet > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.phone-chrome__home-bar {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  width: 108px;
+  height: 4px;
+  margin: 0 auto 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--phone-ink, var(--sm-ink, #2b2118)) 28%, transparent);
+}
+
+.phone-chrome.phone-home--dark .phone-chrome__home-bar,
+.phone-chrome--dark .phone-chrome__home-bar {
+  background: color-mix(in srgb, #f6efe6 28%, transparent);
+}
+
+.phone-home__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--phone-ink, #2b2118);
+}
+

@@ -1,0 +1,190 @@
+/* —— 侧栏主界面：与认养页同一套陪伴主题 —— */
+.sm-shell {
+  --sm-ink: #3d2e22;
+  --sm-paper: #fff8ef;
+  --sm-paper-deep: #f3e6d4;
+  --sm-card: #fffef8;
+  --sm-line: rgba(61, 46, 34, 0.16);
+  --sm-accent: #d64545;
+  --sm-accent-deep: #b83232;
+  --sm-muted: rgba(61, 46, 34, 0.68);
+  display: flex;
+  flex-direction: column;
+  /* 顶栏不参与滚动：避免 sticky + backdrop-filter 在分割线处抖动 */
+  overflow: hidden;
+  color: var(--sm-ink);
+  background:
+    radial-gradient(circle at 18% 8%, rgba(214, 69, 69, 0.1), transparent 40%),
+    radial-gradient(circle at 90% 0%, rgba(214, 168, 90, 0.16), transparent 36%),
+    linear-gradient(165deg, var(--sm-paper) 0%, var(--sm-paper-deep) 100%);
+}
+
+.sm-shell--dark {
+  --sm-ink: #f6efe6;
+  --sm-paper: #1c1612;
+  --sm-paper-deep: #2a211a;
+  --sm-card: #2f261f;
+  --sm-line: rgba(246, 239, 230, 0.14);
+  --sm-muted: rgba(246, 239, 230, 0.68);
+}
+
+.sm-shell__header {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 2px solid var(--sm-ink);
+  /* 不透明底，避免内容从底下滚过时闪边 */
+  background: var(--sm-card);
+}
+
+.sm-shell__brand {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.sm-shell__tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.sm-shell__chip {
+  appearance: none;
+  cursor: pointer;
+  padding: 7px 12px;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sm-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sm-shell__chip--active {
+  border-color: var(--sm-accent);
+  background: var(--sm-accent);
+  color: #fffef8;
+  box-shadow: 0 6px 14px rgba(214, 69, 69, 0.22);
+}
+
+.sm-shell__pomodoro {
+  padding: 10px 12px;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--sm-paper) 70%, white);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sm-shell--dark .sm-shell__pomodoro {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.sm-shell__main {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sm-shell__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 2px solid var(--sm-ink);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--sm-card) 92%, transparent);
+  box-shadow: 0 10px 22px rgba(61, 46, 34, 0.08);
+}
+
+.sm-shell__card-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.sm-shell__muted {
+  margin: 0;
+  font-size: 11px;
+  color: var(--sm-muted);
+}
+
+.sm-shell input:not([type='checkbox']):not([type='file']),
+.sm-shell textarea,
+.sm-shell select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sm-paper) 70%, white);
+  color: var(--sm-ink);
+  font-size: 13px;
+  outline: none;
+}
+
+.sm-shell--dark input:not([type='checkbox']):not([type='file']),
+.sm-shell--dark textarea,
+.sm-shell--dark select {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.sm-shell input:focus,
+.sm-shell textarea:focus,
+.sm-shell select:focus {
+  border-color: var(--sm-accent);
+  box-shadow: 0 0 0 3px rgba(214, 69, 69, 0.18);
+}
+
+.sm-shell .sm-shell__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sm-shell .sm-shell__cta {
+  border: none !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, #e25555 0%, var(--sm-accent-deep) 100%) !important;
+  color: #fffef8 !important;
+  font-weight: 800 !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 8px 16px rgba(184, 50, 50, 0.24) !important;
+}
+
+.sm-shell .sm-shell__file {
+  display: inline-flex;
+  cursor: pointer;
+  align-items: center;
+  padding: 0 12px;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--sm-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sm-shell__item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1.5px solid var(--sm-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--sm-paper) 55%, transparent);
+}
+

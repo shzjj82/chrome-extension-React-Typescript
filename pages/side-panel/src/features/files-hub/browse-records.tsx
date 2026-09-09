@@ -1,13 +1,4 @@
 import BrowseDayCalendar, { toLocalDateKey } from './browse-day-calendar';
-import BackIconButton from '../../components/back-icon-button';
-import {
-  attachFavoritesToBrowseFolders,
-  folderCountLabel,
-  folderLabel,
-  folderSheetCount,
-  parseSite,
-} from '../../lib/site-folder';
-import { buildOrganizeCardFromSite } from '../organize';
 import {
   clearBrowsePages,
   deleteBrowsePage,
@@ -16,11 +7,21 @@ import {
 } from '@extension/knowledge-base';
 import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { Button, cn } from '@extension/ui';
+import BackIconButton from '@src/components/back-icon-button';
+import { buildOrganizeCardFromSite } from '@src/features/organize';
+import { formatRelativeDateKeyLabel } from '@src/lib/format-relative';
+import {
+  attachFavoritesToBrowseFolders,
+  folderCountLabel,
+  folderLabel,
+  folderSheetCount,
+  parseSite,
+} from '@src/lib/site-folder';
 import { Bookmark } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { SiteFolder } from '../../lib/site-folder';
-import type { OrganizeCardPayload } from '../organize';
 import type { BrowseDayGroup, BrowsePageRecord, SelectionFavorite } from '@extension/knowledge-base';
+import type { OrganizeCardPayload } from '@src/features/organize';
+import type { SiteFolder } from '@src/lib/site-folder';
 
 type DaySiteGroup = {
   dateKey: string;
@@ -46,25 +47,7 @@ const BrowseEmptyState = ({ title, onFocus }: { title: string; onFocus: () => vo
   </div>
 );
 
-const formatDayLabel = (dateKey: string) => {
-  const [y, m, d] = dateKey.split('-').map(Number);
-  if (!y || !m || !d) {
-    return dateKey;
-  }
-  const date = new Date(y, m - 1, d);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  if (sameDay(date, today)) {
-    return `今天 · ${dateKey}`;
-  }
-  if (sameDay(date, yesterday)) {
-    return `昨天 · ${dateKey}`;
-  }
-  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-};
+const formatDayLabel = formatRelativeDateKeyLabel;
 
 const groupByDayThenSite = (dayGroups: BrowseDayGroup[], favorites: SelectionFavorite[]): DaySiteGroup[] =>
   dayGroups.map(day => {

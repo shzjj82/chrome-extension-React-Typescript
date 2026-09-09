@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import type { UIEvent, WheelEvent } from 'react';
 
 const BOTTOM_GAP_PX = 64;
@@ -12,9 +12,9 @@ const useStickToBottomScroll = (deps: unknown[]) => {
   const stickToBottomRef = useRef(true);
   const programmaticRef = useRef(false);
 
-  const pinToBottom = () => {
+  const pinToBottom = useCallback(() => {
     stickToBottomRef.current = true;
-  };
+  }, []);
 
   const scrollToBottomIfStuck = () => {
     const el = listRef.current;

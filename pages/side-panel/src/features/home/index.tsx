@@ -119,3 +119,5 @@ const HomeLauncher = ({ isLight, onOpenApp }: HomeLauncherProps) => {
 export default HomeLauncher;
 export type { HomeApp, HomeAppId, HomeAppTone, AppOpenMode, AppEnterEffect } from './app-catalog';
 export { HOME_APPS, PAGE_APPS, DOCK_APPS, getHomeApp } from './app-catalog';
+export { resolveOpenIntent, PAGE_ROUTE_BY_ID } from './open-intent';
+export type { OpenIntent } from './open-intent';

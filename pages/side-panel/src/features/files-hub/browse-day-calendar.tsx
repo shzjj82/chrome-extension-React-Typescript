@@ -1,3 +1,4 @@
+import { cn } from '@extension/ui';
 import {
   canGoNextMonth,
   dateKeyOf,
@@ -8,8 +9,7 @@ import {
   shiftMonth,
   toLocalDateKey,
   dayjs,
-} from '../../lib/dayjs';
-import { cn } from '@extension/ui';
+} from '@src/lib/dayjs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];

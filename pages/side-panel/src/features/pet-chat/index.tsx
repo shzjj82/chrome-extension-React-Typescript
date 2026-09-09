@@ -1,4 +1,5 @@
 import { useAppHeader } from '../../layouts';
+import { formatChatDistance } from '../../lib/format-relative';
 import { useStickToBottomScroll } from '../../lib/use-stick-to-bottom-scroll';
 import OrganizePanel, { organizeCardCountLabel, organizeCardLlmText, parseOrganizeCard } from '../organize';
 import { callChatCompletion, callChatCompletionStream } from '../study/learning';
@@ -27,40 +28,6 @@ type PetChatPanelProps = {
 
 const PAGE_SIZE = 20;
 const TIME_GAP_MS = 5 * 60_000;
-
-const pad2 = (n: number) => String(n).padStart(2, '0');
-
-const sameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-
-const formatChatDistance = (at: number, now = Date.now()) => {
-  const diff = Math.max(0, now - at);
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const date = new Date(at);
-  const current = new Date(now);
-  const hm = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
-
-  if (diff < minute) {
-    return '刚刚';
-  }
-  if (diff < hour) {
-    return `${Math.floor(diff / minute)} 分钟前`;
-  }
-  if (sameDay(date, current)) {
-    return `今天 ${hm}`;
-  }
-
-  const yesterday = new Date(now);
-  yesterday.setDate(current.getDate() - 1);
-  if (sameDay(date, yesterday)) {
-    return `昨天 ${hm}`;
-  }
-  if (date.getFullYear() === current.getFullYear()) {
-    return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${hm}`;
-  }
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${hm}`;
-};
 
 const shouldShowTimeLabel = (currentAt: number, previousAt?: number) =>
   previousAt == null || currentAt - previousAt >= TIME_GAP_MS;
@@ -226,7 +193,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       cancelled = true;
       abortRef.current?.abort();
     };
-  }, [activeThreadId, isDraftThread]);
+  }, [activeThreadId, isDraftThread, pinToBottom]);
 
   useLayoutEffect(() => {
     const el = inputRef.current;
