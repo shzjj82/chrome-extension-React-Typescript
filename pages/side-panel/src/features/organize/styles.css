@@ -47,8 +47,9 @@
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
+  /* 填满 phone-chrome 内容区；勿用 100dvh，否则 absolute dock 会被壳层 overflow 裁掉 */
   height: 100%;
-  min-height: 100dvh;
+  min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
   padding: 0;
@@ -265,6 +266,8 @@
   bottom: var(--browse-dock-gap);
   z-index: 25;
   pointer-events: none;
+  /* 覆盖 sheet-browser 里 .browse-dock 的 fixed，避免相对视口跑出壳层 */
+  margin: 0;
 }
 
 .organize-panel__dock.browse-dock * {
