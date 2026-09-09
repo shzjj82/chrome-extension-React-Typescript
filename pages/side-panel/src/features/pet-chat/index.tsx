@@ -1,3 +1,4 @@
+import { useConfirm } from '../../components/confirm-dialog';
 import { useAppHeader } from '../../layouts';
 import { formatChatDistance } from '../../lib/format-relative';
 import { useStickToBottomScroll } from '../../lib/use-stick-to-bottom-scroll';
@@ -62,6 +63,7 @@ const sanitizeTitle = (raw: string) => {
 };
 
 const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
+  const confirm = useConfirm();
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
   const welcomeText = profile.nickname
@@ -258,7 +260,14 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
   const removeThread = async (thread: PetChatThread, event: ReactMouseEvent) => {
     event.stopPropagation();
-    if (!window.confirm(`删除话题「${thread.title}」？聊天记录也会一起删除。`)) {
+    const ok = await confirm({
+      title: `删除话题「${thread.title}」？`,
+      message: '聊天记录也会一起删除。',
+      confirmLabel: '删除',
+      cancelLabel: '取消',
+      tone: 'danger',
+    });
+    if (!ok) {
       return;
     }
     try {

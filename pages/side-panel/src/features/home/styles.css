@@ -1027,6 +1027,10 @@
   background: linear-gradient(160deg, #ff9b7a 0%, #e86b4a 55%, #c24f35 100%);
 }
 
+.browser-page__icon--app-store {
+  background: linear-gradient(160deg, #6ec8ff 0%, #3b9ee8 55%, #2a7fc4 100%);
+}
+
 .browser-page__icon--phone {
   background: linear-gradient(160deg, #b89cff 0%, #7b6adf 55%, #5a4bb8 100%);
 }

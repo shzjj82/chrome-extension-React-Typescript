@@ -4,6 +4,7 @@ import {
   desktopRegistry,
   getHomeApp,
   hydrateDesktopLayout,
+  installDesktopApp,
   onDesktopLifecycle,
   persistDesktopLayout,
   registerApp,
@@ -12,12 +13,14 @@ import {
   reorderDockApps,
   reorderHomeApps,
   resolveOpenIntent,
+  uninstallDesktopApp,
   unregisterApp,
   unregisterWidget,
   useDesktopLifecycle,
   useDesktopRegistry,
 } from './desktop';
 import { useHomeEdit } from './home-edit-context';
+import { useConfirm } from '../../components/confirm-dialog';
 import { cn } from '@extension/ui';
 import { Solar } from 'lunar-javascript';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -88,7 +91,7 @@ type AppButtonProps = {
   layoutOrder: number;
   onOpenApp: HomeLauncherProps['onOpenApp'];
   onRequestEdit: () => void;
-  onDelete: (id: DesktopAppId) => void;
+  onDelete: (id: DesktopAppId, label: string) => void;
   onDragStartApp: (id: DesktopAppId, zone: DropZone) => void;
   onDragEndApp: () => void;
   onDropOnApp: () => void;
@@ -272,7 +275,7 @@ const AppButton = memo(function AppButton({
           onClick={event => {
             event.preventDefault();
             event.stopPropagation();
-            onDelete(id);
+            onDelete(id, label);
           }}
           onPointerDown={event => event.stopPropagation()}
         />
@@ -380,14 +383,30 @@ const HomeLauncher = ({ isLight, onOpenApp, onDesktopEvent }: HomeLauncherProps)
     await persistDesktopLayout(extra);
   }, []);
 
+  const confirm = useConfirm();
+
   const onDelete = useCallback(
-    (id: DesktopAppId) => {
-      const ok = unregisterApp(id);
-      if (ok) {
-        void persist({ removedIds: [id] });
-      }
+    (id: DesktopAppId, label: string) => {
+      void (async () => {
+        const ok = await confirm({
+          title: `删除「${label}」？`,
+          message: '将从桌面移除该应用。',
+          confirmLabel: '删除',
+          cancelLabel: '取消',
+          tone: 'danger',
+        });
+        if (!ok) {
+          return;
+        }
+        const removed = await uninstallDesktopApp(id);
+        if (!removed) {
+          return;
+        }
+        setPreviewHomeOrder(prev => (prev ? prev.filter(appId => appId !== id) : null));
+        setPreviewDockOrder(prev => (prev ? prev.filter(appId => appId !== id) : null));
+      })();
     },
-    [persist],
+    [confirm],
   );
 
   const onDragStartApp = useCallback(
@@ -606,6 +625,8 @@ export {
   bootstrapDesktopDefaults,
   hydrateDesktopLayout,
   persistDesktopLayout,
+  installDesktopApp,
+  uninstallDesktopApp,
 };
 
 export { DEFAULT_APPS, DEFAULT_DOCK_APP_IDS } from './apps';

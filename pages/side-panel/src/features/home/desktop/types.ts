@@ -109,6 +109,7 @@ type HomeAppId =
   | 'browser'
   | 'phone'
   | 'store'
+  | 'app-store'
   | (string & {});
 
 type HomeApp = DesktopAppDefinition;

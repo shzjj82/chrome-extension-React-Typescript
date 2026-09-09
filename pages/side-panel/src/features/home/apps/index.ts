@@ -1,6 +1,6 @@
 import { calendarApp } from './calendar';
 import { PATHS } from '../../../lib/routes';
-import { BookOpen, FolderOpen, Globe, MessageCircle, Phone, Settings2, Store } from 'lucide-react';
+import { BookOpen, FolderOpen, Globe, LayoutGrid, MessageCircle, Phone, Settings2, Store } from 'lucide-react';
 import type { DesktopAppDefinition } from '../desktop/types';
 
 const filesApp: DesktopAppDefinition = {
@@ -87,6 +87,19 @@ const storeApp: DesktopAppDefinition = {
   sheetId: 'store',
 };
 
+/** 应用商店：与「商店」不同；系统级入口，不可删除 */
+const appStoreApp: DesktopAppDefinition = {
+  id: 'app-store',
+  label: '应用商店',
+  tone: 'sky',
+  order: 90,
+  uninstallable: false,
+  Icon: LayoutGrid,
+  openMode: 'sheet',
+  enterEffect: 'sheet-up',
+  sheetId: 'app-store',
+};
+
 /** 内置应用定义（注册前可被外部覆盖） */
 const DEFAULT_APPS: DesktopAppDefinition[] = [
   filesApp,
@@ -97,6 +110,7 @@ const DEFAULT_APPS: DesktopAppDefinition[] = [
   browserApp,
   phoneApp,
   storeApp,
+  appStoreApp,
 ];
 
 const DEFAULT_DOCK_APP_IDS = ['files', 'calendar', 'browser', 'phone'] as const;
@@ -110,6 +124,7 @@ export {
   browserApp,
   phoneApp,
   storeApp,
+  appStoreApp,
   DEFAULT_APPS,
   DEFAULT_DOCK_APP_IDS,
 };

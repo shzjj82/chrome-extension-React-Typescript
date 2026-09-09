@@ -1,0 +1,219 @@
+/* —— 应用商店（sheet 内） —— */
+.app-store {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 14px 18px;
+  box-sizing: border-box;
+  min-height: 180px;
+}
+
+.app-store__lead {
+  margin: 0 2px 2px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgba(43, 33, 24, 0.55);
+}
+
+.sheet-layer--dark .app-store__lead {
+  color: rgba(246, 239, 230, 0.55);
+}
+
+.app-store__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-store-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 2px;
+  border-bottom: 1px solid rgba(43, 33, 24, 0.08);
+  transition:
+    opacity 280ms ease,
+    transform 280ms ease;
+}
+
+.app-store-row:last-child {
+  border-bottom: 0;
+}
+
+.sheet-layer--dark .app-store-row {
+  border-bottom-color: rgba(246, 239, 230, 0.1);
+}
+
+.app-store-row--done {
+  opacity: 0.45;
+  transform: scale(0.98);
+}
+
+.app-store-row__icon-shell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  pointer-events: none;
+}
+
+.app-store-row__icon-shell .phone-app__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  color: #fffef8;
+  box-shadow: 0 6px 14px rgba(43, 33, 24, 0.14);
+}
+
+.app-store-row__icon-shell .phone-app__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.app-store-row__icon-shell.phone-app--calendar .phone-cal-icon {
+  padding: 5px 2px 4px;
+}
+
+.app-store-row__icon-shell.phone-app--calendar .phone-cal-icon__weekday {
+  font-size: 8px;
+}
+
+.app-store-row__icon-shell.phone-app--calendar .phone-cal-icon__day {
+  font-size: 20px;
+}
+
+.app-store-row__meta {
+  min-width: 0;
+}
+
+.app-store-row__name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #2b2118;
+}
+
+.sheet-layer--dark .app-store-row__name {
+  color: #f6efe6;
+}
+
+.app-store-row__desc {
+  margin: 3px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(43, 33, 24, 0.48);
+}
+
+.sheet-layer--dark .app-store-row__desc {
+  color: rgba(246, 239, 230, 0.48);
+}
+
+.app-store-install {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 122, 255, 0.12);
+  color: #007aff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.app-store-install:active:not(:disabled) {
+  transform: scale(0.96);
+  background: rgba(0, 122, 255, 0.18);
+}
+
+.app-store-install--progress {
+  min-width: 28px;
+  width: 28px;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+  position: relative;
+}
+
+.app-store-install__ring {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+.app-store-install__track {
+  stroke: rgba(0, 122, 255, 0.22);
+}
+
+.app-store-install__arc {
+  stroke: #007aff;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 40ms linear;
+}
+
+.app-store-install__pause {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 1.5px;
+  background: #007aff;
+}
+
+.app-store-install--done {
+  background: transparent;
+  color: #007aff;
+  cursor: default;
+  font-weight: 700;
+}
+
+.app-store__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 36px 18px 28px;
+  text-align: center;
+}
+
+.app-store__empty-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #2b2118;
+}
+
+.sheet-layer--dark .app-store__empty-title {
+  color: #f6efe6;
+}
+
+.app-store__empty-hint {
+  margin: 0;
+  max-width: 220px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: rgba(43, 33, 24, 0.5);
+}
+
+.sheet-layer--dark .app-store__empty-hint {
+  color: rgba(246, 239, 230, 0.5);
+}

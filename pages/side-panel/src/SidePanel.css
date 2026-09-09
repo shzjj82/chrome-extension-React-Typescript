@@ -7,6 +7,8 @@
 @import './features/files-hub/styles.css';
 @import './features/organize/styles.css';
 @import './features/home/styles.css';
+@import './features/home/app-store/styles.css';
+@import './components/confirm-dialog/styles.css';
 @import './styles/sheet-browser.css';
 @import './features/pet-chat/styles.css';
 @import './features/progress-calendar/styles.css';

@@ -4,3 +4,5 @@ export { default as BrowserFrame } from './browser-frame';
 export { default as SheetFrame } from './sheet-frame';
 export { default as AppRevealOverlay } from './app-reveal-overlay';
 export { default as BrowserAppPage } from './browser-app-page';
+export { ConfirmProvider, useConfirm } from './confirm-dialog';
+export type { ConfirmOptions, ConfirmTone, ConfirmFn } from './confirm-dialog';

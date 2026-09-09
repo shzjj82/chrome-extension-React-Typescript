@@ -8,6 +8,7 @@ import {
 import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { Button, cn } from '@extension/ui';
 import BackIconButton from '@src/components/back-icon-button';
+import { useConfirm } from '@src/components/confirm-dialog';
 import { buildOrganizeCardFromSite } from '@src/features/organize';
 import { formatRelativeDateKeyLabel } from '@src/lib/format-relative';
 import {
@@ -164,6 +165,7 @@ const BrowseRecordsPanel = ({
   onOrganizeRequest,
   onOpenMaterialDetail,
 }: BrowseRecordsPanelProps) => {
+  const confirm = useConfirm();
   const [groups, setGroups] = useState<BrowseDayGroup[]>([]);
   const [favorites, setFavorites] = useState<SelectionFavorite[]>([]);
   const [selectedDateKeyState, setSelectedDateKeyState] = useState(() => toLocalDateKey(new Date()));
@@ -265,7 +267,14 @@ const BrowseRecordsPanel = ({
     if (selectedSiteKeys.length > 0 && selectedDay) {
       const picked = selectedDay.sites.filter(site => selectedSiteKeys.includes(site.key));
       const count = picked.reduce((sum, site) => sum + site.browseRecords.length, 0);
-      if (!window.confirm(`删除已选 ${picked.length} 个文件夹中的浏览记录（共 ${count} 条）？收藏不会删除。`)) {
+      const ok = await confirm({
+        title: `删除已选 ${picked.length} 个文件夹？`,
+        message: `将删除其中共 ${count} 条浏览记录。收藏不会删除。`,
+        confirmLabel: '删除',
+        cancelLabel: '取消',
+        tone: 'danger',
+      });
+      if (!ok) {
         return;
       }
       await Promise.all(picked.flatMap(site => site.browseRecords.map(record => deleteBrowsePage(record.id))));
@@ -274,7 +283,14 @@ const BrowseRecordsPanel = ({
       await refresh();
       return;
     }
-    if (!window.confirm('清空全部浏览记录？收藏不会删除。')) {
+    const ok = await confirm({
+      title: '清空全部浏览记录？',
+      message: '收藏不会删除。',
+      confirmLabel: '清空',
+      cancelLabel: '取消',
+      tone: 'danger',
+    });
+    if (!ok) {
       return;
     }
     await clearBrowsePages();

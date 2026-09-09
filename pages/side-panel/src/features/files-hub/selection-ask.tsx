@@ -17,6 +17,7 @@ import {
 } from '@extension/storage';
 import { SegmentedSwitch, cn } from '@extension/ui';
 import BackIconButton from '@src/components/back-icon-button';
+import { useConfirm } from '@src/components/confirm-dialog';
 import PhoneStatusBar from '@src/components/phone-status-bar';
 import { callChatCompletionStream } from '@src/features/study/learning';
 import { useStickToBottomScroll } from '@src/lib/use-stick-to-bottom-scroll';
@@ -55,6 +56,7 @@ const SelectionAskPanel = ({
   onFilteredFavoritesCountChange,
   onFavoritesUpdated,
 }: SelectionAskPanelProps) => {
+  const confirm = useConfirm();
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
   const draft = useStorage(selectionAskDraftStorage);
@@ -493,7 +495,7 @@ const SelectionAskPanel = ({
     setSheetFavorite(item);
   };
 
-  const continueFavoriteInAsk = (item: SelectionFavorite) => {
+  const continueFavoriteInAsk = async (item: SelectionFavorite) => {
     const hasCurrentAsk =
       Boolean(draft?.text?.trim()) ||
       visibleMessages.length > 0 ||
@@ -503,7 +505,13 @@ const SelectionAskPanel = ({
     const alreadyThisFavorite = favoriteId === item.id && draft?.text === item.text;
 
     if (hasCurrentAsk && !alreadyThisFavorite) {
-      const ok = window.confirm('是否覆盖当前提问内容？继续后，当前对话会被这条收藏替换。');
+      const ok = await confirm({
+        title: '覆盖当前提问？',
+        message: '继续后，当前对话会被这条收藏替换。',
+        confirmLabel: '继续',
+        cancelLabel: '取消',
+        tone: 'default',
+      });
       if (!ok) {
         return;
       }
@@ -611,6 +619,16 @@ const SelectionAskPanel = ({
           onOpen={openFavoriteSheet}
           onDelete={item => {
             void (async () => {
+              const ok = await confirm({
+                title: '删除这条收藏？',
+                message: '删除后无法恢复。',
+                confirmLabel: '删除',
+                cancelLabel: '取消',
+                tone: 'danger',
+              });
+              if (!ok) {
+                return;
+              }
               await deleteSelectionFavorite(item.id);
               await syncFavorites();
               if (favoriteId === item.id) {

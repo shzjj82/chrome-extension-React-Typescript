@@ -1,5 +1,5 @@
 import '@src/SidePanel.css';
-import { AppRevealOverlay, BrowserAppPage, BrowserFrame, SheetFrame } from './components';
+import { AppRevealOverlay, BrowserAppPage, BrowserFrame, ConfirmProvider, SheetFrame } from './components';
 import AdoptionPanel from './features/adopt';
 import FilesHubPanel from './features/files-hub';
 import HomeLauncher, { desktopRegistry } from './features/home';
@@ -240,7 +240,7 @@ const SidePanel = () => {
 
   if (gatePhase === 'adopt') {
     return (
-      <>
+      <ConfirmProvider isLight={isLight}>
         <PhoneChrome isLight={isLight} forceHome>
           <HomeLauncher
             isLight={isLight}
@@ -258,12 +258,12 @@ const SidePanel = () => {
           className="browser-frame--adopt">
           <AdoptionPanel profile={profile} isLight={isLight} embedded onAdopted={() => setGatePhase('app')} />
         </BrowserFrame>
-      </>
+      </ConfirmProvider>
     );
   }
 
   return (
-    <>
+    <ConfirmProvider isLight={isLight}>
       <Routes>
         <Route element={<PhoneChromeLayout isLight={isLight} onBack={goHome} filesSlot={filesSlot} />}>
           <Route path={PATHS.home} element={<HomeLauncher isLight={isLight} onOpenApp={openApp} />} />
@@ -307,7 +307,7 @@ const SidePanel = () => {
 
       {floatingLayer}
       {revealLayer}
-    </>
+    </ConfirmProvider>
   );
 };
 

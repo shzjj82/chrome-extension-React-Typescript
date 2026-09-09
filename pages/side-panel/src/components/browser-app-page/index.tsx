@@ -1,3 +1,4 @@
+import AppStorePanel from '../../features/home/app-store';
 import { cn } from '@extension/ui';
 import { Globe, Phone, Store } from 'lucide-react';
 import type { DesktopAppId } from '../../features/home';
@@ -37,6 +38,10 @@ const FALLBACK_META: BrowserPageMeta = {
 };
 
 const BrowserAppPage = ({ appId }: BrowserPageProps) => {
+  if (appId === 'app-store') {
+    return <AppStorePanel />;
+  }
+
   const meta = META[appId] ?? FALLBACK_META;
   const Icon = meta.Icon;
 
