@@ -71,7 +71,7 @@ export {
   buildOrganizeCardFromSite,
   encodeOrganizeCard,
   organizeCardCountLabel,
-  organizeCardLlmText,
   organizeCardPreview,
   parseOrganizeCard,
 } from './organize-card';
+export { organizeCardLlmText } from '@src/lib/prompts/organize';

@@ -21,9 +21,13 @@ import { cn, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type { DesktopAppId, HomeAppTone } from './features/home';
+import type { OrganizePayload } from './features/organize';
 import type { MouseEvent } from 'react';
 
 type GatePhase = 'adopt' | 'app';
+
+type OrganizeLocationState = OrganizePayload & { at?: number };
+type StudyLocationState = { threadId?: string };
 
 type FloatingOverlay =
   | {
@@ -55,6 +59,9 @@ const SidePanel = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const onFiles = isFilesPath(location.pathname);
+  const organizeRouteState = (location.state as OrganizeLocationState | null) ?? null;
+  const organizeDateKey = organizeIntent?.dateKey || organizeRouteState?.dateKey || '';
+  const organizeSiteKeys = organizeIntent?.siteKeys ?? organizeRouteState?.siteKeys ?? [];
 
   const [filesHubAlive, setFilesHubAlive] = useState(() => isFilesPath(bootstrapInitialEntry()));
   const lastPanelIntentAtRef = useRef(0);
@@ -107,16 +114,18 @@ const SidePanel = () => {
   }, [navigate]);
 
   const openOrganize = useCallback(
-    (payload: { dateKey: string; siteKeys: string[] }) => {
-      void organizeIntentStorage.set({
+    (payload: OrganizePayload) => {
+      const intent: OrganizeLocationState = {
         dateKey: payload.dateKey,
         siteKeys: payload.siteKeys,
         at: Date.now(),
-      });
+      };
       setFilesHubAlive(true);
       setReveal(null);
       setFloating(null);
-      navigate(PATHS.organize);
+      // 路由 state 同步带上材料范围；storage 异步落盘作持久化兜底
+      void organizeIntentStorage.set(intent);
+      navigate(PATHS.organize, { state: intent });
     },
     [navigate],
   );
@@ -288,13 +297,19 @@ const SidePanel = () => {
             element={
               <OrganizePanel
                 isLight={isLight}
-                dateKey={organizeIntent?.dateKey ?? ''}
-                siteKeys={organizeIntent?.siteKeys ?? []}
+                dateKey={organizeDateKey}
+                siteKeys={organizeSiteKeys}
                 onBack={backFromOrganize}
                 onOrganizeSent={threadId => {
                   void organizeIntentStorage.set(null);
                   clearViewQuery();
-                  navigate(`${PATHS.studyTab('organize')}?threadId=${encodeURIComponent(threadId)}`);
+                  navigate(
+                    {
+                      pathname: PATHS.studyTab('organize'),
+                      search: `?threadId=${encodeURIComponent(threadId)}`,
+                    },
+                    { state: { threadId } satisfies StudyLocationState },
+                  );
                 }}
               />
             }

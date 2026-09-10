@@ -12,6 +12,10 @@ type StudyPanelProps = {
   onBack?: () => void;
 };
 
+type StudyLocationState = {
+  threadId?: string;
+};
+
 const TAB_TITLE: Record<StudyTab, string> = {
   organize: '整理',
   exam: '考试',
@@ -30,7 +34,8 @@ const StudyPanel = ({ isLight, onBack }: StudyPanelProps) => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const tab = studyTabFromPath(location.pathname);
-  const organizeThreadId = searchParams.get('threadId');
+  const organizeThreadId =
+    searchParams.get('threadId') || ((location.state as StudyLocationState | null)?.threadId ?? null);
 
   useEffect(() => {
     document.title = '学习';
@@ -90,6 +95,7 @@ const StudyPanel = ({ isLight, onBack }: StudyPanelProps) => {
                 listTitle="整理"
                 allowNewThread={false}
                 initialThreadId={organizeThreadId}
+                initialThreadNonce={organizeThreadId ? location.key : null}
                 onBack={onBack}
               />
             ) : null}

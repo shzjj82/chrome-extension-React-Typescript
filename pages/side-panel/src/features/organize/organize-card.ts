@@ -130,10 +130,6 @@ const organizeCardCountLabel = (card: OrganizeCardPayload) => {
 
 const organizeCardPreview = (card: OrganizeCardPayload) => `文件 · ${card.dayLabel} · ${organizeCardCountLabel(card)}`;
 
-/** 发给模型时用短摘要，避免把整卡 JSON 塞进上下文 */
-const organizeCardLlmText = (card: OrganizeCardPayload) =>
-  `【整理文件】${card.dayLabel}，含 ${organizeCardCountLabel(card)}。用户可通过卡片查看明细。`;
-
 export type { OrganizeCardBrowseItem, OrganizeCardFavoriteItem, OrganizeCardPayload, OrganizeCardSiteInput };
 export {
   ORGANIZE_CARD_KIND,
@@ -142,5 +138,4 @@ export {
   parseOrganizeCard,
   organizeCardCountLabel,
   organizeCardPreview,
-  organizeCardLlmText,
 };

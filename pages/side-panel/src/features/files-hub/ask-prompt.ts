@@ -1,24 +1,16 @@
-import type { LearningGoal, KnowledgeDepth, UserProfileType } from '@extension/storage';
-
-const GOAL_LABEL: Record<LearningGoal, string> = {
-  principle: '偏原理理解',
-  exam: '偏考试应试',
-  application: '偏落地应用',
-};
-
-const DEPTH_LABEL: Record<KnowledgeDepth, string> = {
-  shallow: '浅层概览',
-  normal: '适中深度',
-  deep: '深入细节',
-};
-
-const goalLabel = (goal: LearningGoal) => GOAL_LABEL[goal];
-const depthLabel = (depth: KnowledgeDepth) => DEPTH_LABEL[depth];
+import {
+  GOAL_LABEL,
+  DEPTH_LABEL,
+  depthLabel,
+  goalLabel,
+  formatProfileBlock,
+  profileDisplayName,
+} from '@src/lib/prompts';
+import type { UserProfileType } from '@extension/storage';
 
 const buildAskSystemPrompt = (profile: UserProfileType, text: string, pageTitle: string, sourceUrl: string) => {
-  const name = profile.nickname.trim() || '学习者';
+  const name = profileDisplayName(profile);
   const occupation = profile.occupation.trim() || '学习者';
-  const domains = profile.domains.trim() || '未填写';
   const goal = goalLabel(profile.goal);
   const depth = depthLabel(profile.depth);
 
@@ -29,18 +21,17 @@ const buildAskSystemPrompt = (profile: UserProfileType, text: string, pageTitle:
     '1. 第一优先：紧扣「当前文章」做分析——以页面标题、链接与划选原文为依据，先弄清原文在说什么、关键事实/概念/论证是什么；不得脱离原文空谈，不得用身份偏见歪曲原文。',
     '2. 第二优先：在原文分析成立之后，再结合用户身份与职业视角给出观点与落地建议。',
     '',
-    '【用户档案】',
-    `称呼：${name}`,
-    `职业：${occupation}`,
-    `关注领域：${domains}`,
-    `学习目标：${goal}`,
-    `讲解深度：${depth}`,
+    formatProfileBlock(profile),
     '',
     '【回答策略】',
     `- 先做原文拆解：这段划选在文章语境里指什么、为何重要、有无前提/歧义/待核实点。`,
     `- 再做身份结合：站在「${name}」（${occupation}，${goal}）的视角，补充可落地的判断、风险、实践步骤或对照思路；若职业是程序员/工程师，优先给可验证的技术解读、实现路径、边界条件与反例，避免空泛鸡汤。`,
     `- 深度按「${depth}」调节：浅则抓主线，适中则概念+用法，深入则机制、取舍与常见坑。`,
     `- 追问时仍以划选与对话上下文为准，先回扣原文再延伸观点。`,
+    '',
+    '【记忆与归档】',
+    '- 若系统附带既往记忆，视为后台结论；与原文冲突时以原文为准。不要向用户展示「记忆归档」清单。',
+    '- 文末「相关查询」应能继续挖原文主题。',
     '',
     '【输出格式】',
     '1. 用中文 Markdown 直接回答（可用加粗、行内代码、列表、表格），不要输出 JSON，不要用大段代码块包住全文。',

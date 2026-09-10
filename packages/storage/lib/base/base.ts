@@ -103,10 +103,11 @@ export const createStorage = <D = string>(
     if (!initialCache) {
       cache = await get();
     }
-    cache = await updateCache(valueOrUpdate, cache);
-
-    await chrome?.storage[storageEnum].set({ [key]: serialize(cache) });
+    const next = updateCache(valueOrUpdate, cache);
+    cache = next instanceof Promise ? await next : next;
+    // 先通知订阅方，避免 navigate 抢在 chrome.storage 写入完成前读到旧值
     _emitChange();
+    await chrome?.storage[storageEnum].set({ [key]: serialize(cache) });
   };
 
   const subscribe = (listener: () => void) => {

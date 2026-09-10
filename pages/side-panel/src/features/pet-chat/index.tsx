@@ -2,8 +2,20 @@ import { useConfirm } from '../../components/confirm-dialog';
 import FolderCard from '../../components/folder-card';
 import { useAppHeader } from '../../layouts';
 import { formatChatDistance } from '../../lib/format-relative';
+import {
+  buildMessageSystemPrompt,
+  buildOrganizeSystemPrompt,
+  extractMemoryCandidates,
+  formatMemoryBlock,
+  ORGANIZE_AUTO_START_HINT,
+  organizeCardLlmText,
+  packChatHistoryForLlm,
+  sliceOrganizeHistoryToCurrentBatch,
+  stripMemoryForDisplay,
+} from '../../lib/prompts';
 import { useStickToBottomScroll } from '../../lib/use-stick-to-bottom-scroll';
-import OrganizePanel, { organizeCardCountLabel, organizeCardLlmText, parseOrganizeCard } from '../organize';
+import AskMarkdown from '../files-hub/ask-markdown';
+import OrganizePanel, { organizeCardCountLabel, parseOrganizeCard } from '../organize';
 import { callChatCompletion, callChatCompletionStream } from '../study/learning';
 import {
   clipText,
@@ -17,7 +29,13 @@ import {
   savePetChatThread,
 } from '@extension/knowledge-base';
 import { useStorage } from '@extension/shared';
-import { isLlmConfigured, llmSettingsStorage, normalizeUserProfile, userProfileStorage } from '@extension/storage';
+import {
+  isLlmConfigured,
+  llmSettingsStorage,
+  memoryArchiveStorage,
+  normalizeUserProfile,
+  userProfileStorage,
+} from '@extension/storage';
 import { cn } from '@extension/ui';
 import { ArrowUp, MessageSquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -34,6 +52,8 @@ type ChatSessionPanelProps = {
   embedded?: boolean;
   /** 进入后自动打开的会话 */
   initialThreadId?: string | null;
+  /** 每次路由进入的去重键；变化时重新采纳 initialThreadId */
+  initialThreadNonce?: string | null;
   /** 是否允许新建话题；整理通道默认不允许 */
   allowNewThread?: boolean;
   /** 列表态标题 */
@@ -50,39 +70,6 @@ const TIME_GAP_MS = 5 * 60_000;
 
 const shouldShowTimeLabel = (currentAt: number, previousAt?: number) =>
   previousAt == null || currentAt - previousAt >= TIME_GAP_MS;
-
-const buildPetSystemPrompt = (nickname: string, occupation: string, domains: string, goal: string) => {
-  const name = nickname.trim() || '你';
-  return [
-    '你是 Study Mind 里的陪伴宠物，语气温暖、简短、口语化，像贴身小伙伴。',
-    `用户称呼：${name}。`,
-    occupation ? `职业：${occupation}。` : '',
-    domains ? `关注领域：${domains}。` : '',
-    goal ? `学习目标：${goal}。` : '',
-    '可以陪聊天、鼓励专注、轻量答疑；不要长篇大论，一般控制在 2–5 句。',
-    '只用中文回复。不要自称 AI 模型，就用宠物伙伴的口吻。',
-  ]
-    .filter(Boolean)
-    .join('');
-};
-
-const buildOrganizeSystemPrompt = (nickname: string, occupation: string, domains: string, goal: string) => {
-  const name = nickname.trim() || '你';
-  return [
-    '你是 Study Mind 里的学习整理助手，语气亲切、清晰，像会帮主人收拾笔记的宠物伙伴。',
-    `用户称呼：${name}。`,
-    occupation ? `职业：${occupation}。` : '',
-    domains ? `关注领域：${domains}。` : '',
-    goal ? `学习目标：${goal}。` : '',
-    '用户会发来「整理文件」卡片（浏览快照 / 提问收藏）。收到后请立刻开始整理：',
-    '1）先用一两句确认收到了哪些材料；',
-    '2）按主题归纳要点，条理清楚，可用简短条目；',
-    '3）给出可执行的下一步（复习 / 实践 / 待查问题）；',
-    '4）不要复述整段原文，不要自称 AI 模型；只用中文。',
-  ]
-    .filter(Boolean)
-    .join('');
-};
 
 const createLocalId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -104,6 +91,7 @@ const ChatSessionPanel = ({
   channel = PetChatChannel.Message,
   embedded = false,
   initialThreadId = null,
+  initialThreadNonce = null,
   allowNewThread,
   listTitle,
 }: ChatSessionPanelProps) => {
@@ -130,12 +118,14 @@ const ChatSessionPanel = ({
   const [reviewCard, setReviewCard] = useState<OrganizeCardPayload | null>(null);
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [messagesReloadKey, setMessagesReloadKey] = useState(0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const skipThreadLoadRef = useRef(false);
   const initialThreadConsumedRef = useRef<string | null>(null);
   const autoOrganizeReplyRef = useRef<string | null>(null);
+  const streamRawRef = useRef('');
   const activeThreadId = activeThread?.id ?? null;
   const activeThreadIdRef = useRef<string | null>(null);
   const messagesRef = useRef<PetChatMessage[]>([]);
@@ -207,26 +197,36 @@ const ChatSessionPanel = ({
     if (!initialThreadId || listBooting) {
       return;
     }
-    if (initialThreadConsumedRef.current === initialThreadId) {
+    const consumeKey = `${initialThreadId}::${initialThreadNonce ?? ''}`;
+    if (initialThreadConsumedRef.current === consumeKey) {
       return;
     }
     let cancelled = false;
     void (async () => {
       const fromList = threads.find(item => item.id === initialThreadId);
       const thread = fromList ?? (await getPetChatThread(initialThreadId));
-      if (cancelled || !thread || thread.channel !== channel) {
+      if (cancelled) {
         return;
       }
-      initialThreadConsumedRef.current = initialThreadId;
+      if (!thread || thread.channel !== channel) {
+        // 消费掉无效 threadId，避免挡住整理通道的自动进会话
+        initialThreadConsumedRef.current = consumeKey;
+        return;
+      }
+      initialThreadConsumedRef.current = consumeKey;
       setError('');
       setInput('');
       setIsDraftThread(false);
+      if (activeThreadIdRef.current === thread.id) {
+        skipThreadLoadRef.current = false;
+        setMessagesReloadKey(key => key + 1);
+      }
       setActiveThread(thread);
     })();
     return () => {
       cancelled = true;
     };
-  }, [initialThreadId, listBooting, threads, channel]);
+  }, [initialThreadId, initialThreadNonce, listBooting, threads, channel]);
 
   // 整理通道共用单一会话：有会话时直接进入，不停留在列表
   useEffect(() => {
@@ -294,7 +294,7 @@ const ChatSessionPanel = ({
       cancelled = true;
       abortRef.current?.abort();
     };
-  }, [activeThreadId, isDraftThread, pinToBottom]);
+  }, [activeThreadId, isDraftThread, pinToBottom, messagesReloadKey]);
 
   useLayoutEffect(() => {
     const el = inputRef.current;
@@ -479,13 +479,40 @@ const ChatSessionPanel = ({
     }
   };
 
-  const systemPrompt =
-    channel === PetChatChannel.Organize
-      ? buildOrganizeSystemPrompt(profile.nickname, profile.occupation, profile.domains, profile.goal)
-      : buildPetSystemPrompt(profile.nickname, profile.occupation, profile.domains, profile.goal);
+  const systemPromptFor = async (forOrganizeAuto = false) => {
+    const memoryItems = await memoryArchiveStorage.listForPrompt({
+      channel: channel === PetChatChannel.Organize ? 'organize' : 'message',
+      limit: 20,
+    });
+    const memoryBlock = formatMemoryBlock(
+      memoryItems.map(item => ({
+        id: item.id,
+        channel: item.channel,
+        fact: item.fact,
+        threadId: item.threadId,
+        createdAt: item.createdAt,
+        confidence: item.confidence,
+      })),
+    );
+
+    if (channel === PetChatChannel.Organize) {
+      const base = buildOrganizeSystemPrompt(profile, { memoryBlock });
+      return forOrganizeAuto ? `${base}\n\n${ORGANIZE_AUTO_START_HINT}` : base;
+    }
+    return buildMessageSystemPrompt(profile, { memoryBlock });
+  };
+
+  const mapMessageContentForLlm = (content: string) => {
+    const card = parseOrganizeCard(content);
+    return card ? organizeCardLlmText(card) : content;
+  };
 
   /** 针对已有用户消息（含整理卡片）生成助手回复，不重复落库用户消息 */
-  const runAssistantReply = async (thread: PetChatThread, userMessage: PetChatMessage) => {
+  const runAssistantReply = async (
+    thread: PetChatThread,
+    userMessage: PetChatMessage,
+    options?: { organizeAuto?: boolean },
+  ) => {
     if (loadingRef.current) {
       return;
     }
@@ -505,40 +532,44 @@ const ChatSessionPanel = ({
 
     setError('');
     pinToBottom();
+    streamRawRef.current = '';
     setMessages(prev => [...prev, assistantMsg]);
     setStreamingId(assistantId);
     setLoading(true);
 
     try {
-      const history = [
+      const historyTurns = [
         ...messagesRef.current.filter(item => item.id !== assistantId && item.id !== userMessage.id),
         userMessage,
-      ]
-        .slice(-12)
-        .map(m => {
-          const card = parseOrganizeCard(m.content);
-          return {
-            role: m.role,
-            content: card ? organizeCardLlmText(card) : m.content,
-          };
-        });
+      ].map(item => ({ role: item.role, content: item.content }));
+
+      const scopedTurns =
+        channel === PetChatChannel.Organize ? sliceOrganizeHistoryToCurrentBatch(historyTurns) : historyTurns;
+
+      const packed = packChatHistoryForLlm(scopedTurns, {
+        maxTurns: channel === PetChatChannel.Organize ? 20 : 12,
+        mapContent: content => mapMessageContentForLlm(content),
+      });
 
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
+      const systemPrompt = await systemPromptFor(Boolean(options?.organizeAuto));
       const full = await callChatCompletionStream(
         llm,
-        [{ role: 'system', content: systemPrompt }, ...history],
+        [{ role: 'system', content: systemPrompt }, ...packed],
         chunk => {
-          setMessages(prev =>
-            prev.map(item => (item.id === assistantId ? { ...item, content: `${item.content}${chunk}` } : item)),
-          );
+          streamRawRef.current += chunk;
+          const visible = stripMemoryForDisplay(streamRawRef.current);
+          setMessages(prev => prev.map(item => (item.id === assistantId ? { ...item, content: visible } : item)));
         },
         controller.signal,
       );
 
-      const finalText = full.trim() || '（我这边没想好，再说一次？）';
+      const rawText = full.trim() || '（我这边没想好，再说一次？）';
+      const memoryFacts = extractMemoryCandidates(rawText);
+      const finalText = stripMemoryForDisplay(rawText) || '（我这边没想好，再说一次？）';
       const saved = await savePetChatMessage({
         id: assistantId,
         threadId: thread.id,
@@ -547,11 +578,20 @@ const ChatSessionPanel = ({
         createdAt: assistantMsg.createdAt,
       });
       setMessages(prev => prev.map(item => (item.id === assistantId ? saved : item)));
+
+      if (memoryFacts.length > 0) {
+        void memoryArchiveStorage
+          .appendFacts(memoryFacts, {
+            channel: channel === PetChatChannel.Organize ? 'organize' : 'message',
+            threadId: thread.id,
+            confidence: channel === PetChatChannel.Organize ? 'confirmed' : 'candidate',
+          })
+          .catch(() => undefined);
+      }
+
       if (channel !== PetChatChannel.Organize) {
-        const seed = parseOrganizeCard(userMessage.content)
-          ? organizeCardLlmText(parseOrganizeCard(userMessage.content)!)
-          : userMessage.content;
-        void maybeSummarizeTitle(thread, seed, finalText);
+        const seed = mapMessageContentForLlm(userMessage.content);
+        void maybeSummarizeTitle(thread, seed.slice(0, 200), finalText);
       } else {
         await refreshThreads().catch(() => undefined);
       }
@@ -623,7 +663,7 @@ const ChatSessionPanel = ({
       return;
     }
     autoOrganizeReplyRef.current = last.id;
-    void runAssistantReply(activeThread, last);
+    void runAssistantReply(activeThread, last, { organizeAuto: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在消息末尾出现未回复整理卡时触发
   }, [channel, activeThread, isDraftThread, booting, loading, messages]);
 
@@ -761,10 +801,11 @@ const ChatSessionPanel = ({
                       msg.role === 'user' ? 'pet-chat__bubble--user' : 'pet-chat__bubble--pet',
                       streamingId === msg.id && 'pet-chat__bubble--streaming',
                     )}>
-                    <p className="pet-chat__text">
-                      {msg.content}
-                      {streamingId === msg.id ? <span className="pet-chat__caret" aria-hidden="true" /> : null}
-                    </p>
+                    {msg.role === 'assistant' ? (
+                      <AskMarkdown content={stripMemoryForDisplay(msg.content)} streaming={streamingId === msg.id} />
+                    ) : (
+                      <p className="pet-chat__text">{msg.content}</p>
+                    )}
                   </div>
                 )}
               </div>
