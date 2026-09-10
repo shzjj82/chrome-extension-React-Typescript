@@ -13,3 +13,4 @@ export * from './side-panel-intent-storage.js';
 export * from './organize-intent-storage.js';
 export * from './desktop-layout-storage.js';
 export * from './memory-archive-storage.js';
+export * from './review-notes-storage.js';

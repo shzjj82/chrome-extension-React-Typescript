@@ -55,7 +55,7 @@ const collectListFacts = (section: string, facts: string[]) => {
   }
 };
 
-/** 从助手回复中抽取记忆条目（含隐藏块与旧版可见标题，便于兼容） */
+/** 从助手回复中抽取记忆条目（含 organize-note JSON / 隐藏块 / 旧标题） */
 const extractMemoryCandidates = (assistantText: string): string[] => {
   const text = assistantText.trim();
   if (!text) {
@@ -63,6 +63,25 @@ const extractMemoryCandidates = (assistantText: string): string[] => {
   }
 
   const facts: string[] = [];
+
+  try {
+    // 延迟引用：避免 memory ↔ organize-note 循环依赖，用轻量探测
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      const data = JSON.parse(text.slice(start, end + 1)) as { memoryFacts?: unknown; kind?: string };
+      if (data?.kind === 'organize-note' && Array.isArray(data.memoryFacts)) {
+        for (const item of data.memoryFacts) {
+          if (typeof item === 'string') {
+            pushFact(facts, item);
+          }
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
   const candidateLine = text.match(/〔记忆候选〕\s*(.+)$/m);
   if (candidateLine?.[1]) {
     pushFact(facts, candidateLine[1]);

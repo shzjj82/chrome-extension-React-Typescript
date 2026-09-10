@@ -1,3 +1,4 @@
+import ReviewPanel from './review-panel';
 import { PetChatChannel } from '@extension/knowledge-base';
 import { cn, SegmentedSwitch } from '@extension/ui';
 import ChatSessionPanel from '@src/features/pet-chat/chat-session-panel';
@@ -59,7 +60,6 @@ const StudyPanel = ({ isLight, onBack }: StudyPanelProps) => {
     [navigate],
   );
 
-  // 整理会话内由 ChatSessionPanel 托管顶栏（列表 / 会话 / 资料详情）
   useAppHeader(TAB_TITLE[tab], {
     onBack,
     enabled: isStudyPath(location.pathname) && tab !== 'organize',
@@ -108,7 +108,7 @@ const StudyPanel = ({ isLight, onBack }: StudyPanelProps) => {
           <div
             className={cn('study-hub__pane', tab === 'review' && 'study-hub__pane--active')}
             aria-hidden={tab !== 'review'}>
-            {tab === 'review' ? <StudyPlaceholder title="复习" hint="复习功能即将到来，先占个位。" /> : null}
+            {tab === 'review' ? <ReviewPanel isLight={isLight} /> : null}
           </div>
         </div>
       </div>

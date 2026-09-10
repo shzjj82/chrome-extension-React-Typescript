@@ -1,17 +1,24 @@
+import OrganizeNoteView from './organize-note-view';
 import { useConfirm } from '../../components/confirm-dialog';
 import FolderCard from '../../components/folder-card';
 import { useAppHeader } from '../../layouts';
 import { formatChatDistance } from '../../lib/format-relative';
 import {
   buildMessageSystemPrompt,
+  buildOrganizeNotePreview,
+  buildOrganizeNoteTitle,
   buildOrganizeSystemPrompt,
+  encodeOrganizeNote,
   extractMemoryCandidates,
   formatMemoryBlock,
   ORGANIZE_AUTO_START_HINT,
   organizeCardLlmText,
   packChatHistoryForLlm,
+  parseOrganizeNote,
+  looksLikeOrganizeNoteJson,
   sliceOrganizeHistoryToCurrentBatch,
   stripMemoryForDisplay,
+  stripOrganizeNoteMemory,
 } from '../../lib/prompts';
 import { useStickToBottomScroll } from '../../lib/use-stick-to-bottom-scroll';
 import AskMarkdown from '../files-hub/ask-markdown';
@@ -34,11 +41,13 @@ import {
   llmSettingsStorage,
   memoryArchiveStorage,
   normalizeUserProfile,
+  reviewNotesStorage,
   userProfileStorage,
 } from '@extension/storage';
 import { cn } from '@extension/ui';
 import { ArrowUp, MessageSquarePlus, Trash2 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { OrganizeNote } from '../../lib/prompts';
 import type { OrganizeCardPayload } from '../organize';
 import type { PetChatMessage, PetChatThread } from '@extension/knowledge-base';
 import type { MouseEvent as ReactMouseEvent, UIEvent } from 'react';
@@ -98,6 +107,7 @@ const ChatSessionPanel = ({
   const confirm = useConfirm();
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
+  const reviewNotes = useStorage(reviewNotesStorage);
   const canCreateThread = allowNewThread ?? channel === PetChatChannel.Message;
   const panelTitle = listTitle ?? (channel === PetChatChannel.Organize ? '整理' : '短信');
   const welcomeText = profile.nickname
@@ -119,6 +129,17 @@ const ChatSessionPanel = ({
   const [streamingId, setStreamingId] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [messagesReloadKey, setMessagesReloadKey] = useState(0);
+  const [addingReviewId, setAddingReviewId] = useState<string | null>(null);
+
+  const reviewedMessageIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const item of reviewNotes.items ?? []) {
+      if (item.sourceMessageId) {
+        ids.add(item.sourceMessageId);
+      }
+    }
+    return ids;
+  }, [reviewNotes.items]);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -507,6 +528,27 @@ const ChatSessionPanel = ({
     return card ? organizeCardLlmText(card) : content;
   };
 
+  const addOrganizeNoteToReview = async (messageId: string, note: OrganizeNote) => {
+    if (reviewedMessageIds.has(messageId) || addingReviewId) {
+      return;
+    }
+    setAddingReviewId(messageId);
+    try {
+      const clean = stripOrganizeNoteMemory(note);
+      await reviewNotesStorage.addNote({
+        title: buildOrganizeNoteTitle(clean),
+        preview: buildOrganizeNotePreview(clean),
+        note: JSON.parse(encodeOrganizeNote(clean)) as Record<string, unknown>,
+        sourceMessageId: messageId,
+        sourceThreadId: activeThreadIdRef.current ?? undefined,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加入复习失败');
+    } finally {
+      setAddingReviewId(null);
+    }
+  };
+
   /** 针对已有用户消息（含整理卡片）生成助手回复，不重复落库用户消息 */
   const runAssistantReply = async (
     thread: PetChatThread,
@@ -561,15 +603,23 @@ const ChatSessionPanel = ({
         [{ role: 'system', content: systemPrompt }, ...packed],
         chunk => {
           streamRawRef.current += chunk;
-          const visible = stripMemoryForDisplay(streamRawRef.current);
+          const parsed = parseOrganizeNote(streamRawRef.current);
+          const visible = parsed
+            ? encodeOrganizeNote(parsed)
+            : channel === PetChatChannel.Organize
+              ? '正在整理笔记…'
+              : stripMemoryForDisplay(streamRawRef.current);
           setMessages(prev => prev.map(item => (item.id === assistantId ? { ...item, content: visible } : item)));
         },
         controller.signal,
       );
 
       const rawText = full.trim() || '（我这边没想好，再说一次？）';
-      const memoryFacts = extractMemoryCandidates(rawText);
-      const finalText = stripMemoryForDisplay(rawText) || '（我这边没想好，再说一次？）';
+      const parsedNote = parseOrganizeNote(rawText);
+      const memoryFacts = parsedNote?.memoryFacts?.length ? parsedNote.memoryFacts : extractMemoryCandidates(rawText);
+      const finalText = parsedNote
+        ? encodeOrganizeNote(parsedNote)
+        : stripMemoryForDisplay(rawText) || '（我这边没想好，再说一次？）';
       const saved = await savePetChatMessage({
         id: assistantId,
         threadId: thread.id,
@@ -802,7 +852,46 @@ const ChatSessionPanel = ({
                       streamingId === msg.id && 'pet-chat__bubble--streaming',
                     )}>
                     {msg.role === 'assistant' ? (
-                      <AskMarkdown content={stripMemoryForDisplay(msg.content)} streaming={streamingId === msg.id} />
+                      (() => {
+                        const note = parseOrganizeNote(msg.content);
+                        if (note) {
+                          const addState = reviewedMessageIds.has(msg.id)
+                            ? 'added'
+                            : addingReviewId === msg.id
+                              ? 'adding'
+                              : 'idle';
+                          return (
+                            <OrganizeNoteView
+                              note={note}
+                              streaming={streamingId === msg.id}
+                              addToReviewState={addState}
+                              onAddToReview={
+                                channel === PetChatChannel.Organize && streamingId !== msg.id
+                                  ? () => void addOrganizeNoteToReview(msg.id, note)
+                                  : undefined
+                              }
+                            />
+                          );
+                        }
+                        if (looksLikeOrganizeNoteJson(msg.content)) {
+                          return (
+                            <p className="pet-chat__text pet-chat__text--muted">
+                              {streamingId === msg.id
+                                ? '正在整理笔记…'
+                                : '笔记 JSON 解析失败（常见原因：代码里的引号未转义）。请重新整理一次。'}
+                            </p>
+                          );
+                        }
+                        if (streamingId === msg.id && msg.content === '正在整理笔记…') {
+                          return <p className="pet-chat__text pet-chat__text--muted">正在整理笔记…</p>;
+                        }
+                        return (
+                          <AskMarkdown
+                            content={stripMemoryForDisplay(msg.content)}
+                            streaming={streamingId === msg.id}
+                          />
+                        );
+                      })()
                     ) : (
                       <p className="pet-chat__text">{msg.content}</p>
                     )}

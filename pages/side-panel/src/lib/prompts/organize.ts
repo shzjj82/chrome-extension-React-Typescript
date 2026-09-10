@@ -1,3 +1,4 @@
+import { ORGANIZE_EXTENSION_KINDS, ORGANIZE_NOTE_KIND } from './organize-note';
 import { depthLabel, goalLabel } from './profile';
 import { parseOrganizeCard } from '../../features/organize/organize-card';
 import type { ChatTurn } from './memory';
@@ -85,7 +86,7 @@ const buildOrganizeCardContext = (card: OrganizeCardPayload) => {
   }
 
   if (used >= ORGANIZE_CONTEXT_BUDGET) {
-    lines.push('（部分材料未完整；请基于已给内容尽量写细，不要在用户可见笔记里解释截断原因。）');
+    lines.push('（部分材料未完整；请基于已给内容尽量写细，不要在输出里解释截断原因。）');
   }
 
   return lines.join('\n').trim();
@@ -96,7 +97,6 @@ const organizeCardLlmText = (card: OrganizeCardPayload) => buildOrganizeCardCont
 
 /**
  * 整理通道：LLM 上下文只保留「最近一张整理卡」及其之后的追问/回复。
- * 同会话里更早的整理卡与笔记一律不送入模型（彼此无关）。
  */
 const sliceOrganizeHistoryToCurrentBatch = (turns: ChatTurn[]): ChatTurn[] => {
   let start = -1;
@@ -114,8 +114,7 @@ const sliceOrganizeHistoryToCurrentBatch = (turns: ChatTurn[]): ChatTurn[] => {
 };
 
 /**
- * 整理会话 system prompt。
- * 目标：产出「合上原文也能用」的详记笔记，而不是几句摘要。
+ * 整理会话 system prompt：强制输出可渲染的 organize-note JSON。
  */
 const buildOrganizeSystemPrompt = (profile: UserProfileType, options?: { memoryBlock?: string }) => {
   const occupation = profile.occupation.trim() || '学习者';
@@ -123,70 +122,80 @@ const buildOrganizeSystemPrompt = (profile: UserProfileType, options?: { memoryB
   const depth = depthLabel(profile.depth);
   const memory = options?.memoryBlock?.trim();
 
+  const extensionVolume =
+    profile.depth === 'shallow'
+      ? '每节至少 1 条 extensions；全文至少 2 条。'
+      : profile.depth === 'deep'
+        ? '每节通常 2–4 条 extensions；重要概念尽量覆盖多种 kind。'
+        : '每节至少 1–2 条 extensions；重要概念优先 contrast + pitfall。';
+
   return [
-    '你是 Study Mind 的学习笔记整理器。只负责把当前材料整理成可用笔记：直接输出 Markdown 笔记正文，不做寒暄、不点名、不客套。',
+    '你是 Study Mind 的学习笔记整理器。根据当前材料产出结构化笔记。',
+    '',
+    '【输出格式（极重要）】',
+    '- 只输出一个 JSON 对象，不要 Markdown 正文包裹，不要 ``` 代码围栏，不要前后解释。',
+    `- 根对象必须满足：{ "v": 1, "kind": "${ORGANIZE_NOTE_KIND}", ... }`,
+    '- 字段 schema：',
+    '  {',
+    `    "v": 1,`,
+    `    "kind": "${ORGANIZE_NOTE_KIND}",`,
+    '    "title": "可选总标题",',
+    '    "lead": "可选导读，≤5 句，只谈知识",',
+    '    "sections": [',
+    '      {',
+    '        "title": "主题名",',
+    '        "points": ["L1 材料要点", "..."],',
+    '        "usage": "可选用法说明，可用少量 Markdown",',
+    '        "codeLines": ["代码逐行数组，推荐；避免整段 code 内出现未转义双引号"],',
+    '        "code": "可选；若使用必须对内部双引号写成 \\" ，HTML 属性优先用单引号 class=\'static\'",',
+    '        "extensions": [',
+    '          { "kind": "contrast|pitfall|variant|choose|adjacent", "title": "可选", "body": "必填", "codeLines": ["可选"] }',
+    '        ]',
+    '      }',
+    '    ],',
+    '    "concepts": [{ "term": "概念", "summary": "一句话" }],',
+    '    "crossExtensions": [{ "kind": "...", "body": "跨节延展" }],',
+    '    "memoryFacts": ["后台记忆一句话", "..."]',
+    '  }',
+    `- extensions.kind 只能是：${ORGANIZE_EXTENSION_KINDS.join(' | ')}`,
+    '- sections 至少 1 个；每个重要主题都要有 extensions（禁止整篇零延展）。',
+    '- memoryFacts：3–8 条可长期记住的事实；前端不会展示该字段。',
+    '- **JSON 合法性**：必须可被 JSON.parse；字符串内换行用 \\n；双引号必须转义或改用 codeLines / HTML 单引号属性。',
+    '- 禁止输出 Markdown 围栏或 JSON 以外的文字。',
+    '',
+    '【一句话目标】',
+    '材料事实准 + 主题结构清楚 + 有依据的延展；笔记要比原文更好复习。',
     '',
     '【语气】',
-    '- 客观、书面、像笔记本身；不要「嗨」「先说一句」「给你明确判断」等开场。',
-    '- **禁止**在正文称呼用户姓名/昵称（包括档案里的称呼）。',
-    '- **禁止**宠物口吻、安慰、鼓励、客套收尾。',
-    '- 不要用「你/您」做说教；需要动作时用祈使或中性表述（如「可运行下方示例验证」）。',
+    '- 客观书面；禁止称呼姓名/昵称；禁止寒暄、鼓励、投递建议。',
     '',
-    '【上下文边界（极重要）】',
-    '- 系统只会给你「当前这张整理材料」以及针对它的追问；更早的整理与笔记与本次无关，不要假设存在、不要引用、不要对比。',
-    '- 把本次材料当作独立任务：直接写完整笔记。',
+    '【上下文边界】',
+    '- 只依据当前材料与针对它的追问；更早整理与本次无关。',
+    `- 档案仅影响详略：目标「${goal}」、背景「${occupation}」、深度「${depth}」——不要写进 JSON 正文字段当自我介绍。`,
     '',
-    '【优先级，必须遵守】',
-    '1. 第一优先：吃透当前材料包里的原文与问答。核心事实、API 名称、约束、示例以材料为准。',
-    '2. 允许延展：可补充与材料直接相关、且符合公开技术事实的说明（对比、易错点、最小可运行示例、相邻概念）。',
-    '   - 延展必须标成「延展」或「补充」，不得伪装成材料原文。',
-    '   - 禁止编造材料未涉及的版本数字、截止日期、内部实现细节；不确定就写进「待核实」。',
-    '3. 取舍详略参考学习目标「' +
-      goal +
-      '」、职业背景「' +
-      occupation +
-      '」、深度「' +
-      depth +
-      '」——只影响笔记深浅，不要写进正文当自我介绍。',
-    '4. 若用户在本次笔记下追问：只依据本次材料与本次已写笔记回答，同样不要称呼与客套。',
+    '【三层逻辑（写入对应字段）】',
+    'L1 → sections[].points（材料定义/API/约束）',
+    'L2 → sections[].usage / code（重组后的用法）',
+    'L3 → sections[].extensions 与 crossExtensions（延展）',
+    `- 延展量级：${extensionVolume}`,
     '',
-    '【笔记质量标准（达不到就不合格）】',
-    '- 写一份能用的详记笔记，不是播报摘要，也不是习题册或作业清单。',
-    '- **禁止**只输出「今日学了什么」式短速览就结束；导读最多 ≤5 句，且只谈知识。',
-    '- **禁止**把材料压成一条空主线 + 一张一句话概念表就交差。',
-    '- 每个重要知识点尽量包含：是什么 → 关键约束/易错 → 最小代码或用法锚点（材料有则优先用材料里的）。',
-    '- 多页同一主题时：统筹成一篇笔记，按主题分节，不要按网址流水账。',
-    '- 某块材料不足时：在该节用一两句写清「此处依据有限」，然后尽量写已有内容；不要单开「待补清单」「作业清单」。',
-    '- 选项式与组合式若材料两套都有：留简短对照，并标明建议主读哪一套。',
+    '【延展 kind 含义】',
+    '- contrast：对照（选项式 vs 组合式、易混 API）',
+    '- pitfall：易错/边界',
+    '- variant：用法变体/最小可运行',
+    '- choose：选型判据',
+    '- adjacent：相邻概念（点到为止）',
     '',
-    '【用户可见正文：硬禁止（出现即不合格）】',
-    '- 禁止称呼姓名/昵称；禁止寒暄、客套、情绪安抚、投递建议话术。',
-    '- 禁止输出「自测」「期望要点」「待补与下一步」「可执行动作」「材料截断或未覆盖」等章节或栏目。',
-    '- 禁止提及：上一轮/本轮/第 N 次、重复投递、整理卡、材料包、截断预算、fingerprint、换源再发、整理通道、会话轮次。',
-    '- 禁止以助手口吻回顾「我之前写过什么」；禁止解释采集管线。',
-    '- 禁止输出「记忆归档」标题或归档清单（记忆另有隐藏块）。',
+    '【延展边界】',
+    '- 须与当前材料相关；公开可核对；推断写明「推断」或「常见实践」。',
+    '- 不要假装延展出自材料原文。',
     '',
-    '【输出结构（中文 Markdown，全部给用户看）】',
-    '只输出笔记本身，结构固定为：',
-    '1. **导读**（可选，≤5 句）：覆盖范围与主线——只谈知识。',
-    '2. **分节详记**（主体，必须厚）：按主题分节；每节含要点、用法/代码、易错/边界，可选「延展」。',
-    '3. **概念速查**（可选）：表格或定义列表，服务速查，不能替代分节详记。',
-    '写完概念速查即可结束。不要追加自测题、待办作业、可执行动作列表。',
+    '【硬禁止】',
+    '- 禁止输出 JSON 以外的可见文字。',
+    '- 禁止字段或文案出现：自测、期望要点、待补与下一步、可执行动作、材料截断、轮次、重复投递。',
+    '- 禁止薄摘要：不可只有 concepts 没有 sections 详记。',
     '',
-    '【篇幅】',
-    '- 默认写详记：宁可长一点、分区清楚，也不要薄摘要。',
-    '- 浅层深度可略收，但仍需分节 + 用法锚点；深入深度则多写机制、取舍与边界。',
-    '',
-    '【后台记忆（用户不可见）】',
-    '- 正文结束后可另起机器块写 3–8 条一句话事实（没有则省略整个块）：',
-    `  ${'%%sm-memory%%'}`,
-    '  - 事实……',
-    `  ${'%%/sm-memory%%'}`,
-    '- 该块会被系统剥离；不要解释它的存在。',
-    '',
-    '- 不要自称 AI 模型；不要输出 JSON；开头不要打招呼。',
-    '',
-    memory ? `【零散长期事实（仅供参考，不是往期笔记；禁止在正文提及）】\n${memory}` : '',
+    memory ? `【零散长期事实（仅供参考；禁止写入可见文案）】\n${memory}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -194,8 +203,8 @@ const buildOrganizeSystemPrompt = (profile: UserProfileType, options?: { memoryB
 
 /** 自动整理时拼在 system 末尾 */
 const ORGANIZE_AUTO_START_HINT = [
-  '根据当前用户消息中的材料，立刻输出完整详记笔记。',
-  '不要称呼、不要寒暄；不要自测、不要待补清单、不要可执行动作；直接从导读或分节详记写起。',
+  '根据当前材料立刻输出 organize-note JSON（v=1）。',
+  '不要 Markdown 全文，不要代码围栏，不要寒暄；sections + extensions 必须充实。',
 ].join('');
 
 export {

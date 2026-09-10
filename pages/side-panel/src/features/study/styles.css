@@ -114,3 +114,162 @@
 .sm-shell--dark .study-hub__placeholder-title {
   color: #f6efe6;
 }
+
+/* —— 复习笔记 —— */
+.review-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 14px 16px;
+}
+
+.review-panel__empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.review-panel__empty-title {
+  margin: 0;
+  color: var(--sm-ink, #2b2118);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.review-panel__empty-hint {
+  margin: 0;
+  max-width: 240px;
+  color: var(--sm-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.review-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-card {
+  border: 1px solid var(--sm-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--sm-card) 94%, transparent);
+  overflow: hidden;
+}
+
+.review-card__head {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 12px 12px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-card__head:hover {
+  background: color-mix(in srgb, var(--sm-ink, #2b2118) 4%, transparent);
+}
+
+.review-card__head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-card__title {
+  margin: 0;
+  color: var(--sm-ink, #2b2118);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.review-card__preview {
+  margin: 6px 0 0;
+  color: var(--sm-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.review-card__meta {
+  margin: 8px 0 0;
+  color: var(--sm-muted);
+  font-size: 11px;
+}
+
+.review-card__chevron {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--sm-muted);
+  transition: transform 0.18s ease;
+}
+
+.review-card__chevron--open {
+  transform: rotate(180deg);
+}
+
+.review-card__body {
+  padding: 0 12px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--sm-line) 80%, transparent);
+}
+
+.review-card__body .organize-note {
+  padding-top: 12px;
+}
+
+.review-card__empty {
+  margin: 12px 0;
+  color: var(--sm-muted);
+  font-size: 13px;
+}
+
+.review-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.review-card__remove {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sm-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.review-card__remove:hover {
+  background: color-mix(in srgb, var(--sm-accent) 10%, transparent);
+  color: var(--sm-accent-deep, var(--sm-accent));
+}
+
+.sm-shell--dark .review-card {
+  background: color-mix(in srgb, var(--sm-card) 80%, transparent);
+}
+
+.sm-shell--dark .review-card__title {
+  color: #f6efe6;
+}
+
+.sm-shell--dark .review-card__head:hover {
+  background: rgb(255 255 255 / 5%);
+}

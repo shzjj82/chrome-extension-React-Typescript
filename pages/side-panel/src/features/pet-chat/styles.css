@@ -405,6 +405,186 @@
   line-height: 1.55;
 }
 
+.pet-chat__text--muted {
+  color: var(--sm-muted);
+}
+
+/* —— 结构化整理笔记 —— */
+.organize-note {
+  max-width: 100%;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.organize-note__title {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.organize-note__lead {
+  margin: 0 0 14px;
+  color: color-mix(in srgb, var(--sm-ink, #2b2118) 82%, transparent);
+}
+
+.organize-note__section {
+  margin: 0 0 16px;
+}
+
+.organize-note__section:last-child {
+  margin-bottom: 0;
+}
+
+.organize-note__section-title {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.organize-note__sublabel,
+.organize-note__ext-label {
+  margin: 0 0 4px;
+  color: var(--sm-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.organize-note__points {
+  margin: 0 0 10px;
+  padding-left: 1.2em;
+}
+
+.organize-note__points li {
+  margin: 0.28em 0;
+}
+
+.organize-note__inline {
+  display: inline;
+}
+
+.organize-note__points .selection-ask__md,
+.organize-note__usage .selection-ask__md,
+.organize-note__lead .selection-ask__md,
+.organize-note__ext .selection-ask__md {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.organize-note__usage {
+  margin: 0 0 10px;
+}
+
+.organize-note__ext {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--sm-line) 80%, transparent);
+  background: color-mix(in srgb, var(--sm-ink, #2b2118) 3%, transparent);
+}
+
+.organize-note__code {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sm-ink, #2b2118) 6%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.organize-note__concepts,
+.organize-note__cross {
+  margin-top: 14px;
+}
+
+.organize-note__table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.organize-note__table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.organize-note__table-wrap th,
+.organize-note__table-wrap td {
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--sm-ink, #2b2118) 12%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+
+.organize-note__table-wrap th {
+  background: color-mix(in srgb, var(--sm-ink, #2b2118) 5%, transparent);
+  font-weight: 750;
+}
+
+.sm-shell--dark .organize-note__ext {
+  background: rgb(255 255 255 / 5%);
+  border-color: rgb(255 255 255 / 12%);
+}
+
+.sm-shell--dark .organize-note__code {
+  background: rgb(255 255 255 / 7%);
+}
+
+.sm-shell--dark .organize-note__table-wrap th,
+.sm-shell--dark .organize-note__table-wrap td {
+  border-color: rgb(255 255 255 / 14%);
+}
+
+.sm-shell--dark .organize-note__table-wrap th {
+  background: rgb(255 255 255 / 7%);
+}
+
+.organize-note__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--sm-line) 70%, transparent);
+}
+
+.organize-note__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--sm-accent) 28%, var(--sm-line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sm-accent) 10%, transparent);
+  color: var(--sm-accent-deep, var(--sm-accent));
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.organize-note__add-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--sm-accent) 16%, transparent);
+}
+
+.organize-note__add-btn:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.organize-note__add-btn--done {
+  border-color: color-mix(in srgb, var(--sm-ink, #2b2118) 14%, transparent);
+  background: color-mix(in srgb, var(--sm-ink, #2b2118) 5%, transparent);
+  color: var(--sm-muted);
+}
+
 .pet-chat__footer {
   flex-shrink: 0;
   padding: 6px 14px 10px;
