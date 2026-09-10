@@ -124,22 +124,15 @@ const parseOrganizeCard = (content: string): OrganizeCardPayload | null => {
 };
 
 const organizeCardCountLabel = (card: OrganizeCardPayload) => {
-  const parts: string[] = [];
-  if (card.browse.length > 0) {
-    parts.push(`${card.browse.length} 份浏览`);
-  }
-  if (card.favorites.length > 0) {
-    parts.push(`${card.favorites.length} 条收藏`);
-  }
-  return parts.length > 0 ? parts.join(' · ') : '空';
+  const total = card.browse.length + card.favorites.length;
+  return total > 0 ? `${total} 份文件` : '空';
 };
 
-const organizeCardPreview = (card: OrganizeCardPayload) =>
-  `资料详情 · ${card.dayLabel} · ${organizeCardCountLabel(card)}`;
+const organizeCardPreview = (card: OrganizeCardPayload) => `文件 · ${card.dayLabel} · ${organizeCardCountLabel(card)}`;
 
 /** 发给模型时用短摘要，避免把整卡 JSON 塞进上下文 */
 const organizeCardLlmText = (card: OrganizeCardPayload) =>
-  `【资料详情】${card.dayLabel}，含 ${organizeCardCountLabel(card)}。用户可通过卡片查看明细。`;
+  `【整理文件】${card.dayLabel}，含 ${organizeCardCountLabel(card)}。用户可通过卡片查看明细。`;
 
 export type { OrganizeCardBrowseItem, OrganizeCardFavoriteItem, OrganizeCardPayload, OrganizeCardSiteInput };
 export {

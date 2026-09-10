@@ -37,7 +37,7 @@ const studyApp: DesktopAppDefinition = {
   Icon: BookOpen,
   openMode: 'page',
   enterEffect: 'circle-expand',
-  path: PATHS.study,
+  path: PATHS.studyTab('organize'),
 };
 
 const settingsApp: DesktopAppDefinition = {

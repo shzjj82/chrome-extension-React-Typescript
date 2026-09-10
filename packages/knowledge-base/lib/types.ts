@@ -67,6 +67,12 @@ type BrowseDayGroup = {
 /** 短信 / 宠物聊天 */
 type PetChatRole = 'user' | 'assistant';
 
+/** 会话通道：短信 vs 整理（历史无字段视为 message） */
+enum PetChatChannel {
+  Message = 'message',
+  Organize = 'organize',
+}
+
 /** pending：尚未总结标题；ready：已有标题 */
 type PetChatTitleStatus = 'pending' | 'ready';
 
@@ -74,6 +80,8 @@ type PetChatThread = {
   id: string;
   title: string;
   titleStatus: PetChatTitleStatus;
+  /** 会话通道 */
+  channel: PetChatChannel;
   /** 列表预览：最近一条消息摘要 */
   preview: string;
   createdAt: number;
@@ -84,6 +92,7 @@ type PetChatThreadInput = {
   id?: string;
   title?: string;
   titleStatus?: PetChatTitleStatus;
+  channel?: PetChatChannel;
   preview?: string;
   createdAt?: number;
   updatedAt?: number;
@@ -141,6 +150,8 @@ type SelectionFavoriteInput = Omit<SelectionFavorite, 'id' | 'createdAt' | 'upda
   messages?: SelectionFavoriteMessage[];
   links?: SelectionFavoriteLink[];
 };
+
+export { PetChatChannel };
 
 export type {
   LearningMode,

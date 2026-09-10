@@ -1,3 +1,4 @@
+import { PetChatChannel } from './types.js';
 import type {
   BrowseDayGroup,
   BrowsePageInput,
@@ -14,7 +15,7 @@ import type {
 } from './types.js';
 
 const DB_NAME = 'study-mind';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const SESSION_STORE = 'sessions';
 const BROWSE_STORE = 'browse-pages';
 const PET_CHAT_STORE = 'pet-chat-messages';
@@ -55,6 +56,7 @@ const applySchemaUpgrade = (db: IDBDatabase, tx: IDBTransaction | null, oldVersi
     if (!db.objectStoreNames.contains(PET_CHAT_THREAD_STORE)) {
       const store = db.createObjectStore(PET_CHAT_THREAD_STORE, { keyPath: 'id' });
       store.createIndex('updatedAt', 'updatedAt', { unique: false });
+      store.createIndex('channel', 'channel', { unique: false });
     }
 
     const msgStore = tx.objectStore(PET_CHAT_STORE);
@@ -84,6 +86,7 @@ const applySchemaUpgrade = (db: IDBDatabase, tx: IDBTransaction | null, oldVersi
         id: threadId,
         title,
         titleStatus: 'ready',
+        channel: PetChatChannel.Message,
         preview: clipText(last.content, 40),
         createdAt,
         updatedAt,
@@ -100,6 +103,22 @@ const applySchemaUpgrade = (db: IDBDatabase, tx: IDBTransaction | null, oldVersi
       const store = db.createObjectStore(SELECTION_FAVORITE_STORE, { keyPath: 'id' });
       store.createIndex('createdAt', 'createdAt', { unique: false });
     }
+  }
+
+  if (oldVersion < 6 && tx) {
+    const store = tx.objectStore(PET_CHAT_THREAD_STORE);
+    if (!store.indexNames.contains('channel')) {
+      store.createIndex('channel', 'channel', { unique: false });
+    }
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = () => {
+      const all = getAllReq.result as Array<PetChatThread & { channel?: PetChatChannel }>;
+      for (const thread of all) {
+        if (!thread.channel) {
+          store.put({ ...thread, channel: PetChatChannel.Message });
+        }
+      }
+    };
   }
 };
 
@@ -359,6 +378,11 @@ const getBrowsePage = async (id: string): Promise<BrowsePageRecord | null> => {
   });
 };
 
+const normalizePetChatThread = (thread: PetChatThread & { channel?: PetChatChannel }): PetChatThread => ({
+  ...thread,
+  channel: thread.channel ?? PetChatChannel.Message,
+});
+
 const savePetChatThread = async (input: PetChatThreadInput): Promise<PetChatThread> => {
   const db = await openDb();
   const existing = input.id ? await getPetChatThread(input.id) : null;
@@ -367,6 +391,7 @@ const savePetChatThread = async (input: PetChatThreadInput): Promise<PetChatThre
     id: input.id ?? createId(),
     title: (input.title ?? existing?.title ?? '新对话').trim() || '新对话',
     titleStatus: input.titleStatus ?? existing?.titleStatus ?? 'pending',
+    channel: input.channel ?? existing?.channel ?? PetChatChannel.Message,
     preview: input.preview ?? existing?.preview ?? '',
     createdAt: input.createdAt ?? existing?.createdAt ?? now,
     updatedAt: input.updatedAt ?? now,
@@ -380,12 +405,39 @@ const savePetChatThread = async (input: PetChatThreadInput): Promise<PetChatThre
   });
 };
 
-const createPetChatThread = async (title = '新对话'): Promise<PetChatThread> =>
+const createPetChatThread = async (title = '新对话', options?: { channel?: PetChatChannel }): Promise<PetChatThread> =>
   savePetChatThread({
     title,
     titleStatus: 'pending',
     preview: '',
+    channel: options?.channel ?? PetChatChannel.Message,
   });
+
+/** 按通道取最新会话；没有则新建。整理通道会合并到单一会话（删掉多余旧线程）。 */
+const ensurePetChatThread = async (options: { channel: PetChatChannel; title?: string }): Promise<PetChatThread> => {
+  const existing = await listPetChatThreads({ channel: options.channel });
+  if (existing.length === 0) {
+    return createPetChatThread(options.title ?? '新对话', { channel: options.channel });
+  }
+
+  const [primary, ...rest] = existing;
+  if (options.channel === PetChatChannel.Organize && rest.length > 0) {
+    await Promise.all(rest.map(item => deletePetChatThread(item.id).catch(() => undefined)));
+  }
+
+  if (options.title && primary.title !== options.title) {
+    return savePetChatThread({
+      id: primary.id,
+      title: options.title,
+      titleStatus: 'ready',
+      channel: options.channel,
+      preview: primary.preview,
+      createdAt: primary.createdAt,
+    });
+  }
+
+  return primary;
+};
 
 const getPetChatThread = async (id: string): Promise<PetChatThread | null> => {
   const db = await openDb();
@@ -393,19 +445,34 @@ const getPetChatThread = async (id: string): Promise<PetChatThread | null> => {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(PET_CHAT_THREAD_STORE, 'readonly');
     const request = tx.objectStore(PET_CHAT_THREAD_STORE).get(id);
-    request.onsuccess = () => resolve((request.result as PetChatThread | undefined) ?? null);
+    request.onsuccess = () => {
+      const row = request.result as (PetChatThread & { channel?: PetChatChannel }) | undefined;
+      resolve(row ? normalizePetChatThread(row) : null);
+    };
     request.onerror = () => reject(request.error ?? new Error('Failed to get pet chat thread'));
   });
 };
 
-const listPetChatThreads = async (): Promise<PetChatThread[]> => {
+type ListPetChatThreadsFilter = {
+  channel?: PetChatChannel;
+};
+
+const listPetChatThreads = async (filter?: ListPetChatThreadsFilter): Promise<PetChatThread[]> => {
   const db = await openDb();
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction(PET_CHAT_THREAD_STORE, 'readonly');
-    const request = tx.objectStore(PET_CHAT_THREAD_STORE).getAll();
+    const store = tx.objectStore(PET_CHAT_THREAD_STORE);
+    const request =
+      filter?.channel != null && store.indexNames.contains('channel')
+        ? store.index('channel').getAll(filter.channel)
+        : store.getAll();
     request.onsuccess = () => {
-      const threads = (request.result as PetChatThread[]).sort((a, b) => b.updatedAt - a.updatedAt);
+      let threads = (request.result as Array<PetChatThread & { channel?: PetChatChannel }>).map(normalizePetChatThread);
+      if (filter?.channel != null && !store.indexNames.contains('channel')) {
+        threads = threads.filter(item => item.channel === filter.channel);
+      }
+      threads.sort((a, b) => b.updatedAt - a.updatedAt);
       resolve(threads);
     };
     request.onerror = () => reject(request.error ?? new Error('Failed to list pet chat threads'));
@@ -458,12 +525,12 @@ const savePetChatMessage = async (input: PetChatMessageInput): Promise<PetChatMe
     const threadStore = tx.objectStore(PET_CHAT_THREAD_STORE);
     const getReq = threadStore.get(input.threadId);
     getReq.onsuccess = () => {
-      const thread = getReq.result as PetChatThread | undefined;
+      const thread = getReq.result as (PetChatThread & { channel?: PetChatChannel }) | undefined;
       if (!thread) {
         return;
       }
       threadStore.put({
-        ...thread,
+        ...normalizePetChatThread(thread),
         preview: clipText(message.content, 40),
         updatedAt: Math.max(thread.updatedAt, message.createdAt),
       } satisfies PetChatThread);
@@ -648,6 +715,7 @@ export {
   clearBrowsePages,
   getBrowsePage,
   createPetChatThread,
+  ensurePetChatThread,
   getPetChatThread,
   listPetChatThreads,
   savePetChatThread,

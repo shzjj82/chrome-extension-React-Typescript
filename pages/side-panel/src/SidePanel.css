@@ -5,6 +5,7 @@
 @import './layouts/app-header/styles.css';
 @import './styles/shell.css';
 @import './features/files-hub/styles.css';
+@import './features/study/styles.css';
 @import './features/organize/styles.css';
 @import './features/home/styles.css';
 @import './features/home/app-store/styles.css';

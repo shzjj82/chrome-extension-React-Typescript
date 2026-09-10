@@ -17,6 +17,8 @@ type OrganizePanelProps = {
   pageMode?: boolean;
   /** 发送到短信成功后（侧栏内跳转） */
   onSentToMessages?: () => void;
+  /** 整理会话写入成功后回调（带 threadId） */
+  onOrganizeSent?: (threadId: string) => void;
   /** 只读查看：短信卡片打开 */
   readOnly?: boolean;
   card?: OrganizeCardPayload | null;
@@ -31,6 +33,7 @@ const OrganizePanel = ({
   onBack,
   pageMode = false,
   onSentToMessages,
+  onOrganizeSent,
   readOnly = false,
   card = null,
   hideChrome = false,
@@ -49,6 +52,7 @@ const OrganizePanel = ({
       onBack={onBack}
       pageMode={pageMode}
       onSentToMessages={onSentToMessages}
+      onOrganizeSent={onOrganizeSent}
       hideChrome={hideChrome}
     />
   );

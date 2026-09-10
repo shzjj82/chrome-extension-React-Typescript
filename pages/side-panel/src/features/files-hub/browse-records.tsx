@@ -9,6 +9,7 @@ import { ExtensionMessageType, sendExtensionMessage } from '@extension/shared';
 import { Button, cn } from '@extension/ui';
 import BackIconButton from '@src/components/back-icon-button';
 import { useConfirm } from '@src/components/confirm-dialog';
+import FolderCard from '@src/components/folder-card';
 import { buildOrganizeCardFromSite } from '@src/features/organize';
 import { formatRelativeDateKeyLabel } from '@src/lib/format-relative';
 import {
@@ -18,7 +19,6 @@ import {
   folderSheetCount,
   parseSite,
 } from '@src/lib/site-folder';
-import { Bookmark } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { BrowseDayGroup, BrowsePageRecord, SelectionFavorite } from '@extension/knowledge-base';
 import type { OrganizeCardPayload } from '@src/features/organize';
@@ -32,8 +32,6 @@ type DaySiteGroup = {
   browseTotal: number;
   favoriteTotal: number;
 };
-
-const MAX_SHEETS = 3;
 
 const BrowseEmptyState = ({ title, onFocus }: { title: string; onFocus: () => void }) => (
   <div className="browse-empty">
@@ -89,52 +87,6 @@ const groupByDayThenSite = (dayGroups: BrowseDayGroup[], favorites: SelectionFav
       total: day.records.length + favoriteTotal,
     };
   });
-
-const FolderGlyph = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path
-      fill="currentColor"
-      d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
-    />
-  </svg>
-);
-
-const FileGlyph = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path
-      fill="currentColor"
-      d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm1 7V3.5L19.5 9H15z"
-    />
-  </svg>
-);
-
-const FolderSheets = ({ count, favoriteMark = false }: { count: number; favoriteMark?: boolean }) => {
-  const sheets = Math.max(1, Math.min(MAX_SHEETS, count));
-  return (
-    <div className="folder-card__stage">
-      {Array.from({ length: sheets }, (_, index) => {
-        const fromBack = sheets - 1 - index;
-        return (
-          <span key={index} className={`folder-card__hit folder-card__hit--${fromBack}`}>
-            <span className={`folder-card__sheet folder-card__sheet--${fromBack}`}>
-              {favoriteMark && fromBack === 0 ? (
-                <span className="folder-card__fav-mark" aria-hidden="true">
-                  <Bookmark size={12} strokeWidth={2.6} absoluteStrokeWidth />
-                </span>
-              ) : null}
-              <span className="folder-card__skeleton">
-                <span className="folder-card__skeleton-line folder-card__skeleton-line--title" />
-                <span className="folder-card__skeleton-line folder-card__skeleton-line--lg" />
-                <span className="folder-card__skeleton-line folder-card__skeleton-line--md" />
-                <span className="folder-card__skeleton-line folder-card__skeleton-line--sm" />
-              </span>
-            </span>
-          </span>
-        );
-      })}
-    </div>
-  );
-};
 
 type BrowseRecordsPanelProps = {
   isLight: boolean;
@@ -409,45 +361,24 @@ const BrowseRecordsPanel = ({
                 {selectedDay.sites.map(site => {
                   const checked = selectedSiteKeys.includes(site.key);
                   return (
-                    <article
+                    <FolderCard
                       key={`${selectedDay.dateKey}::${site.key}`}
-                      className={cn('folder-card', `folder-card--${site.accent}`, checked && 'folder-card--selected')}>
-                      <label className="folder-card__check">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleSiteSelected(site.key)}
-                          aria-label={`选择 ${site.label}`}
-                        />
-                      </label>
-                      <div className="folder-card__preview" />
-                      <FolderSheets count={folderSheetCount(site)} favoriteMark={site.favorites.length > 0} />
-                      <div className="folder-card__body">
-                        <div className="folder-card__head">
-                          <span className="folder-card__folder-icon">
-                            <FolderGlyph />
-                          </span>
-                          <div className="folder-card__titles">
-                            <p className="folder-card__title">{site.label}</p>
-                            <p className="folder-card__subtitle">{site.origin}</p>
-                          </div>
-                        </div>
-                        <div className="folder-card__foot">
-                          <span className="folder-card__count">
-                            <FileGlyph />
-                            {folderCountLabel(site.browseRecords.length, site.favorites.length)}
-                          </span>
-                          <button
-                            type="button"
-                            className="folder-card__open"
-                            onClick={() => {
-                              onOpenMaterialDetail?.(buildOrganizeCardFromSite(selectedDay.dateKey, site));
-                            }}>
-                            查看
-                          </button>
-                        </div>
-                      </div>
-                    </article>
+                      title={site.label}
+                      subtitle={site.origin}
+                      countLabel={folderCountLabel(site.browseRecords.length, site.favorites.length)}
+                      sheetCount={folderSheetCount(site)}
+                      favoriteMark={site.favorites.length > 0}
+                      accent={site.accent}
+                      selected={checked}
+                      checkbox={{
+                        checked,
+                        onChange: () => toggleSiteSelected(site.key),
+                        ariaLabel: `选择 ${site.label}`,
+                      }}
+                      onOpen={() => {
+                        onOpenMaterialDetail?.(buildOrganizeCardFromSite(selectedDay.dateKey, site));
+                      }}
+                    />
                   );
                 })}
               </div>

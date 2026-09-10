@@ -97,6 +97,12 @@
   overflow: auto;
 }
 
+.sm-shell__main--flush {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
 .sm-shell__card {
   display: flex;
   flex-direction: column;

@@ -2,9 +2,10 @@ import { encodeOrganizeCard, organizeCardCountLabel, organizeCardPreview } from 
 import { buildOrganizeCard, buildSitesForDay, flattenGroups } from './organize-format';
 import OrganizeList from './organize-list';
 import {
-  createPetChatThread,
+  ensurePetChatThread,
   listBrowsePagesGroupedByDay,
   listSelectionFavorites,
+  PetChatChannel,
   savePetChatMessage,
   savePetChatThread,
 } from '@extension/knowledge-base';
@@ -24,7 +25,10 @@ type OrganizeEditorProps = {
   dateKey?: string;
   siteKeys?: string[];
   pageMode?: boolean;
+  /** @deprecated 使用 onOrganizeSent */
   onSentToMessages?: () => void;
+  /** 整理会话写入成功后回调（带 threadId） */
+  onOrganizeSent?: (threadId: string) => void;
   hideChrome?: boolean;
 };
 
@@ -35,6 +39,7 @@ const OrganizeEditor = ({
   onBack,
   pageMode = false,
   onSentToMessages,
+  onOrganizeSent,
   hideChrome = false,
 }: OrganizeEditorProps) => {
   const [sites, setSites] = useState<SiteFolder[]>([]);
@@ -121,7 +126,7 @@ const OrganizeEditor = ({
     window.open(target, '_blank', 'noopener,noreferrer');
   };
 
-  const sendToMessages = async () => {
+  const sendOrganize = async () => {
     if (sending || selectedCount === 0) {
       return;
     }
@@ -134,23 +139,30 @@ const OrganizeEditor = ({
         throw new Error('请先勾选要发送的材料');
       }
 
-      const title = `整理 · ${cardPayload.dayLabel}`;
+      const title = '整理';
       const preview = organizeCardPreview(cardPayload);
-      const thread = await createPetChatThread(title);
+      const thread = await ensurePetChatThread({
+        channel: PetChatChannel.Organize,
+        title,
+      });
       await savePetChatMessage({
         threadId: thread.id,
         role: 'user',
         content: encodeOrganizeCard(cardPayload),
       });
       await savePetChatThread({
-        ...thread,
+        id: thread.id,
         title,
         titleStatus: 'ready',
+        channel: PetChatChannel.Organize,
         preview,
+        createdAt: thread.createdAt,
       });
 
-      setSendHint(`已发送整理卡片（${organizeCardCountLabel(cardPayload)}）`);
-      if (onSentToMessages) {
+      setSendHint(`已加入整理（${organizeCardCountLabel(cardPayload)}）`);
+      if (onOrganizeSent) {
+        onOrganizeSent(thread.id);
+      } else if (onSentToMessages) {
         onSentToMessages();
       } else {
         await sendExtensionMessage(ExtensionMessageType.OPEN_SIDE_PANEL, { view: 'chat' }).catch(() => undefined);
@@ -239,7 +251,7 @@ const OrganizeEditor = ({
               type="button"
               className="browse-dock__btn browse-dock__btn--primary"
               disabled={sending || selectedCount === 0}
-              onClick={() => void sendToMessages()}>
+              onClick={() => void sendOrganize()}>
               {sending ? '整理中…' : '开始整理'}
             </button>
           </div>

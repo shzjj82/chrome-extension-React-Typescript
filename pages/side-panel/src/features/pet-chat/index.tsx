@@ -1,4 +1,5 @@
 import { useConfirm } from '../../components/confirm-dialog';
+import FolderCard from '../../components/folder-card';
 import { useAppHeader } from '../../layouts';
 import { formatChatDistance } from '../../lib/format-relative';
 import { useStickToBottomScroll } from '../../lib/use-stick-to-bottom-scroll';
@@ -8,19 +9,36 @@ import {
   clipText,
   createPetChatThread,
   deletePetChatThread,
+  getPetChatThread,
   listPetChatMessagesPage,
   listPetChatThreads,
+  PetChatChannel,
   savePetChatMessage,
   savePetChatThread,
 } from '@extension/knowledge-base';
 import { useStorage } from '@extension/shared';
 import { isLlmConfigured, llmSettingsStorage, normalizeUserProfile, userProfileStorage } from '@extension/storage';
 import { cn } from '@extension/ui';
-import { ArrowUp, ChevronRight, MessageSquarePlus, Trash2 } from 'lucide-react';
+import { ArrowUp, MessageSquarePlus, Trash2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { OrganizeCardPayload } from '../organize';
 import type { PetChatMessage, PetChatThread } from '@extension/knowledge-base';
 import type { MouseEvent as ReactMouseEvent, UIEvent } from 'react';
+
+type ChatSessionPanelProps = {
+  isLight: boolean;
+  onBack?: () => void;
+  /** 会话通道，默认短信 */
+  channel?: PetChatChannel;
+  /** 嵌入文件中心等壳层时，列表态把顶栏交给外层 */
+  embedded?: boolean;
+  /** 进入后自动打开的会话 */
+  initialThreadId?: string | null;
+  /** 是否允许新建话题；整理通道默认不允许 */
+  allowNewThread?: boolean;
+  /** 列表态标题 */
+  listTitle?: string;
+};
 
 type PetChatPanelProps = {
   isLight: boolean;
@@ -48,6 +66,24 @@ const buildPetSystemPrompt = (nickname: string, occupation: string, domains: str
     .join('');
 };
 
+const buildOrganizeSystemPrompt = (nickname: string, occupation: string, domains: string, goal: string) => {
+  const name = nickname.trim() || '你';
+  return [
+    '你是 Study Mind 里的学习整理助手，语气亲切、清晰，像会帮主人收拾笔记的宠物伙伴。',
+    `用户称呼：${name}。`,
+    occupation ? `职业：${occupation}。` : '',
+    domains ? `关注领域：${domains}。` : '',
+    goal ? `学习目标：${goal}。` : '',
+    '用户会发来「整理文件」卡片（浏览快照 / 提问收藏）。收到后请立刻开始整理：',
+    '1）先用一两句确认收到了哪些材料；',
+    '2）按主题归纳要点，条理清楚，可用简短条目；',
+    '3）给出可执行的下一步（复习 / 实践 / 待查问题）；',
+    '4）不要复述整段原文，不要自称 AI 模型；只用中文。',
+  ]
+    .filter(Boolean)
+    .join('');
+};
+
 const createLocalId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -62,10 +98,20 @@ const sanitizeTitle = (raw: string) => {
   return clipText(cleaned, 12) || '新对话';
 };
 
-const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
+const ChatSessionPanel = ({
+  isLight,
+  onBack,
+  channel = PetChatChannel.Message,
+  embedded = false,
+  initialThreadId = null,
+  allowNewThread,
+  listTitle,
+}: ChatSessionPanelProps) => {
   const confirm = useConfirm();
   const profile = normalizeUserProfile(useStorage(userProfileStorage));
   const llm = useStorage(llmSettingsStorage);
+  const canCreateThread = allowNewThread ?? channel === PetChatChannel.Message;
+  const panelTitle = listTitle ?? (channel === PetChatChannel.Organize ? '整理' : '短信');
   const welcomeText = profile.nickname
     ? `嗨，${profile.nickname}～我在这儿。想聊什么都可以跟我说。`
     : '嗨～我在这儿。想聊什么都可以跟我说。';
@@ -88,8 +134,12 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const skipThreadLoadRef = useRef(false);
+  const initialThreadConsumedRef = useRef<string | null>(null);
+  const autoOrganizeReplyRef = useRef<string | null>(null);
   const activeThreadId = activeThread?.id ?? null;
   const activeThreadIdRef = useRef<string | null>(null);
+  const messagesRef = useRef<PetChatMessage[]>([]);
+  const loadingRef = useRef(false);
 
   const {
     listRef,
@@ -105,12 +155,20 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   }, [activeThreadId]);
 
   useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
     const timer = window.setInterval(() => setNowTick(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
 
   const refreshThreads = async () => {
-    const next = await listPetChatThreads();
+    const next = await listPetChatThreads({ channel });
     // 未发过消息的空话题不展示，并清理掉
     const empty = next.filter(item => !item.preview.trim());
     if (empty.length > 0) {
@@ -123,6 +181,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
   useEffect(() => {
     let cancelled = false;
+    setListBooting(true);
     void (async () => {
       try {
         await refreshThreads();
@@ -140,7 +199,47 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       cancelled = true;
       abortRef.current?.abort();
     };
-  }, []);
+    // channel 切换时重载列表
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshThreads closes over channel
+  }, [channel]);
+
+  useEffect(() => {
+    if (!initialThreadId || listBooting) {
+      return;
+    }
+    if (initialThreadConsumedRef.current === initialThreadId) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const fromList = threads.find(item => item.id === initialThreadId);
+      const thread = fromList ?? (await getPetChatThread(initialThreadId));
+      if (cancelled || !thread || thread.channel !== channel) {
+        return;
+      }
+      initialThreadConsumedRef.current = initialThreadId;
+      setError('');
+      setInput('');
+      setIsDraftThread(false);
+      setActiveThread(thread);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialThreadId, listBooting, threads, channel]);
+
+  // 整理通道共用单一会话：有会话时直接进入，不停留在列表
+  useEffect(() => {
+    if (channel !== PetChatChannel.Organize || listBooting || activeThread || initialThreadId) {
+      return;
+    }
+    if (threads[0]) {
+      setError('');
+      setInput('');
+      setIsDraftThread(false);
+      setActiveThread(threads[0]);
+    }
+  }, [channel, listBooting, threads, activeThread, initialThreadId]);
 
   useEffect(() => {
     if (!activeThreadId) {
@@ -215,6 +314,10 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
   const backToList = async () => {
     abortRef.current?.abort();
+    if (channel === PetChatChannel.Organize) {
+      onBack?.();
+      return;
+    }
     setActiveThread(null);
     setIsDraftThread(false);
     setMessages([]);
@@ -240,6 +343,9 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   };
 
   const startNewThread = () => {
+    if (!canCreateThread) {
+      return;
+    }
     const now = Date.now();
     setError('');
     setInput('');
@@ -251,6 +357,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       id: createLocalId(),
       title: '新对话',
       titleStatus: 'pending',
+      channel,
       preview: '',
       createdAt: now,
       updatedAt: now,
@@ -372,9 +479,14 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
     }
   };
 
-  const sendText = async (raw: string) => {
-    const text = raw.trim();
-    if (!text || loading || !activeThread) {
+  const systemPrompt =
+    channel === PetChatChannel.Organize
+      ? buildOrganizeSystemPrompt(profile.nickname, profile.occupation, profile.domains, profile.goal)
+      : buildPetSystemPrompt(profile.nickname, profile.occupation, profile.domains, profile.goal);
+
+  /** 针对已有用户消息（含整理卡片）生成助手回复，不重复落库用户消息 */
+  const runAssistantReply = async (thread: PetChatThread, userMessage: PetChatMessage) => {
+    if (loadingRef.current) {
       return;
     }
     if (!isLlmConfigured(llm)) {
@@ -382,54 +494,34 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
       return;
     }
 
-    let thread = activeThread;
-    // 草稿会话：发出第一条消息时才真正建话题
-    if (isDraftThread) {
-      try {
-        thread = await createPetChatThread('新对话');
-        skipThreadLoadRef.current = true;
-        setIsDraftThread(false);
-        setActiveThread(thread);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '创建话题失败');
-        return;
-      }
-    }
-
-    const now = Date.now();
-    const userMsg: PetChatMessage = {
-      id: createLocalId(),
-      threadId: thread.id,
-      role: 'user',
-      content: text,
-      createdAt: now,
-    };
     const assistantId = createLocalId();
     const assistantMsg: PetChatMessage = {
       id: assistantId,
       threadId: thread.id,
       role: 'assistant',
       content: '',
-      createdAt: now + 1,
+      createdAt: Math.max(Date.now(), userMessage.createdAt + 1),
     };
 
-    setInput('');
     setError('');
     pinToBottom();
-    setMessages(prev => [...prev, userMsg, assistantMsg]);
+    setMessages(prev => [...prev, assistantMsg]);
     setStreamingId(assistantId);
     setLoading(true);
 
     try {
-      await savePetChatMessage(userMsg);
-
-      const history = [...messages, userMsg].slice(-12).map(m => {
-        const card = parseOrganizeCard(m.content);
-        return {
-          role: m.role,
-          content: card ? organizeCardLlmText(card) : m.content,
-        };
-      });
+      const history = [
+        ...messagesRef.current.filter(item => item.id !== assistantId && item.id !== userMessage.id),
+        userMessage,
+      ]
+        .slice(-12)
+        .map(m => {
+          const card = parseOrganizeCard(m.content);
+          return {
+            role: m.role,
+            content: card ? organizeCardLlmText(card) : m.content,
+          };
+        });
 
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -437,13 +529,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
       const full = await callChatCompletionStream(
         llm,
-        [
-          {
-            role: 'system',
-            content: buildPetSystemPrompt(profile.nickname, profile.occupation, profile.domains, profile.goal),
-          },
-          ...history,
-        ],
+        [{ role: 'system', content: systemPrompt }, ...history],
         chunk => {
           setMessages(prev =>
             prev.map(item => (item.id === assistantId ? { ...item, content: `${item.content}${chunk}` } : item)),
@@ -461,7 +547,14 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
         createdAt: assistantMsg.createdAt,
       });
       setMessages(prev => prev.map(item => (item.id === assistantId ? saved : item)));
-      void maybeSummarizeTitle(thread, text, finalText);
+      if (channel !== PetChatChannel.Organize) {
+        const seed = parseOrganizeCard(userMessage.content)
+          ? organizeCardLlmText(parseOrganizeCard(userMessage.content)!)
+          : userMessage.content;
+        void maybeSummarizeTitle(thread, seed, finalText);
+      } else {
+        await refreshThreads().catch(() => undefined);
+      }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return;
@@ -474,16 +567,79 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
     }
   };
 
-  const canSend = Boolean(input.trim()) && !loading && Boolean(activeThread);
-  const showWelcome = Boolean(activeThread) && !booting;
+  const sendText = async (raw: string) => {
+    const text = raw.trim();
+    if (!text || loading || !activeThread) {
+      return;
+    }
+    if (!isLlmConfigured(llm)) {
+      setError('还没配置模型，请先在设置里填写 API Key');
+      return;
+    }
 
-  const headerTitle = reviewCard ? '资料详情' : activeThread?.title || '短信';
+    let thread = activeThread;
+    // 草稿会话：发出第一条消息时才真正建话题
+    if (isDraftThread) {
+      try {
+        thread = await createPetChatThread('新对话', { channel });
+        skipThreadLoadRef.current = true;
+        setIsDraftThread(false);
+        setActiveThread(thread);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '创建话题失败');
+        return;
+      }
+    }
+
+    const now = Date.now();
+    const userMsg: PetChatMessage = {
+      id: createLocalId(),
+      threadId: thread.id,
+      role: 'user',
+      content: text,
+      createdAt: now,
+    };
+
+    setInput('');
+    setMessages(prev => [...prev, userMsg]);
+    try {
+      await savePetChatMessage(userMsg);
+      await runAssistantReply(thread, userMsg);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发送失败');
+    }
+  };
+
+  // 整理卡片发出后：若最新一条是未回复的整理卡，自动开始整理
+  useEffect(() => {
+    if (channel !== PetChatChannel.Organize || !activeThread || isDraftThread || booting || loading) {
+      return;
+    }
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== 'user' || !parseOrganizeCard(last.content)) {
+      return;
+    }
+    if (autoOrganizeReplyRef.current === last.id) {
+      return;
+    }
+    autoOrganizeReplyRef.current = last.id;
+    void runAssistantReply(activeThread, last);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在消息末尾出现未回复整理卡时触发
+  }, [channel, activeThread, isDraftThread, booting, loading, messages]);
+
+  const canSend = Boolean(input.trim()) && !loading && Boolean(activeThread);
+  const showWelcome = Boolean(activeThread) && !booting && channel === PetChatChannel.Message;
+
+  const headerTitle = reviewCard ? '资料详情' : activeThread?.title || panelTitle;
   const headerSyncKey = reviewCard ? 'detail' : activeThread ? `chat:${activeThread.id}` : 'list';
+  const headerOwnsChrome =
+    !embedded || Boolean(activeThread) || Boolean(reviewCard) || channel === PetChatChannel.Organize;
   useAppHeader(headerTitle, {
     onBack: handleHeaderBack,
     syncKey: headerSyncKey,
+    enabled: headerOwnsChrome,
     trailing:
-      !reviewCard && !activeThread ? (
+      !reviewCard && !activeThread && canCreateThread ? (
         <button type="button" className="pet-chat__topic-new" onClick={startNewThread}>
           <MessageSquarePlus size={16} strokeWidth={2.2} />
           新话题
@@ -497,15 +653,29 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
 
   if (!activeThread) {
     return (
-      <div className={cn('sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
+      <div className={cn('sm-shell pet-chat', embedded && 'pet-chat--embedded', !isLight && 'sm-shell--dark')}>
         <div className="pet-chat__threads">
           {listBooting ? <p className="pet-chat__load-more">加载中…</p> : null}
           {!listBooting && threads.length === 0 ? (
             <div className="pet-chat__threads-empty">
-              <p>还没有话题</p>
-              <button type="button" className="pet-chat__topic-new pet-chat__topic-new--block" onClick={startNewThread}>
-                开始新话题
-              </button>
+              {channel === PetChatChannel.Organize ? (
+                <>
+                  <p>还没有整理会话</p>
+                  <p className="pet-chat__threads-empty-hint">在「文件 · 专注」加入整理后会出现在这里</p>
+                </>
+              ) : (
+                <>
+                  <p>还没有话题</p>
+                  {canCreateThread ? (
+                    <button
+                      type="button"
+                      className="pet-chat__topic-new pet-chat__topic-new--block"
+                      onClick={startNewThread}>
+                      开始新话题
+                    </button>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : null}
           {threads.map(thread => (
@@ -544,7 +714,7 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   }
 
   return (
-    <div className={cn('sm-shell pet-chat', !isLight && 'sm-shell--dark')}>
+    <div className={cn('sm-shell pet-chat', embedded && 'pet-chat--embedded', !isLight && 'sm-shell--dark')}>
       <div className="pet-chat__list" ref={listRef} onScroll={onListScroll} onWheel={onWheel} onTouchMove={onTouchMove}>
         {loadingMore ? <p className="pet-chat__load-more">加载更早消息…</p> : null}
         {hasMore && !loadingMore ? (
@@ -574,15 +744,16 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
               ) : null}
               <div className={cn('pet-chat__row', msg.role === 'user' ? 'pet-chat__row--user' : 'pet-chat__row--pet')}>
                 {organizeCard ? (
-                  <button type="button" className="pet-chat__organize-card" onClick={() => setReviewCard(organizeCard)}>
-                    <span className="pet-chat__organize-card-eyebrow">资料详情</span>
-                    <span className="pet-chat__organize-card-title">{organizeCard.dayLabel}</span>
-                    <span className="pet-chat__organize-card-meta">{organizeCardCountLabel(organizeCard)}</span>
-                    <span className="pet-chat__organize-card-action">
-                      查看详情
-                      <ChevronRight size={14} strokeWidth={2.2} />
-                    </span>
-                  </button>
+                  <FolderCard
+                    className="folder-card--chat"
+                    title="文件"
+                    subtitle={organizeCard.dayLabel}
+                    countLabel={organizeCardCountLabel(organizeCard)}
+                    sheetCount={organizeCard.browse.length + organizeCard.favorites.length}
+                    favoriteMark={organizeCard.favorites.length > 0}
+                    accent="rose"
+                    onOpen={() => setReviewCard(organizeCard)}
+                  />
                 ) : (
                   <div
                     className={cn(
@@ -668,4 +839,10 @@ const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => {
   );
 };
 
+const PetChatPanel = ({ isLight, onBack }: PetChatPanelProps) => (
+  <ChatSessionPanel isLight={isLight} onBack={onBack} channel={PetChatChannel.Message} />
+);
+
 export default PetChatPanel;
+export { ChatSessionPanel };
+export type { ChatSessionPanelProps, PetChatPanelProps };

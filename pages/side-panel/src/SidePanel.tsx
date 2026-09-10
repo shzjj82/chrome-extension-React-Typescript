@@ -291,16 +291,17 @@ const SidePanel = () => {
                 dateKey={organizeIntent?.dateKey ?? ''}
                 siteKeys={organizeIntent?.siteKeys ?? []}
                 onBack={backFromOrganize}
-                onSentToMessages={() => {
+                onOrganizeSent={threadId => {
                   void organizeIntentStorage.set(null);
                   clearViewQuery();
-                  navigate(PATHS.messages);
+                  navigate(`${PATHS.studyTab('organize')}?threadId=${encodeURIComponent(threadId)}`);
                 }}
               />
             }
           />
+          <Route path={PATHS.study} element={<Navigate to={PATHS.studyTab('organize')} replace />} />
           <Route
-            path={PATHS.study}
+            path={`${PATHS.study}/:tab`}
             handle={{ title: '学习' }}
             element={<StudyPanel isLight={isLight} onBack={goHome} />}
           />

@@ -794,6 +794,14 @@
   box-shadow: 0 10px 22px rgba(61, 46, 34, 0.1);
 }
 
+.folder-card--plain .folder-card__check {
+  display: none;
+}
+
+.folder-card--chat {
+  width: 100%;
+}
+
 .folder-card--selected .folder-card__check {
   background: color-mix(in srgb, var(--sm-card) 96%, transparent);
   box-shadow: 0 4px 10px rgba(61, 46, 34, 0.12);

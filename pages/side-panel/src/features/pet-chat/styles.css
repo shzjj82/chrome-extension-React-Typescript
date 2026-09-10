@@ -115,6 +115,13 @@
   text-align: center;
 }
 
+.pet-chat__threads-empty-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
 .pet-chat__threads-error {
   margin: 12px 2px;
 }
@@ -252,8 +259,9 @@
   justify-content: flex-end;
 }
 
-.pet-chat__row--user:has(.pet-chat__organize-card) {
-  max-width: 88%;
+.pet-chat__row--user:has(.folder-card) {
+  max-width: min(100%, 320px);
+  width: min(100%, 320px);
 }
 
 .pet-chat__bubble {
@@ -271,67 +279,6 @@
   border-top-right-radius: 6px;
   border: 1px solid color-mix(in srgb, var(--sm-accent) 22%, transparent);
   background: color-mix(in srgb, var(--sm-accent) 12%, var(--sm-card));
-}
-
-.pet-chat__organize-card {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  width: min(100%, 260px);
-  padding: 12px 14px;
-  border: 1.5px solid color-mix(in srgb, var(--sm-accent) 28%, transparent);
-  border-radius: 16px;
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--sm-accent) 14%, transparent), transparent 52%),
-    color-mix(in srgb, var(--sm-card) 94%, transparent);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(61, 46, 34, 0.08);
-  transition:
-    transform 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.pet-chat__organize-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(61, 46, 34, 0.12);
-}
-
-.pet-chat__organize-card-eyebrow {
-  color: var(--sm-accent-deep, #b83232);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-
-.pet-chat__organize-card-title {
-  color: var(--sm-ink, #2b2118);
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.pet-chat__organize-card-meta {
-  color: var(--sm-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.pet-chat__organize-card-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin-top: 6px;
-  color: var(--sm-accent-deep, #b83232);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.sm-shell--dark .pet-chat__organize-card-title {
-  color: #f6efe6;
 }
 
 .pet-chat__bubble--typing {
