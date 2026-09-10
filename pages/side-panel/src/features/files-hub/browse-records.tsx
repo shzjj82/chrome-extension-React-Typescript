@@ -210,8 +210,11 @@ const BrowseRecordsPanel = ({
       setStatus('暂无可整理内容');
       return;
     }
-    const siteKeys = selectedSiteKeys.length > 0 ? [...selectedSiteKeys] : selectedDay.sites.map(site => site.key);
-    onOrganizeRequest?.({ dateKey: selectedDay.dateKey, siteKeys });
+    if (selectedSiteKeys.length === 0) {
+      setStatus('请先勾选要整理的文件夹');
+      return;
+    }
+    onOrganizeRequest?.({ dateKey: selectedDay.dateKey, siteKeys: [...selectedSiteKeys] });
     setStatus('');
   };
 
@@ -417,7 +420,7 @@ const BrowseRecordsPanel = ({
           <Button
             size="sm"
             className="browse-dock__btn browse-dock__btn--primary"
-            disabled={!selectedDay || selectedDay.sites.length === 0}
+            disabled={!selectedDay || selectedDay.sites.length === 0 || selectedSiteKeys.length === 0}
             onClick={onOrganize}>
             加入整理
           </Button>
