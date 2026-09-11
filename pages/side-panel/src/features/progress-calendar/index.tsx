@@ -79,7 +79,7 @@ const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) 
             <h2 className="progress-cal-day__title">{selectedLabel}</h2>
             <span className="progress-cal-day__percent">{formatPercent(selected.progress)}</span>
           </div>
-          {selectedCn.holidayName || selectedCn.solarTerm ? (
+          {selectedCn.holidayName || selectedCn.solarTerm || selectedCn.isWeekendRest ? (
             <p className="progress-cal-day__marks">
               {selectedCn.isHolidayOff ? (
                 <span className="progress-cal-day__mark progress-cal-day__mark--holiday">
@@ -90,6 +90,9 @@ const ProgressCalendarPanel = ({ isLight, onBack }: ProgressCalendarPanelProps) 
                 <span className="progress-cal-day__mark progress-cal-day__mark--work">
                   调休上班 · {selectedCn.holidayName}
                 </span>
+              ) : null}
+              {selectedCn.isWeekendRest && !selectedCn.isHolidayOff ? (
+                <span className="progress-cal-day__mark progress-cal-day__mark--holiday">周末休息</span>
               ) : null}
               {selectedCn.solarTerm ? (
                 <span className="progress-cal-day__mark progress-cal-day__mark--jieqi">

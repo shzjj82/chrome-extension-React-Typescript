@@ -9,6 +9,8 @@ type CnDayMark = {
   isHolidayOff: boolean;
   /** 调休上班日 */
   isHolidayWork: boolean;
+  /** 周六/日且非调休上班：按休息日标红 */
+  isWeekendRest: boolean;
   /** 格子内短标注：假日名 / 班 / 节气 */
   badge: string;
 };
@@ -31,6 +33,8 @@ const getCnDayMark = (year: number, month: number, day: number): CnDayMark => {
   const holidayName = holiday?.getName()?.trim() || '';
   const isHolidayWork = Boolean(holiday?.isWork());
   const isHolidayOff = Boolean(holiday && !holiday.isWork());
+  const weekday = new Date(year, month, day).getDay();
+  const isWeekendRest = (weekday === 0 || weekday === 6) && !isHolidayWork;
 
   let badge = '';
   if (isHolidayWork) {
@@ -46,6 +50,7 @@ const getCnDayMark = (year: number, month: number, day: number): CnDayMark => {
     holidayName,
     isHolidayOff,
     isHolidayWork,
+    isWeekendRest,
     badge,
   };
 };
@@ -58,6 +63,7 @@ const getCnDayMarkByKey = (dateKey: string): CnDayMark => {
       holidayName: '',
       isHolidayOff: false,
       isHolidayWork: false,
+      isWeekendRest: false,
       badge: '',
     };
   }

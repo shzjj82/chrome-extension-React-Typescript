@@ -53,11 +53,17 @@ const ProgressCalendar = ({
       </div>
 
       <div className="progress-cal__weekdays" aria-hidden="true">
-        {WEEKDAYS.map(label => (
-          <span key={label} className="progress-cal__weekday">
-            {label}
-          </span>
-        ))}
+        {WEEKDAYS.map((label, index) => {
+          const isWeekendHeader = index === 0 || index === 6;
+          return (
+            <span
+              key={label}
+              className={cn('progress-cal__weekday', isWeekendHeader && 'progress-cal__weekday--rest')}
+              style={isWeekendHeader ? { color: '#c45c4a' } : undefined}>
+              {label}
+            </span>
+          );
+        })}
       </div>
 
       <div className="progress-cal__grid" role="grid" aria-label={monthTitle}>
@@ -80,6 +86,7 @@ const ProgressCalendar = ({
           const markParts = [
             cell.cn.isHolidayOff ? `休假 ${cell.cn.holidayName}` : '',
             cell.cn.isHolidayWork ? `调休上班（${cell.cn.holidayName}）` : '',
+            cell.cn.isWeekendRest && !cell.cn.isHolidayOff ? '周末休息' : '',
             cell.cn.solarTerm ? `节气 ${cell.cn.solarTerm}` : '',
           ].filter(Boolean);
 
@@ -97,12 +104,19 @@ const ProgressCalendar = ({
                 cell.isToday && 'progress-cal__cell--today',
                 cell.key === selectedDateKey && 'progress-cal__cell--selected',
                 cell.isFuture && 'progress-cal__cell--future',
-                cell.cn.isHolidayOff && 'progress-cal__cell--holiday',
+                (cell.cn.isHolidayOff || cell.cn.isWeekendRest) && 'progress-cal__cell--holiday',
                 cell.cn.isHolidayWork && 'progress-cal__cell--work',
                 cell.cn.solarTerm && !cell.cn.isHolidayOff && !cell.cn.isHolidayWork && 'progress-cal__cell--jieqi',
               )}
               onClick={() => onSelect(cell.key)}>
-              <span className="progress-cal__day">{cell.day}</span>
+              <span
+                className={cn(
+                  'progress-cal__day',
+                  (cell.cn.isHolidayOff || cell.cn.isWeekendRest) && 'progress-cal__day--rest',
+                  cell.cn.isHolidayWork && 'progress-cal__day--work',
+                )}>
+                {cell.day}
+              </span>
               {cell.cn.badge ? (
                 <span
                   className={cn(

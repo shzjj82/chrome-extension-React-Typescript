@@ -150,18 +150,22 @@
   text-align: center;
 }
 
+.progress-cal__weekday--rest {
+  color: #c45c4a;
+}
+
 .progress-cal__cell {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-height: 44px;
+  justify-content: flex-start;
+  gap: 3px;
+  min-height: 52px;
   aspect-ratio: auto;
   margin: 0;
-  padding: 4px 2px 5px;
-  border: 1.5px solid transparent;
+  padding: 3px 2px 4px;
+  border: 0;
   border-radius: 12px;
   background: transparent;
   color: inherit;
@@ -194,31 +198,58 @@
   color: #fffef8;
 }
 
-.progress-cal__cell--today {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sm-accent, #d64545) 55%, transparent);
-}
-
-.progress-cal__cell--selected {
-  border-color: var(--sm-accent, #d64545);
-}
-
-.progress-cal__cell--holiday .progress-cal__day {
+.progress-cal__cell--holiday .progress-cal__day,
+.progress-cal__cell--rest .progress-cal__day,
+.progress-cal__day--rest {
   color: #c45c4a;
 }
 
-.progress-cal__cell--work .progress-cal__day {
+.progress-cal__cell--work .progress-cal__day,
+.progress-cal__day--work {
   color: #3d6f9c;
 }
 
 .progress-cal__cell--lv4.progress-cal__cell--holiday .progress-cal__day,
-.progress-cal__cell--lv4.progress-cal__cell--work .progress-cal__day {
+.progress-cal__cell--lv4.progress-cal__cell--rest .progress-cal__day,
+.progress-cal__cell--lv4 .progress-cal__day--rest,
+.progress-cal__cell--lv4.progress-cal__cell--work .progress-cal__day,
+.progress-cal__cell--lv4 .progress-cal__day--work {
   color: #fffef8;
 }
 
 .progress-cal__day {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  border: 2px solid transparent;
+  border-radius: 11px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.progress-cal__cell--today .progress-cal__day {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sm-accent, #d64545) 50%, transparent);
+}
+
+.progress-cal__cell--selected .progress-cal__day {
+  border-color: var(--sm-accent, #d64545);
+  background: color-mix(in srgb, var(--sm-accent, #d64545) 14%, transparent);
+  color: var(--sm-accent, #d64545);
+  box-shadow: none;
+}
+
+.progress-cal__cell--selected.progress-cal__cell--lv4 .progress-cal__day {
+  background: rgb(255 254 248 / 22%);
+  border-color: #fffef8;
+  color: #fffef8;
 }
 
 .progress-cal__badge {
